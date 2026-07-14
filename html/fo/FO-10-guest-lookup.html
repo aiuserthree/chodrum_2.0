@@ -113,7 +113,9 @@ function GuestLookupPage() {
                       const expired = it.dday < 0;
                       return (
                         <div key={it.id + i} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '12px 0', borderTop: i ? '1px solid var(--border-default)' : 'none' }}>
-                          <div style={{ width: 44, flex: 'none', borderRadius: 8, overflow: 'hidden', border: '1px solid var(--border-default)' }}><F.StaffThumb ratio="1 / 1" size={15} /></div>
+                          <div style={{ width: 44, flex: 'none', borderRadius: 8, overflow: 'hidden', border: '1px solid var(--border-default)' }}>
+                            <F.StaffThumb ratio="1 / 1" size={15} src={F.sheetCoverUrl(s) || undefined} alt={s ? s.title : ''} />
+                          </div>
                           <div style={{ flex: 1, minWidth: 0 }}>
                             <div style={{ fontSize: 14, fontWeight: 600, letterSpacing: '-0.3px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{s ? s.title : it.id}</div>
                             <div style={{ marginTop: 4 }}><F.DdayBadge dday={it.dday} /></div>

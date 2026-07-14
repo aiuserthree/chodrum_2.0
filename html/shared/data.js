@@ -1,6 +1,6 @@
 /* 드럼악보 스토어 — 공용 데이터 골격 (데모 시드는 비움 · live는 Supabase hydrate) */
 window.DrumData = {
-  genres: ['발라드', '락', '재즈', 'K-POP', '메탈', '시티팝', 'CCM'],
+  genres: ['OST', '가요', 'CCM', 'POP', 'J-POP'],
   levels: ['입문', '초급', '중급', '고급'],
   sorts: ['인기순', '최신순', '가격순', '이름순'],
   sheets: [],
@@ -35,7 +35,10 @@ window.AdminData = {
 };
 
 /* 공용 헬퍼 */
-window.DrumData.byId = function (id) { return window.DrumData.sheets.find(function (s) { return s.id === id; }); };
+window.DrumData.byId = function (id) {
+  var key = id == null ? '' : String(id);
+  return window.DrumData.sheets.find(function (s) { return String(s.id) === key; });
+};
 window.DrumData.visibleSheets = function () {
   return window.DrumData.sheets.filter(function (s) {
     var st = s.status || (window.AdminData && window.AdminData.sheetStatus && window.AdminData.sheetStatus[s.id]) || '판매중';

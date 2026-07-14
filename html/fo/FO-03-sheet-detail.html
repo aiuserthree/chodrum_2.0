@@ -27,17 +27,18 @@
 <script src="../shared/api.js"></script>
 <script type="text/babel" src="fo-shared.jsx"></script>
 <script type="text/babel">
-/* FO-03 악보 상세 — 워터마크 미리보기 · 곡 정보 · 수량 · 찜/장바구니 (직접 결제 없음) */
+/* FO-03 악보 상세 — 워터마크 미리보기 · 곡 정보 · 찜/장바구니 (직접 결제 없음) */
 const DS = window.DrumSheetStoreDesignSystem_3a2462;
-const { Button, IconButton, Card, Badge, Icon, QuantityStepper } = DS;
+const { Button, IconButton, Card, Badge, Icon } = DS;
 const F = window.FO;
 const D = window.DrumData;
 
 function DetailPage() {
   const id = F.qp('id') || 's1';
   const s = D.byId(id);
-  const [qty, setQty] = React.useState(1);
   F.useStoreTick();
+  const [cartAsk, setCartAsk] = React.useState(false);
+  const [cartMsg, setCartMsg] = React.useState('장바구니에 담았어요');
 
   /* 존재하지 않는 악보 ID → 404 안내 (FO-03 예외 처리) */
   if (!s) {
@@ -59,7 +60,14 @@ function DetailPage() {
 
   const faved = Store.fav.has(s.id);
   const related = D.sheets.filter((x) => x.genre === s.genre && x.id !== s.id && (!x.status || x.status === '판매중')).slice(0, 4);
-  const add = () => { Store.cart.add(s.id, qty); F.toast('장바구니에 담았어요 (' + qty + '개)'); };
+  const previewUrls = (s.previewUrls && s.previewUrls.length)
+    ? s.previewUrls.slice(0, 2)
+    : (s.previewUrl ? [s.previewUrl] : []);
+  const add = () => {
+    const ok = Store.cart.add(s.id, 1);
+    setCartMsg(ok ? '장바구니에 담았어요' : '이미 장바구니에 있어요');
+    setCartAsk(true);
+  };
 
   const CtaButtons = ({ large }) => (
     <React.Fragment>
@@ -73,11 +81,17 @@ function DetailPage() {
   return (
     <F.Scaffold title="악보 상세" back={F.PAGES.list} cta={<CtaButtons />}>
       <div data-screen-label="FO-03 악보 상세" className="fo-two" style={{ paddingTop: 20 }}>
-        {/* 미리보기 */}
+        {/* 미리보기 (최대 2페이지) */}
         <div>
-          <Card padding={0} style={{ overflow: 'hidden' }}><F.StaffThumb ratio="4 / 5" size={44} watermark /></Card>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+            {(previewUrls.length ? previewUrls : [null]).map((url, i) => (
+              <Card key={i} padding={0} style={{ overflow: 'hidden' }}>
+                <F.StaffThumb ratio="5 / 4" size={44} watermark="strong" fit="cover" src={url || undefined} alt={url ? ('미리보기 ' + (i + 1) + '페이지') : ''} />
+              </Card>
+            ))}
+          </div>
           <p className="fo-caption" style={{ marginTop: 10, display: 'flex', alignItems: 'center', gap: 6 }}>
-            <Icon name="eye" size={13} style={{ color: 'var(--color-icon)' }} />미리보기는 1–2페이지만 제공되며 워터마크가 적용돼요.
+            <Icon name="eye" size={13} style={{ color: 'var(--color-icon)' }} />미리보기는 1–2페이지만 제공되며, 일부만 보이도록 처리돼요.
           </p>
         </div>
 
@@ -107,14 +121,6 @@ function DetailPage() {
             ))}
           </div>
 
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '4px 0' }}>
-            <span style={{ fontSize: 15, fontWeight: 600 }}>수량</span>
-            <QuantityStepper value={qty} min={1} max={10} onChange={setQty} />
-          </div>
-          {qty > 1 ? (
-            <F.KV k="합계" v={<F.Money value={s.price * qty} size={18} />} />
-          ) : null}
-
           <div className="fo-desktop" style={{ display: 'flex', gap: 10, marginTop: 6 }}><CtaButtons /></div>
           <p className="fo-caption" style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
             <Icon name="info" size={13} style={{ color: 'var(--color-icon)' }} />결제는 장바구니에서 진행돼요. 바로 결제는 지원하지 않아요.
@@ -126,6 +132,8 @@ function DetailPage() {
         <F.SectionHeader title="관련 악보" action="더보기" href={F.PAGES.list + '?cat=' + encodeURIComponent(s.genre)} />
         <div className="fo-grid">{related.map((r) => <F.SheetCard key={r.id} s={r} />)}</div>
       </section>
+
+      <F.CartAddedDialog open={cartAsk} onClose={() => setCartAsk(false)} message={cartMsg} />
     </F.Scaffold>
   );
 }

@@ -10,6 +10,8 @@
    - `supabase/migrations/001_init.sql`
    - `supabase/seed.sql`
    - `supabase/migrations/002_member_consent.sql` (회원 약관 동의 컬럼)
+   - `supabase/migrations/003_sheet_files.sql` (악보 `pdf_url`/`preview_url` + Storage 버킷 `sheets`)
+   - `supabase/migrations/004_preview_urls.sql` (**필수** · 미리보기 최대 2장 `preview_urls text[]`)
 3. **Project Settings → API**에서 복사:
    - Project URL
    - `anon` `public` key
@@ -35,7 +37,8 @@ window.CHODRUM_CONFIG = {
 
 | 테이블 | BO (쓰기/관리) | FO (읽기/생성) |
 |--------|----------------|----------------|
-| `sheets` | 악보 목록·등록·수정·삭제·상태 | 홈 / 목록 / 상세 (판매중만) |
+| `sheets` | 악보 목록·등록·수정·삭제·상태 · PDF/미리보기 URL | 홈 / 목록 / 상세 (판매중만) |
+| Storage `sheets` | BO 악보 등록 시 PDF·미리보기 업로드 (데모 anon R/W) | 미리보기 이미지 public URL 읽기 |
 | `featured_sheets` | 추천 관리 저장 | 홈 「추천 악보」 |
 | `home_promo` | (시드) 홈 프로모 | 홈 상단 추천 배너 |
 | `banners` | 배너 관리 CRUD | (BO 저장; FO 홈은 home_promo 사용) |
@@ -216,15 +219,36 @@ cd html && python3 -m http.server 8765 --bind 127.0.0.1
 3. 신규 소셜 → `FO-08-oauth-terms.html` → 마이페이지
 4. 콘솔: `ChodrumAuth.live() === true`
 
-## 6. 확인 방법 (데이터 FO↔BO)
+## 6. 악보 파일 업로드 (Storage)
 
-1. http://127.0.0.1:8765/bo/BO-02-sheet-register.html — 악보 등록
-2. http://127.0.0.1:8765/fo/FO-01-home.html — 같은 악보 노출
-3. FO 결제 → BO 주문 반영
-4. `ChodrumAPI.mode === 'live'` 이면 Supabase 연결됨
+BO 악보 등록(`BO-02-sheet-register.html`)에서:
 
-## 7. 보안 (데모 한계)
+- **PDF 원본** → `sheets` 버킷 `pdf/` 경로 → `sheets.pdf_url`
+- **미리보기 이미지** → `sheets` 버킷 `preview/` 경로 → 업로드 시 canvas 워터마크 적용 → `sheets.preview_url` + `sheets.preview_urls` (최대 2장)
+
+마이그레이션 `003_sheet_files.sql`이 버킷·MIME 제한( PDF / PNG·JPG·WEBP·GIF )·anon 읽기·쓰기 정책을 만듭니다.
+`004_preview_urls.sql`이 `preview_urls text[]` 컬럼을 추가합니다. **미실행 시 미리보기는 1장(`preview_url`)만 저장**됩니다.
+
+**Dashboard에서 확인할 항목**
+
+1. **SQL Editor**에서 `003_sheet_files.sql` → `004_preview_urls.sql` 실행 (이미 프로젝트가 있으면 이것만 추가 실행)
+2. **Storage**에 `sheets` 버킷이 보이고 **Public** 인지 확인
+3. 업로드 실패 시 Policies에 `sheets_storage_select` / `insert` / `update` / `delete` 가 있는지 확인
+
+운영 전에는 Storage·테이블 RLS를 관리자 역할로 제한하세요. PDF는 구매자만 받게 하려면 private 버킷 + signed URL로 바꿔야 합니다.
+
+## 7. 확인 방법 (데이터 FO↔BO)
+
+1. http://127.0.0.1:8765/bo/BO-02-sheet-register.html — PDF·미리보기(1–2장) 업로드 후 악보 등록
+2. Supabase **Table Editor → sheets** 에서 `pdf_url` / `preview_url` / `preview_urls` 확인
+3. http://127.0.0.1:8765/fo/FO-01-home.html — 홈·목록 썸네일 노출
+4. FO 상세 — 미리보기 1–2장 + 워터마크 확인
+5. FO 결제 → BO 주문 반영
+6. `ChodrumAPI.mode === 'live'` 이면 Supabase 연결됨
+
+## 8. 보안 (데모 한계)
 
 현재 RLS는 **프로토타입용 anon 전체 허용**입니다.
+Storage `sheets` 버킷도 데모용으로 anon 업로드가 가능합니다.
 운영 전에는 BO 관리자 Auth + 역할 기반 정책으로 교체하세요.
 OAuth 세션은 브라우저 localStorage에 저장됩니다 (`persistSession: true`).

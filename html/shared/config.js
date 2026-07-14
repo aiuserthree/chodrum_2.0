@@ -2,7 +2,7 @@
  * CHODRUM — Supabase browser config
  *
  * 1) Create a project at https://supabase.com
- * 2) SQL Editor에서 supabase/migrations/001_init.sql → seed.sql 실행
+ * 2) SQL Editor에서 001_init.sql → seed.sql → 002_member_consent.sql → 003_sheet_files.sql → 004_preview_urls.sql 실행
  * 3) Project Settings → API 에서 URL / anon key 복사 후 아래 값 교체
  *
  * 키가 비어 있거나 YOUR_ 플레이스홀더면 로컬 data.js 데모 모드로 동작합니다.

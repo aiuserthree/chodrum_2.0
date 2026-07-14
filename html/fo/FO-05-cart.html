@@ -29,9 +29,8 @@
 <script type="text/babel">
 /* FO-05 장바구니 — 결제의 필수 관문 · 선택/전체 결제 · 비로그인 시 구매 방식 선택 */
 const DS = window.DrumSheetStoreDesignSystem_3a2462;
-const { Button, IconButton, Icon, Checkbox, QuantityStepper, Card } = DS;
+const { Button, IconButton, Icon, Checkbox, Card } = DS;
 const F = window.FO;
-const D = window.DrumData;
 
 function CartPage() {
   F.useStoreTick();
@@ -40,9 +39,10 @@ function CartPage() {
   const [ask, setAsk] = React.useState(false); /* 비로그인 → 로그인/비회원 선택 (S-02) */
   React.useEffect(() => { setSel((p) => p.filter((id) => cart.some((c) => c.id === id))); }, [cart.length]);
 
-  const items = cart.map((c) => ({ ...D.byId(c.id), qty: c.qty }));
+  /* hydrate 이후 resolveSheet 로 제목·썸네일·가격 매핑 (미존재 시 폴백) */
+  const items = cart.map((c) => F.resolveSheet(c.id, { qty: c.qty }));
   const selItems = items.filter((it) => sel.includes(it.id));
-  const total = selItems.reduce((n, it) => n + it.price * it.qty, 0);
+  const total = selItems.reduce((n, it) => n + (Number(it.price) || 0) * (it.qty || 1), 0);
   const allOn = sel.length === cart.length && cart.length > 0;
 
   const goCheckout = () => {
@@ -84,23 +84,29 @@ function CartPage() {
             <Button variant="ghost" size="sm" disabled={!sel.length} onClick={() => { Store.cart.remove(sel); F.toast('선택한 악보를 삭제했어요'); }}>선택삭제</Button>
           </div>
           <div>
-            {items.map((it, i) => (
-              <div key={it.id} style={{ display: 'flex', gap: 10, padding: '16px 0', borderTop: i ? '1px solid var(--border-default)' : 'none', alignItems: 'flex-start' }}>
-                <div style={{ paddingTop: 22 }}><Checkbox checked={sel.includes(it.id)} onChange={(on) => setSel(on ? [...sel, it.id] : sel.filter((x) => x !== it.id))} /></div>
-                <a href={F.PAGES.detail + '?id=' + it.id} style={{ width: 56, flex: 'none', borderRadius: 8, overflow: 'hidden', border: '1px solid var(--border-default)' }}><F.StaffThumb ratio="1 / 1" size={18} /></a>
-                <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 6 }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8 }}>
-                    <a href={F.PAGES.detail + '?id=' + it.id} style={{ fontSize: 14, fontWeight: 600, letterSpacing: '-0.3px' }}>{it.title}</a>
-                    <IconButton name="x" variant="ghost" size="sm" label="삭제" onClick={() => { Store.cart.remove(it.id); F.toast('장바구니에서 삭제했어요'); }} />
-                  </div>
-                  <span style={{ fontSize: 12, color: 'var(--text-secondary)' }}>{it.artist} · {it.level} · PDF</span>
-                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 2 }}>
-                    <QuantityStepper size="sm" value={it.qty} min={1} max={10} onChange={(q) => Store.cart.setQty(it.id, q)} />
-                    <F.Money value={it.price * it.qty} size={15} />
+            {items.map((it, i) => {
+              const cover = F.sheetCoverUrl(it);
+              return (
+                <div key={it.id} style={{ display: 'flex', gap: 10, padding: '16px 0', borderTop: i ? '1px solid var(--border-default)' : 'none', alignItems: 'flex-start', opacity: it.missing ? 0.7 : 1 }}>
+                  <div style={{ paddingTop: 22 }}><Checkbox checked={sel.includes(it.id)} onChange={(on) => setSel(on ? [...sel, it.id] : sel.filter((x) => x !== it.id))} /></div>
+                  <a href={it.missing ? undefined : (F.PAGES.detail + '?id=' + it.id)} style={{ width: 56, flex: 'none', borderRadius: 8, overflow: 'hidden', border: '1px solid var(--border-default)', pointerEvents: it.missing ? 'none' : undefined }}>
+                    <F.StaffThumb ratio="1 / 1" size={18} src={cover || undefined} alt={it.title} watermark={cover ? 'light' : false} />
+                  </a>
+                  <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 6 }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8 }}>
+                      {it.missing
+                        ? <span style={{ fontSize: 14, fontWeight: 600, letterSpacing: '-0.3px', color: 'var(--text-secondary)' }}>{it.title}</span>
+                        : <a href={F.PAGES.detail + '?id=' + it.id} style={{ fontSize: 14, fontWeight: 600, letterSpacing: '-0.3px' }}>{it.title}</a>}
+                      <IconButton name="x" variant="ghost" size="sm" label="삭제" onClick={() => { Store.cart.remove(it.id); F.toast('장바구니에서 삭제했어요'); }} />
+                    </div>
+                    <span style={{ fontSize: 12, color: 'var(--text-secondary)' }}>{it.artist} · {it.level} · PDF</span>
+                    <div style={{ marginTop: 2 }}>
+                      <F.Money value={(Number(it.price) || 0) * (it.qty || 1)} size={15} />
+                    </div>
                   </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         </div>
         <div className="fo-side-sticky">{summary}</div>
@@ -118,7 +124,9 @@ function CartPage() {
     </F.Scaffold>
   );
 }
-ReactDOM.createRoot(document.getElementById('app')).render(<CartPage />);
+window.ChodrumBoot.whenReady(() => {
+  ReactDOM.createRoot(document.getElementById('app')).render(<CartPage />);
+});
 </script>
 </body>
 </html>

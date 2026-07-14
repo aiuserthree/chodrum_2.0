@@ -52,13 +52,61 @@ function Stars({ value, size = 12 }) {
   );
 }
 
-function StaffThumb({ ratio = '3 / 4', icon = 'music', size = 30, watermark = false, fill = false }) {
+/** First preview image URL for list/home covers */
+function sheetCoverUrl(s) {
+  if (!s) return '';
+  if (s.previewUrls && s.previewUrls.length && s.previewUrls[0]) return s.previewUrls[0];
+  return s.previewUrl || '';
+}
+
+function StaffThumb({ ratio = '1 / 1', icon = 'music', size = 30, watermark = false, fill = false, src, alt = '', fit = 'cover', position = 'top center' }) {
+  const wmStrong = watermark === 'strong' || watermark === true;
+  const wmLight = watermark === 'light';
+  const showWm = wmStrong || wmLight;
+  /* Stamp bakes full + veil watermarks; CSS mirrors: light full mark + larger mark on veil */
+  const fullOpacity = wmLight ? 0.035 : 0.05;
+  const fullSize = wmLight ? 9 : 12;
+  const veilOpacity = wmLight ? 0.065 : 0.09;
+  const veilSize = wmLight ? 14 : 18;
   return (
     <div style={{ position: 'relative', width: '100%', height: fill ? '100%' : 'auto', aspectRatio: fill ? 'auto' : ratio, background: '#f6f6f6', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
-      <div style={{ position: 'absolute', inset: 0, backgroundImage: 'repeating-linear-gradient(180deg, transparent 0 15px, #e7e7e7 15px 16px)', backgroundPosition: '0 14px' }}></div>
-      <Icon name={icon} size={size} style={{ color: '#cccccc', position: 'relative' }} />
-      {watermark ? (
-        <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', transform: 'rotate(-16deg)', fontFamily: 'var(--font-mono)', fontSize: 20, fontWeight: 500, letterSpacing: 3, color: 'rgba(0,0,0,0.055)', whiteSpace: 'nowrap' }}>미리보기 · PREVIEW · 미리보기</div>
+      {src ? (
+        <img src={src} alt={alt} style={{ position: 'relative', zIndex: 1, width: '100%', height: '100%', objectFit: fit, objectPosition: position, background: '#fff' }} />
+      ) : (
+        <React.Fragment>
+          <div style={{ position: 'absolute', inset: 0, backgroundImage: 'repeating-linear-gradient(180deg, transparent 0 15px, #e7e7e7 15px 16px)', backgroundPosition: '0 14px' }}></div>
+          <Icon name={icon} size={size} style={{ color: '#cccccc', position: 'relative' }} />
+        </React.Fragment>
+      )}
+      {showWm ? (
+        <React.Fragment>
+          {/* Full-image subtle watermark */}
+          <div aria-hidden="true" style={{
+            position: 'absolute', inset: 0, zIndex: 3, pointerEvents: 'none', overflow: 'hidden',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            fontFamily: 'var(--font-mono)', fontSize: fullSize, fontWeight: 500,
+            letterSpacing: 1.5, color: 'rgba(0,0,0,' + fullOpacity + ')', whiteSpace: 'nowrap',
+            userSelect: 'none',
+          }}>
+            <span style={{ transform: 'rotate(-18deg)' }}>CHODRUM PREVIEW</span>
+          </div>
+          {wmStrong ? (
+            <div aria-hidden="true" style={{
+              position: 'absolute', left: 0, right: 0, bottom: 0, height: '78%', zIndex: 4, pointerEvents: 'none',
+              background: 'linear-gradient(180deg, rgba(252,252,252,0) 0%, rgba(250,250,250,0.75) 14%, rgba(248,248,248,0.95) 40%, rgba(246,246,246,0.985) 100%)',
+            }} />
+          ) : null}
+          {/* Larger mark on veil zone only (bottom ~78%) */}
+          <div aria-hidden="true" style={{
+            position: 'absolute', left: 0, right: 0, bottom: 0, height: '78%',
+            display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden',
+            fontFamily: 'var(--font-mono)', fontSize: veilSize, fontWeight: 600,
+            letterSpacing: 2, color: 'rgba(0,0,0,' + veilOpacity + ')', whiteSpace: 'nowrap',
+            pointerEvents: 'none', zIndex: 5, userSelect: 'none',
+          }}>
+            <span style={{ transform: 'rotate(-18deg)' }}>CHODRUM PREVIEW</span>
+          </div>
+        </React.Fragment>
       ) : null}
     </div>
   );
@@ -398,15 +446,16 @@ function FavButton({ id, size = 'sm' }) {
 }
 
 function SheetCard({ s }) {
+  const cover = sheetCoverUrl(s);
   return (
     <Card interactive padding={0} onClick={() => location.href = PAGES.detail + '?id=' + s.id} style={{ overflow: 'hidden' }}>
       <div style={{ position: 'relative' }}>
-        <StaffThumb />
-        <div style={{ position: 'absolute', top: 8, left: 8, display: 'flex', gap: 4 }}>
+        <StaffThumb src={cover || undefined} alt={s.title} watermark={cover ? 'light' : false} />
+        <div style={{ position: 'absolute', top: 8, left: 8, display: 'flex', gap: 4, zIndex: 4 }}>
           {s.popular ? <Badge variant="solid" size="sm">인기</Badge> : null}
           {s.isNew ? <Badge variant="solid" size="sm">NEW</Badge> : null}
         </div>
-        <span style={{ position: 'absolute', top: 6, right: 6 }} onClick={(e) => e.stopPropagation()}><FavButton id={s.id} /></span>
+        <span style={{ position: 'absolute', top: 6, right: 6, zIndex: 4 }} onClick={(e) => e.stopPropagation()}><FavButton id={s.id} /></span>
       </div>
       <div style={{ padding: '10px 12px 12px', display: 'flex', flexDirection: 'column', gap: 5 }}>
         <div style={{ fontSize: 14, fontWeight: 600, letterSpacing: '-0.3px', lineHeight: 1.3, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{s.title}</div>
@@ -426,9 +475,12 @@ function SheetCard({ s }) {
 
 function SheetRow({ s, right, sub, href }) {
   const open = href === null ? undefined : () => location.href = href || (PAGES.detail + '?id=' + s.id);
+  const cover = sheetCoverUrl(s);
   return (
     <div style={{ display: 'flex', gap: 12, padding: '14px 0', alignItems: 'center' }}>
-      <div onClick={open} style={{ width: 56, flex: 'none', borderRadius: 8, overflow: 'hidden', border: '1px solid var(--border-default)', cursor: open ? 'pointer' : 'default' }}><StaffThumb ratio="1 / 1" size={20} /></div>
+      <div onClick={open} style={{ width: 56, flex: 'none', borderRadius: 8, overflow: 'hidden', border: '1px solid var(--border-default)', cursor: open ? 'pointer' : 'default' }}>
+        <StaffThumb ratio="1 / 1" size={20} src={cover || undefined} alt={s.title} watermark={cover ? 'light' : false} />
+      </div>
       <div onClick={open} style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 3, cursor: open ? 'pointer' : 'default' }}>
         <div style={{ fontSize: 14, fontWeight: 600, letterSpacing: '-0.3px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{s.title}</div>
         {sub !== undefined ? sub : <div style={{ fontSize: 12, color: 'var(--text-secondary)' }}>{s.artist} · {s.genre}</div>}
@@ -523,6 +575,35 @@ function Dialog({ open, onClose, title, children, wide }) {
   );
 }
 
+/** cart/fav id → 시트 정보 (미존재 시 빈 화면 대신 폴백) */
+function resolveSheet(id, extra) {
+  const s = DATA.byId(id);
+  if (s) return Object.assign({}, s, extra || {}, { missing: false });
+  return Object.assign({
+    id: id,
+    title: '삭제되었거나 찾을 수 없는 악보',
+    artist: '—',
+    level: '—',
+    genre: '',
+    price: 0,
+    previewUrl: '',
+    previewUrls: [],
+    missing: true,
+  }, extra || {});
+}
+
+/* 장바구니 담기 성공 — 이동 / 계속 쇼핑 */
+function CartAddedDialog({ open, onClose, message = '장바구니에 담았어요' }) {
+  return (
+    <Dialog open={open} onClose={onClose} title={message}>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+        <Button variant="primary" size="lg" fullWidth iconLeft="shopping-cart" onClick={() => { location.href = PAGES.cart; }}>장바구니로 이동</Button>
+        <Button variant="secondary" size="lg" fullWidth onClick={onClose}>계속 쇼핑</Button>
+      </div>
+    </Dialog>
+  );
+}
+
 /* 화면 상태 미리보기 토글 (설계 검토용) */
 function PreviewToggle({ label = '화면 상태 미리보기', options, value, onChange }) {
   const { Chip } = DS;
@@ -586,4 +667,4 @@ function LegalTermRow({ checked, onChange, label, kind, onView }) {
   );
 }
 
-window.FO = { PAGES, won, qp, goBack, toast, useStoreTick, Money, Stars, StaffThumb, DdayBadge, Header, TabBar, Footer, Scaffold, FavButton, SheetCard, SheetRow, SectionHeader, Section, KV, Empty, PayOption, Dialog, PreviewToggle, legalDoc, legalVer, LegalDocBody, LegalTermRow };
+window.FO = { PAGES, won, qp, goBack, toast, useStoreTick, Money, Stars, StaffThumb, sheetCoverUrl, DdayBadge, Header, TabBar, Footer, Scaffold, FavButton, SheetCard, SheetRow, SectionHeader, Section, KV, Empty, PayOption, Dialog, CartAddedDialog, resolveSheet, PreviewToggle, legalDoc, legalVer, LegalDocBody, LegalTermRow };

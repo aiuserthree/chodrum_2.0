@@ -34,7 +34,7 @@ insert into public.banners (id, title, link, period, image_name, is_on, sort_ord
   ('b3', '가을 세션 준비 기획전', '', '09.01 – 09.30', '', false, 2);
 
 insert into public.site_settings (key, value) values
-  ('genres', '["발라드","락","재즈","K-POP","메탈","시티팝","CCM"]'::jsonb),
+  ('genres', '["OST","가요","CCM","POP","J-POP"]'::jsonb),
   ('levels', '["입문","초급","중급","고급"]'::jsonb);
 
 insert into public.members (name, email, auth_type, status, orders_count, joined_at) values

@@ -40,8 +40,11 @@ function CheckoutPage() {
   const asGuest = F.qp('as') === 'guest';
   const cart = Store.cart.list();
   const ids = (selParam ? selParam.split(',') : cart.map((c) => c.id)).filter((id) => cart.some((c) => c.id === id));
-  const items = ids.map((id) => { const c = cart.find((x) => x.id === id); return { ...D.byId(id), qty: c.qty }; });
-  const total = items.reduce((n, it) => n + it.price * it.qty, 0);
+  const items = ids.map((id) => {
+    const c = cart.find((x) => x.id === id);
+    return F.resolveSheet(id, { qty: c.qty });
+  });
+  const total = items.reduce((n, it) => n + (Number(it.price) || 0) * it.qty, 0);
 
   const [mode, setMode] = React.useState(user && !asGuest ? '회원' : '비회원');
   const member = mode === '회원';

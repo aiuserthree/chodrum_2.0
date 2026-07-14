@@ -15,14 +15,24 @@
     cart: {
       list: function () { return get('cart', []); },
       count: function () { return this.list().reduce(function (n, c) { return n + c.qty; }, 0); },
+      /* 동일 악보는 1건만 — 이미 있으면 qty 증가 없이 false 반환 */
       add: function (id, qty) {
         qty = qty || 1;
-        var c = this.list(); var f = c.find(function (x) { return x.id === id; });
-        if (f) f.qty = Math.min(10, f.qty + qty); else c.push({ id: id, qty: qty });
+        var key = id == null ? '' : String(id);
+        var c = this.list();
+        if (c.some(function (x) { return String(x.id) === key; })) return false;
+        c.push({ id: key, qty: Math.min(10, qty) });
         set('cart', c);
+        return true;
       },
-      setQty: function (id, q) { set('cart', this.list().map(function (x) { return x.id === id ? { id: x.id, qty: q } : x; })); },
-      remove: function (ids) { ids = [].concat(ids); set('cart', this.list().filter(function (x) { return ids.indexOf(x.id) === -1; })); },
+      setQty: function (id, q) {
+        var key = id == null ? '' : String(id);
+        set('cart', this.list().map(function (x) { return String(x.id) === key ? { id: x.id, qty: q } : x; }));
+      },
+      remove: function (ids) {
+        ids = [].concat(ids).map(function (x) { return String(x); });
+        set('cart', this.list().filter(function (x) { return ids.indexOf(String(x.id)) === -1; }));
+      },
       clear: function () { set('cart', []); },
     },
     fav: {

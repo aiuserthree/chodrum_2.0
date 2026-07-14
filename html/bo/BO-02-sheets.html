@@ -46,7 +46,6 @@ function SheetsPage() {
   const [status, setStatus] = React.useState('전체');
   const [sel, setSel] = React.useState([]);
   const [bulk, setBulk] = React.useState('판매중');
-  const [edit, setEdit] = React.useState(null);
 
   const list = rows.filter((s) =>
     (genre === '전체' || s.genre === genre) &&
@@ -67,14 +66,6 @@ function SheetsPage() {
     try { await window.ChodrumAPI.sheets.remove(ids); B.toast(ids.length + '개 악보를 삭제했어요'); }
     catch (e) { console.warn(e); B.toast('삭제 동기화 실패'); }
     setSel([]);
-  };
-  const saveEdit = async () => {
-    setRow(edit.id, edit);
-    try {
-      await window.ChodrumAPI.sheets.upsert(edit);
-      B.toast('저장했어요');
-    } catch (e) { console.warn(e); B.toast('저장 실패'); }
-    setEdit(null);
   };
   const toggleStatus = async (s) => {
     const next = s.status === '판매중' ? '숨김' : '판매중';
@@ -131,7 +122,7 @@ function SheetsPage() {
                   <B.Td><Badge variant={STATUS_TONE[s.status]} size="sm">{s.status}</Badge></B.Td>
                   <B.Td>
                     <div style={{ display: 'flex', gap: 2 }}>
-                      <IconButton name="pencil" variant="ghost" size="sm" label="수정" onClick={() => setEdit({ ...s })} />
+                      <IconButton name="pencil" variant="ghost" size="sm" label="수정" onClick={() => location.href = 'BO-02-sheet-register.html?id=' + encodeURIComponent(s.id)} />
                       <IconButton name={s.status === '판매중' ? 'eye-off' : 'eye'} variant="ghost" size="sm" label="노출 전환"
                         onClick={() => toggleStatus(s)} />
                       <IconButton name="trash-2" variant="ghost" size="sm" label="삭제" onClick={() => removeOne(s.id)} />
@@ -151,30 +142,6 @@ function SheetsPage() {
 
         <p style={{ fontSize: 12, color: 'var(--text-secondary)' }}>판매중지 · 숨김 상태의 악보는 스토어에 노출되지 않지만, 이미 구매한 사용자의 다운로드 권한은 유지돼요.</p>
       </div>
-
-      {/* 악보 수정 모달 (BO-02-02) */}
-      <B.Modal open={!!edit} onClose={() => setEdit(null)} title={edit ? '악보 수정 — ' + edit.code : ''}
-        footer={edit ? (
-          <React.Fragment>
-            <Button variant="secondary" size="sm" onClick={() => setEdit(null)}>취소</Button>
-            <Button variant="primary" size="sm" onClick={saveEdit}>저장</Button>
-          </React.Fragment>
-        ) : null}>
-        {edit ? (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-            <Input label="곡명" value={edit.title} onChange={(e) => setEdit({ ...edit, title: e.target.value })} />
-            <Input label="아티스트" value={edit.artist} onChange={(e) => setEdit({ ...edit, artist: e.target.value })} />
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-              <B.Labeled label="장르"><Select value={edit.genre} onChange={(e) => setEdit({ ...edit, genre: e.target.value })} options={D.genres} /></B.Labeled>
-              <B.Labeled label="난이도"><Select value={edit.level} onChange={(e) => setEdit({ ...edit, level: e.target.value })} options={D.levels} /></B.Labeled>
-            </div>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-              <Input label="가격 (₩)" type="number" value={String(edit.price)} onChange={(e) => setEdit({ ...edit, price: Number(e.target.value) || 0 })} />
-              <B.Labeled label="노출 상태"><Select value={edit.status} onChange={(e) => setEdit({ ...edit, status: e.target.value })} options={['판매중', '판매중지', '숨김']} /></B.Labeled>
-            </div>
-          </div>
-        ) : null}
-      </B.Modal>
     </B.Shell>
   );
 }

@@ -3,7 +3,42 @@
   var sb = function () { return window.ChodrumSB && window.ChodrumSB.client; };
   var live = function () { return !!(window.ChodrumSB && window.ChodrumSB.configured && sb()); };
 
+  /** Normalize preview image URLs (max 2). Prefer preview_urls[], fall back to preview_url. */
+  function normalizePreviewUrls(rowOrSheet) {
+    var urls = [];
+    var fromArr = rowOrSheet.preview_urls != null ? rowOrSheet.preview_urls : rowOrSheet.previewUrls;
+    if (Array.isArray(fromArr)) {
+      urls = fromArr.filter(Boolean);
+    } else if (typeof fromArr === 'string' && fromArr) {
+      /* PostgREST sometimes returns text[] as "{url1,url2}" */
+      var raw = fromArr.trim();
+      if (raw.charAt(0) === '{' && raw.charAt(raw.length - 1) === '}') {
+        urls = raw.slice(1, -1).split(',').map(function (p) {
+          return p.replace(/^"|"$/g, '').trim();
+        }).filter(Boolean);
+      } else if (raw.charAt(0) === '[') {
+        try {
+          var parsed = JSON.parse(raw);
+          if (Array.isArray(parsed)) urls = parsed.filter(Boolean);
+          else urls = [raw];
+        } catch (_) {
+          urls = [raw];
+        }
+      } else {
+        urls = [raw];
+      }
+    }
+    var single = rowOrSheet.preview_url != null ? rowOrSheet.preview_url : rowOrSheet.previewUrl;
+    if (!urls.length && single) urls = [single];
+    /* If array missing 1st but single exists, ensure single is first */
+    if (single && urls.indexOf(single) === -1 && urls.length < 2) {
+      /* keep array as-is when it already has entries */
+    }
+    return urls.slice(0, 2);
+  }
+
   function mapSheet(row) {
+    var previewUrls = normalizePreviewUrls(row);
     return {
       id: row.id,
       code: row.code || '',
@@ -19,10 +54,14 @@
       rating: Number(row.rating) || 0,
       sold: row.sold || 0,
       status: row.status || '판매중',
+      pdfUrl: row.pdf_url || '',
+      previewUrl: previewUrls[0] || '',
+      previewUrls: previewUrls,
     };
   }
 
   function sheetToRow(s) {
+    var previewUrls = normalizePreviewUrls(s);
     return {
       id: s.id,
       code: s.code || null,
@@ -38,7 +77,186 @@
       rating: Number(s.rating) || 0,
       sold: Number(s.sold) || 0,
       status: s.status || '판매중',
+      pdf_url: s.pdfUrl || null,
+      preview_url: previewUrls[0] || null,
+      preview_urls: previewUrls.length ? previewUrls : null,
     };
+  }
+
+  function sanitizeFileName(name) {
+    return String(name || 'file')
+      .replace(/[^\w.\-가-힣]+/g, '_')
+      .replace(/_+/g, '_')
+      .slice(0, 120);
+  }
+
+  /**
+   * Bake preview protection into image (clean, minimal):
+   * subtle diagonal watermark across the full image,
+   * clear top ~22% / soft nearly-opaque veil on bottom ~78%,
+   * plus a slightly larger watermark clipped to the veil only.
+   * Returns a JPEG File; on failure returns the original file.
+   */
+  function stampPreviewWatermark(file) {
+    return new Promise(function (resolve) {
+      if (typeof document === 'undefined' || !file) {
+        resolve(file);
+        return;
+      }
+      var img = new Image();
+      var objUrl = URL.createObjectURL(file);
+      var done = function (out) {
+        try { URL.revokeObjectURL(objUrl); } catch (_) {}
+        resolve(out || file);
+      };
+      img.onload = function () {
+        try {
+          var w = img.naturalWidth || img.width;
+          var h = img.naturalHeight || img.height;
+          if (!w || !h) { done(file); return; }
+          var canvas = document.createElement('canvas');
+          canvas.width = w;
+          canvas.height = h;
+          var ctx = canvas.getContext('2d');
+          if (!ctx) { done(file); return; }
+          ctx.drawImage(img, 0, 0, w, h);
+
+          var label = 'CHODRUM PREVIEW';
+          var fontFamily = '"IBM Plex Sans", "Noto Sans KR", sans-serif';
+          var angle = -Math.PI / 8;
+
+          /* --- Full-image: sparse diagonal tiling at low opacity --- */
+          var fullSize = Math.max(14, Math.round(Math.min(w, h) / 18));
+          var stepX = Math.round(fullSize * 7.5);
+          var stepY = Math.round(fullSize * 5.5);
+          ctx.save();
+          ctx.translate(w / 2, h / 2);
+          ctx.rotate(angle);
+          ctx.textAlign = 'center';
+          ctx.textBaseline = 'middle';
+          ctx.font = '500 ' + fullSize + 'px ' + fontFamily;
+          ctx.fillStyle = 'rgba(0,0,0,0.045)';
+          var span = Math.ceil(Math.sqrt(w * w + h * h));
+          for (var y = -span; y <= span; y += stepY) {
+            for (var x = -span; x <= span; x += stepX) {
+              ctx.fillText(label, x, y);
+            }
+          }
+          ctx.restore();
+
+          /* --- Clear zone: top ~22%; remaining ~78% nearly opaque soft veil --- */
+          var visibleRatio = 0.22;
+          var obscureY = Math.floor(h * visibleRatio);
+          var obscureH = h - obscureY;
+          if (obscureH > 8) {
+            var fadeH = Math.max(24, Math.round(h * 0.06));
+            var veil = ctx.createLinearGradient(0, obscureY - fadeH, 0, h);
+            veil.addColorStop(0, 'rgba(252,252,252,0)');
+            veil.addColorStop(0.12, 'rgba(250,250,250,0.72)');
+            veil.addColorStop(0.35, 'rgba(248,248,248,0.94)');
+            veil.addColorStop(0.6, 'rgba(247,247,247,0.97)');
+            veil.addColorStop(1, 'rgba(246,246,246,0.985)');
+            ctx.fillStyle = veil;
+            ctx.fillRect(0, obscureY - fadeH, w, obscureH + fadeH);
+
+            /* --- Larger diagonal label, clipped to veil zone only --- */
+            var veilSize = Math.max(22, Math.round(Math.min(w, obscureH) / 10));
+            ctx.save();
+            ctx.beginPath();
+            ctx.rect(0, obscureY, w, obscureH);
+            ctx.clip();
+            ctx.translate(w / 2, obscureY + obscureH * 0.42);
+            ctx.rotate(angle);
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.font = '600 ' + veilSize + 'px ' + fontFamily;
+            ctx.fillStyle = 'rgba(0,0,0,0.08)';
+            ctx.fillText(label, 0, 0);
+            ctx.restore();
+          }
+
+          canvas.toBlob(function (blob) {
+            if (!blob) { done(file); return; }
+            var base = String(file.name || 'preview').replace(/\.[^.]+$/, '');
+            var stamped = new File([blob], base + '-wm.jpg', { type: 'image/jpeg' });
+            done(stamped);
+          }, 'image/jpeg', 0.9);
+        } catch (e) {
+          console.warn('[CHODRUM] watermark stamp failed', e);
+          done(file);
+        }
+      };
+      img.onerror = function () { done(file); };
+      img.src = objUrl;
+    });
+  }
+
+  /**
+   * Upload PDF or preview image to Storage bucket `sheets`.
+   * Preview images get full subtle watermark + top-clear / heavy bottom veil
+   * (with a larger mark on the veil) before upload.
+   * PDF originals are uploaded as-is for purchasers.
+   * @param {File} file
+   * @param {'pdf'|'preview'} kind
+   * @returns {Promise<{ url: string, path: string, name: string }>}
+   */
+  async function uploadSheetFile(file, kind) {
+    if (!file) throw new Error('파일이 선택되지 않았어요.');
+    var isPdf = kind === 'pdf';
+    var mime = (file.type || '').toLowerCase();
+    var lower = (file.name || '').toLowerCase();
+
+    if (isPdf) {
+      if (mime !== 'application/pdf' && !lower.endsWith('.pdf')) {
+        throw new Error('PDF 파일만 업로드할 수 있어요.');
+      }
+    } else {
+      var okImg =
+        /^image\/(png|jpe?g|webp|gif)$/.test(mime) ||
+        /\.(png|jpe?g|webp|gif)$/.test(lower);
+      if (!okImg) {
+        throw new Error('이미지 파일(PNG, JPG, WEBP)만 업로드할 수 있어요.');
+      }
+      /* Permanent obscure + watermark baked into stored preview (not PDF) */
+      file = await stampPreviewWatermark(file);
+      mime = (file.type || 'image/jpeg').toLowerCase();
+      lower = (file.name || '').toLowerCase();
+    }
+
+    var folder = isPdf ? 'pdf' : 'preview';
+    var path = folder + '/' + Date.now() + '-' + sanitizeFileName(file.name);
+
+    if (!live()) {
+      return {
+        url: (typeof URL !== 'undefined' && URL.createObjectURL) ? URL.createObjectURL(file) : '',
+        path: path,
+        name: file.name,
+      };
+    }
+
+    var client = sb();
+    var up = await client.storage.from('sheets').upload(path, file, {
+      cacheControl: '3600',
+      upsert: false,
+      contentType: file.type || (isPdf ? 'application/pdf' : 'image/jpeg'),
+    });
+    if (up.error) {
+      var msg = up.error.message || '';
+      if (/bucket|not found|does not exist/i.test(msg)) {
+        throw new Error('Storage 버킷(sheets)이 없어요. supabase/migrations/003_sheet_files.sql 을 실행해 주세요.');
+      }
+      if (/mime|type|not allowed|invalid/i.test(msg)) {
+        throw new Error(isPdf
+          ? 'PDF 파일만 업로드할 수 있어요.'
+          : '이미지 파일(PNG, JPG, WEBP)만 업로드할 수 있어요.');
+      }
+      throw new Error('파일 업로드에 실패했어요. Storage 정책·용량을 확인해 주세요.');
+    }
+
+    var pub = client.storage.from('sheets').getPublicUrl(path);
+    var url = pub && pub.data && pub.data.publicUrl;
+    if (!url) throw new Error('업로드 URL을 만들지 못했어요.');
+    return { url: url, path: path, name: file.name };
   }
 
   function ddayFromExpires(expiresAt, status) {
@@ -72,7 +290,10 @@
       D.sheets.forEach(function (s) {
         if (!s.status) s.status = (A && A.sheetStatus && A.sheetStatus[s.id]) || '판매중';
       });
-      D.byId = function (id) { return D.sheets.find(function (s) { return s.id === id; }); };
+      D.byId = function (id) {
+        var key = id == null ? '' : String(id);
+        return D.sheets.find(function (s) { return String(s.id) === key; });
+      };
       D.visibleSheets = function () {
         return D.sheets.filter(function (s) { return s.status === '판매중'; });
       };
@@ -90,7 +311,10 @@
 
     var sheets = (sheetsRes.data || []).map(mapSheet);
     D.sheets = sheets;
-    D.byId = function (id) { return D.sheets.find(function (s) { return s.id === id; }); };
+    D.byId = function (id) {
+      var key = id == null ? '' : String(id);
+      return D.sheets.find(function (s) { return String(s.id) === key; });
+    };
     D.visibleSheets = function () {
       return D.sheets.filter(function (s) { return s.status === '판매중'; });
     };
@@ -226,9 +450,39 @@
       else D.sheets.unshift(mapped);
       return mapped;
     }
+    var wantedMulti = Array.isArray(row.preview_urls) && row.preview_urls.length > 1;
     var res = await sb().from('sheets').upsert(row).select().single();
+    var droppedPreviewUrls = false;
+    /* PGRST204 = schema cache miss; 42703 = column does not exist */
+    var colMiss = res.error && (
+      res.error.code === 'PGRST204' ||
+      res.error.code === '42703' ||
+      /column.*does not exist|Could not find.*column/i.test(res.error.message || '')
+    );
+    if (colMiss && /(pdf_url|preview_urls?)/.test(res.error.message || '')) {
+      var miss = res.error.message || '';
+      console.warn('[CHODRUM] sheets file URL columns missing — upsert without them', miss);
+      if (/pdf_url/.test(miss)) delete row.pdf_url;
+      if (/preview_urls/.test(miss)) {
+        if (wantedMulti) droppedPreviewUrls = true;
+        delete row.preview_urls;
+      }
+      if (/preview_url(?!s)/.test(miss)) {
+        delete row.preview_url;
+        delete row.preview_urls;
+      }
+      res = await sb().from('sheets').upsert(row).select().single();
+    }
     if (res.error) throw res.error;
     var mapped = mapSheet(res.data);
+    /* Keep local multi-URL view even if DB only stored preview_url (until 004 runs) */
+    if (droppedPreviewUrls && wantedMulti) {
+      mapped.previewUrls = normalizePreviewUrls(sheet);
+      mapped.previewUrl = mapped.previewUrls[0] || mapped.previewUrl || '';
+      mapped._warn =
+        '미리보기 2장이 업로드됐지만 DB에 preview_urls 컬럼이 없어 1장만 저장됐어요. ' +
+        'Supabase SQL Editor에서 supabase/migrations/004_preview_urls.sql 을 실행한 뒤 다시 등록해 주세요.';
+    }
     var D = window.DrumData;
     var i = D.sheets.findIndex(function (s) { return s.id === mapped.id; });
     if (i >= 0) D.sheets[i] = mapped; else D.sheets.unshift(mapped);
@@ -514,6 +768,7 @@
       upsert: upsertSheet,
       remove: deleteSheets,
       setStatus: setSheetStatus,
+      uploadFile: uploadSheetFile,
     },
     featured: { save: saveFeatured },
     homePromo: { save: saveHomePromo },
