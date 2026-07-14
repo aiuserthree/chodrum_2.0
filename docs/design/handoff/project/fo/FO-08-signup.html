@@ -1,0 +1,175 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>CHODRUM — 회원가입</title>
+<link rel="stylesheet" href="../_ds/drum-sheet-store-design-system-3a2462a0-2443-475e-a3b6-f7937913eb0b/tokens/colors.css">
+<link rel="stylesheet" href="../_ds/drum-sheet-store-design-system-3a2462a0-2443-475e-a3b6-f7937913eb0b/tokens/typography.css">
+<link rel="stylesheet" href="../_ds/drum-sheet-store-design-system-3a2462a0-2443-475e-a3b6-f7937913eb0b/tokens/spacing.css">
+<link rel="stylesheet" href="../_ds/drum-sheet-store-design-system-3a2462a0-2443-475e-a3b6-f7937913eb0b/tokens/radius.css">
+<link rel="stylesheet" href="../_ds/drum-sheet-store-design-system-3a2462a0-2443-475e-a3b6-f7937913eb0b/tokens/elevation.css">
+<link rel="stylesheet" href="../_ds/drum-sheet-store-design-system-3a2462a0-2443-475e-a3b6-f7937913eb0b/tokens/base.css">
+<link rel="stylesheet" href="../_ds/drum-sheet-store-design-system-3a2462a0-2443-475e-a3b6-f7937913eb0b/styles.css">
+<link rel="stylesheet" href="../shared/fo.css">
+</head>
+<body class="fo-body">
+<div id="app"></div>
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+<script src="../_ds/drum-sheet-store-design-system-3a2462a0-2443-475e-a3b6-f7937913eb0b/_ds_bundle.js"></script>
+<script src="../shared/data.js"></script>
+<script src="../shared/store.js"></script>
+<script type="text/babel" src="fo-shared.jsx"></script>
+<script type="text/babel">
+/* FO-08-02/03 회원가입 — 이메일 인증 → 비밀번호 → 약관 (3단계) + 소셜 간편가입 */
+const DS = window.DrumSheetStoreDesignSystem_3a2462;
+const { Button, Input, Divider, SocialButton, Checkbox, Icon, Badge } = DS;
+const F = window.FO;
+
+function Steps({ cur }) {
+  const items = ['이메일 인증', '정보 입력', '약관 동의'];
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: 0, padding: '4px 0 24px' }}>
+      {items.map((l, i) => {
+        const n = i + 1;
+        const on = cur === n, done = cur > n;
+        return (
+          <React.Fragment key={l}>
+            {i ? <span style={{ flex: 1, height: 1, background: done || on ? 'var(--color-ink)' : 'var(--border-default)', margin: '0 8px' }}></span> : null}
+            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 7 }}>
+              <span className="ds-mono" style={{ width: 22, height: 22, borderRadius: 9999, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 600, background: on || done ? 'var(--color-ink)' : 'transparent', color: on || done ? '#fff' : 'var(--text-tertiary)', border: on || done ? 'none' : '1px solid var(--border-strong)' }}>{done ? <Icon name="check" size={12} /> : n}</span>
+              <span style={{ fontSize: 12.5, fontWeight: on ? 600 : 500, color: on ? 'var(--color-ink)' : 'var(--text-tertiary)', whiteSpace: 'nowrap' }}>{l}</span>
+            </span>
+          </React.Fragment>
+        );
+      })}
+    </div>
+  );
+}
+
+function SignupPage() {
+  const [step, setStep] = React.useState(1);
+  const [email, setEmail] = React.useState('');
+  const [sent, setSent] = React.useState(false);
+  const [code, setCode] = React.useState('');
+  const [codeErr, setCodeErr] = React.useState('');
+  const [pw, setPw] = React.useState('');
+  const [pw2, setPw2] = React.useState('');
+  const [name, setName] = React.useState('');
+  const [birth, setBirth] = React.useState('');
+  const [t1, setT1] = React.useState(false);
+  const [t2, setT2] = React.useState(false);
+  const [t3, setT3] = React.useState(false);
+  const [done, setDone] = React.useState(false);
+
+  const emailOk = /.+@.+\..+/.test(email);
+  const pwOk = pw.length >= 8 && pw === pw2;
+  const nameOk = name.trim().length >= 2;
+  const birthOk = /^\d{8}$/.test(birth) && +birth.slice(4, 6) >= 1 && +birth.slice(4, 6) <= 12 && +birth.slice(6, 8) >= 1 && +birth.slice(6, 8) <= 31;
+
+  const socialSignup = (provider) => {
+    const names = { kakao: '최스틱', naver: '이비트', google: '박리듬' };
+    const emails = { kakao: 'choi@kakao.com', naver: 'lee@naver.com', google: 'park@gmail.com' };
+    Store.user.set({ type: 'social', provider, name: names[provider], email: emails[provider] });
+    location.href = F.PAGES.my;
+  };
+  const verify = () => {
+    if (code.trim().length !== 6) { setCodeErr('6자리 인증코드를 입력해주세요.'); return; }
+    setCodeErr(''); setStep(2); /* 인증 완료 → 이 이메일이 로그인 ID로 확정 */
+  };
+  const finish = () => {
+    Store.user.set({ type: 'email', provider: 'email', name: name.trim() || '새 드러머', birth, email });
+    setDone(true);
+  };
+
+  if (done) {
+    return (
+      <F.Scaffold title="회원가입" footer={false}>
+        <div data-screen-label="FO-08-02 가입 완료" className="fo-container narrow" style={{ padding: 0 }}>
+          <div style={{ padding: '56px 0 20px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 14, textAlign: 'center' }}>
+            <span style={{ width: 60, height: 60, borderRadius: 9999, background: 'var(--status-success-bg)', color: 'var(--status-success)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Icon name="check" size={30} /></span>
+            <h3 style={{ fontSize: 22, letterSpacing: '-0.6px' }}>가입이 완료되었어요</h3>
+            <p style={{ fontSize: 14, color: 'var(--text-secondary)', lineHeight: 1.6 }}><span className="ds-mono">{email}</span> 계정으로<br />자동 로그인되었어요.</p>
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+            <Button variant="primary" size="lg" fullWidth onClick={() => location.href = F.PAGES.list}>악보 둘러보기</Button>
+            <Button variant="secondary" size="lg" fullWidth onClick={() => location.href = F.PAGES.my}>마이페이지</Button>
+          </div>
+        </div>
+      </F.Scaffold>
+    );
+  }
+
+  return (
+    <F.Scaffold title="회원가입" back={F.PAGES.login} footer={false}>
+      <div data-screen-label="FO-08-02 회원가입" className="fo-container narrow" style={{ padding: '0 0 40px' }}>
+        <div style={{ padding: '28px 0 18px', textAlign: 'center' }}>
+          <img src="../shared/logo.png" alt="CHODRUM 로고" style={{ width: 80, height: 80, objectFit: 'contain', display: 'block', margin: '0 auto' }} />
+          <div style={{ fontSize: 23, fontWeight: 600, letterSpacing: '-0.6px', marginTop: 8 }}>CHODRUM</div>
+          <div style={{ fontSize: 14, color: 'var(--text-secondary)', marginTop: 6 }}>3초 만에 시작하세요</div>
+        </div>
+
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+          <SocialButton provider="kakao" onClick={() => socialSignup('kakao')} />
+          <SocialButton provider="naver" onClick={() => socialSignup('naver')} />
+          <SocialButton provider="google" onClick={() => socialSignup('google')} />
+          <p className="fo-caption" style={{ textAlign: 'center' }}>소셜 간편가입은 비밀번호 없이 플랫폼 계정이 로그인 ID가 돼요.</p>
+        </div>
+
+        <Divider label="또는 이메일로 가입" spacing={20} />
+        <Steps cur={step} />
+
+        {step === 1 ? (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+              <div style={{ display: 'flex', gap: 8, alignItems: 'flex-end' }}>
+                <div style={{ flex: 1 }}><Input label="이메일" type="email" placeholder="you@example.com" value={email} onChange={(e) => setEmail(e.target.value)} /></div>
+                <Button variant="secondary" size="md" style={{ height: 44, flex: 'none' }} disabled={!emailOk} onClick={() => { setSent(true); F.toast('인증코드를 보냈어요'); }}>{sent ? '재발송' : '인증코드 받기'}</Button>
+              </div>
+              <span style={{ fontSize: 12, color: 'var(--text-secondary)' }}>인증한 이메일이 로그인 ID가 돼요.</span>
+            </div>
+            {sent ? (
+              <React.Fragment>
+                <Input label="인증코드" placeholder="6자리 코드" value={code} onChange={(e) => { setCode(e.target.value); setCodeErr(''); }} error={codeErr || undefined} hint="메일로 받은 6자리 코드를 입력하세요. 인증 완료 전에는 가입할 수 없어요." />
+                <Button variant="primary" size="lg" fullWidth onClick={verify}>인증 완료</Button>
+              </React.Fragment>
+            ) : null}
+          </div>
+        ) : null}
+
+        {step === 2 ? (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '10px 12px', background: 'var(--status-success-bg)', borderRadius: 'var(--radius-lg)' }}>
+              <Icon name="check" size={14} style={{ color: 'var(--status-success)' }} />
+              <span style={{ fontSize: 13 }}>인증 완료 — <b className="ds-mono">{email}</b> 이 로그인 ID로 확정되었어요.</span>
+            </div>
+            <Input label="이름 (필수)" placeholder="실명을 입력하세요" value={name} onChange={(e) => setName(e.target.value)} error={name && !nameOk ? '이름을 2자 이상 입력해주세요.' : undefined} />
+            <Input label="생년월일 (필수)" inputMode="numeric" maxLength={8} placeholder="YYYYMMDD · 예: 19950413" value={birth} onChange={(e) => setBirth(e.target.value.replace(/\D/g, '').slice(0, 8))} error={birth && !birthOk ? '생년월일 8자리를 확인해주세요.' : undefined} hint={birthOk ? undefined : '숫자 8자리로 입력해주세요.'} />
+            <Input label="비밀번호" type="password" placeholder="8자 이상" value={pw} onChange={(e) => setPw(e.target.value)} hint="영문·숫자 조합 8자 이상을 권장해요." />
+            <Input label="비밀번호 확인" type="password" placeholder="한 번 더 입력" value={pw2} onChange={(e) => setPw2(e.target.value)} error={pw2 && pw !== pw2 ? '비밀번호가 서로 달라요.' : undefined} />
+            <Button variant="primary" size="lg" fullWidth disabled={!(pwOk && nameOk && birthOk)} onClick={() => setStep(3)}>다음</Button>
+          </div>
+        ) : null}
+
+        {step === 3 ? (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+            <Checkbox checked={t1 && t2 && t3} onChange={(on) => { setT1(on); setT2(on); setT3(on); }} label={<b style={{ fontWeight: 600 }}>전체 동의</b>} />
+            <hr className="fo-hr" />
+            <Checkbox checked={t1} onChange={setT1} label="(필수) 이용약관 동의" />
+            <Checkbox checked={t2} onChange={setT2} label="(필수) 개인정보 수집 · 이용 동의" />
+            <Checkbox checked={t3} onChange={setT3} label="(선택) 신보 소식 · 혜택 알림 수신 동의" />
+            <Button variant="primary" size="lg" fullWidth disabled={!(t1 && t2)} onClick={finish}>가입 완료</Button>
+          </div>
+        ) : null}
+
+        <p className="fo-caption" style={{ textAlign: 'center', marginTop: 22 }}>이미 계정이 있나요? <a href={F.PAGES.login} style={{ fontWeight: 500 }}>로그인</a></p>
+      </div>
+    </F.Scaffold>
+  );
+}
+ReactDOM.createRoot(document.getElementById('app')).render(<SignupPage />);
+</script>
+</body>
+</html>

@@ -1,0 +1,12 @@
+# Edge Functions — deploy with CLI:
+#   supabase functions deploy naver-auth --no-verify-jwt
+#   supabase functions deploy naver-userinfo --no-verify-jwt
+#
+# Secrets for naver-auth:
+#   supabase secrets set NAVER_CLIENT_ID=... NAVER_CLIENT_SECRET=...
+
+[functions.naver-auth]
+verify_jwt = false
+
+[functions.naver-userinfo]
+verify_jwt = false

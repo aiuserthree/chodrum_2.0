@@ -1,0 +1,94 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>CHODRUM — 결제 완료</title>
+<link rel="stylesheet" href="../_ds/drum-sheet-store-design-system-3a2462a0-2443-475e-a3b6-f7937913eb0b/tokens/colors.css">
+<link rel="stylesheet" href="../_ds/drum-sheet-store-design-system-3a2462a0-2443-475e-a3b6-f7937913eb0b/tokens/typography.css">
+<link rel="stylesheet" href="../_ds/drum-sheet-store-design-system-3a2462a0-2443-475e-a3b6-f7937913eb0b/tokens/spacing.css">
+<link rel="stylesheet" href="../_ds/drum-sheet-store-design-system-3a2462a0-2443-475e-a3b6-f7937913eb0b/tokens/radius.css">
+<link rel="stylesheet" href="../_ds/drum-sheet-store-design-system-3a2462a0-2443-475e-a3b6-f7937913eb0b/tokens/elevation.css">
+<link rel="stylesheet" href="../_ds/drum-sheet-store-design-system-3a2462a0-2443-475e-a3b6-f7937913eb0b/tokens/base.css">
+<link rel="stylesheet" href="../_ds/drum-sheet-store-design-system-3a2462a0-2443-475e-a3b6-f7937913eb0b/styles.css">
+<link rel="stylesheet" href="../shared/fo.css">
+</head>
+<body class="fo-body">
+<div id="app"></div>
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+<script src="../_ds/drum-sheet-store-design-system-3a2462a0-2443-475e-a3b6-f7937913eb0b/_ds_bundle.js"></script>
+<script src="../shared/data.js"></script>
+<script src="../shared/store.js"></script>
+<script type="text/babel" src="fo-shared.jsx"></script>
+<script type="text/babel">
+/* FO-07 결제 완료 — 주문번호/내역 · 회원=마이페이지 안내 · 비회원=이메일 조회 안내 */
+const DS = window.DrumSheetStoreDesignSystem_3a2462;
+const { Button, Icon, Card } = DS;
+const F = window.FO;
+const D = window.DrumData;
+
+const SAMPLE = {
+  no: 'ORD-20260713-1042', date: '2026. 07. 13. 14:22',
+  items: [{ id: 's1', qty: 1, price: 4500 }, { id: 's9', qty: 2, price: 3000 }],
+  total: 10500, method: '카카오페이', guest: false, email: 'kim@example.com', buyer: '김드럼',
+};
+
+function CompletePage() {
+  const [order, setOrder] = React.useState(Store.lastOrder.get() || SAMPLE);
+  const guest = order.guest;
+
+  return (
+    <F.Scaffold title="결제 완료" back={F.PAGES.home}>
+      <div data-screen-label="FO-07 결제 완료" className="fo-container narrow" style={{ padding: 0 }}>
+        <div style={{ padding: '44px 0 24px', display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', gap: 14 }}>
+          <span style={{ width: 60, height: 60, borderRadius: 9999, background: 'var(--status-success-bg)', color: 'var(--status-success)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Icon name="check" size={30} /></span>
+          <h3 style={{ fontSize: 22, letterSpacing: '-0.6px' }}>결제가 완료되었어요</h3>
+          <span className="ds-mono" style={{ fontSize: 13, color: 'var(--text-secondary)' }}>{order.no}</span>
+        </div>
+
+        <Card padding={18} style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+          {order.items.map((it) => {
+            const s = D.byId(it.id) || { title: it.id };
+            return (
+              <F.KV key={it.id}
+                k={<span style={{ color: 'var(--text-primary)' }}>{s.title} <span style={{ color: 'var(--text-secondary)' }}>×{it.qty}</span></span>}
+                v={<F.Money value={(it.price || s.price) * it.qty} size={14} weight={500} />} />
+            );
+          })}
+          <hr className="fo-hr" style={{ margin: '2px 0' }} />
+          <F.KV k="결제 수단" v={<span style={{ fontSize: 14, fontWeight: 500 }}>{order.method}</span>} />
+          <F.KV k="결제 일시" v={<span className="ds-mono" style={{ fontSize: 13 }}>{order.date}</span>} />
+          <F.KV k={<span style={{ fontWeight: 600 }}>총 결제금액</span>} v={<F.Money value={order.total} size={18} />} />
+        </Card>
+
+        <div style={{ margin: '16px 0', padding: '14px 16px', background: 'var(--surface-sunken)', border: '1px solid var(--border-default)', borderRadius: 'var(--radius-cards)' }}>
+          {guest ? (
+            <p style={{ fontSize: 13.5, lineHeight: 1.6, color: 'var(--text-secondary)' }}>
+              비회원 주문이 완료되었어요. <b style={{ color: 'var(--text-primary)' }} className="ds-mono">{order.email}</b> 주소로만 다운로드를 조회할 수 있으니 이메일을 꼭 기억해주세요. 결제일로부터 <b style={{ color: 'var(--text-primary)' }}>7일간</b> 다운로드할 수 있어요.
+            </p>
+          ) : (
+            <p style={{ fontSize: 13.5, lineHeight: 1.6, color: 'var(--text-secondary)' }}>
+              구매한 악보는 <b style={{ color: 'var(--text-primary)' }}>마이페이지 &gt; 구매 내역 / 다운로드</b>에 저장되었어요. 결제일로부터 <b style={{ color: 'var(--text-primary)' }}>7일간</b> PDF를 다운로드할 수 있어요.
+            </p>
+          )}
+        </div>
+
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 10, paddingBottom: 12 }}>
+          {guest
+            ? <Button variant="primary" size="lg" fullWidth iconLeft="download" onClick={() => location.href = F.PAGES.guest + '?email=' + encodeURIComponent(order.email)}>비회원 주문 조회하기</Button>
+            : <Button variant="primary" size="lg" fullWidth iconLeft="download" onClick={() => location.href = F.PAGES.downloads}>다운로드 하러 가기</Button>}
+          <Button variant="secondary" size="lg" fullWidth onClick={() => location.href = F.PAGES.home}>홈으로</Button>
+        </div>
+
+        <F.PreviewToggle options={['회원 결제', '비회원 결제']} value={guest ? '비회원 결제' : '회원 결제'}
+          onChange={(v) => setOrder({ ...order, guest: v === '비회원 결제', email: v === '비회원 결제' ? 'guest@example.com' : 'kim@example.com' })} />
+      </div>
+    </F.Scaffold>
+  );
+}
+ReactDOM.createRoot(document.getElementById('app')).render(<CompletePage />);
+</script>
+</body>
+</html>

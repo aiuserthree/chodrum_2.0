@@ -1,0 +1,31 @@
+<!-- @dsCard group="Colors" viewport="700x196" name="Text on surface" subtitle="Ink for primary, Subtext for secondary, Icon for tertiary" -->
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<link rel="stylesheet" href="../../styles.css">
+<style>
+  body { margin: 0; padding: 24px; }
+  .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .cell { padding: 16px; border-radius: var(--radius-xl); box-shadow: inset 0 0 0 1px var(--border-faint); }
+  .cell.dark { background: var(--surface-inverse); box-shadow: none; }
+  .lead { font-size: 16px; font-weight: 500; }
+  .sub { font-size: 14px; margin-top: 4px; }
+  .tok { font-family: var(--font-mono); font-size: 10px; margin-top: 10px; letter-spacing: 0; }
+</style>
+</head>
+<body>
+  <div class="grid">
+    <div class="cell">
+      <div class="lead" style="color:var(--text-primary)">Primary · 인기 드럼 악보</div>
+      <div class="sub" style="color:var(--text-secondary)">Secondary · 아티스트 · 난이도 표시</div>
+      <div class="tok" style="color:var(--text-tertiary)">--text-primary / --text-secondary / --text-tertiary</div>
+    </div>
+    <div class="cell dark">
+      <div class="lead" style="color:var(--text-on-inverse)">On inverse · 결제하기</div>
+      <div class="sub" style="color:rgba(255,255,255,0.66)">Muted on dark · ₩12,000</div>
+      <div class="tok" style="color:rgba(255,255,255,0.5)">--text-on-inverse</div>
+    </div>
+  </div>
+</body>
+</html>

@@ -1,0 +1,76 @@
+<!-- @dsCard group="Components" viewport="700x380" name="Card, Badge, Chip, Divider" subtitle="Content surfaces, labels, filter pills & separators" -->
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<link rel="stylesheet" href="../../styles.css">
+<style>
+  body { margin: 0; padding: 24px; }
+  .cols { display: grid; grid-template-columns: 200px 1fr; gap: 28px; align-items: start; }
+  .stack { display: flex; flex-direction: column; gap: 16px; }
+  .cap { font-family: var(--font-mono); font-size: 10px; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.5px; }
+  .inline { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+  .thumb { position: relative; aspect-ratio: 3/4; background: repeating-linear-gradient(0deg,#f4f4f4,#f4f4f4 22px,#efefef 22px,#efefef 23px); display: flex; align-items: center; justify-content: center; color: var(--color-icon); border-bottom: 1px solid var(--border-default); }
+  .fav { position: absolute; top: 8px; right: 8px; }
+</style>
+</head>
+<body>
+  <div id="root"></div>
+  <script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+  <script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+  <script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+  <script src="../../_ds_bundle.js"></script>
+  <script type="text/babel">
+    const { Card, Badge, Chip, Divider, Icon, IconButton } = window.DrumSheetStoreDesignSystem_3a2462;
+    function Demo() {
+      const [sel, setSel] = React.useState('전체');
+      return (
+        <div className="cols">
+          <Card interactive padding={0}>
+            <div className="thumb">
+              <Icon name="music" size={30} />
+              <div className="fav"><IconButton name="heart" variant="secondary" round size="sm" label="찜" /></div>
+              <div style={{position:'absolute',left:8,top:8}}><Badge variant="solid" size="sm">인기</Badge></div>
+            </div>
+            <div style={{padding:'12px 14px',display:'flex',flexDirection:'column',gap:6}}>
+              <div style={{fontSize:15,fontWeight:600,letterSpacing:'-0.3px'}}>Snare Groove No.7</div>
+              <div style={{fontSize:13,color:'var(--text-secondary)'}}>The Metronomes</div>
+              <div className="inline" style={{gap:6}}>
+                <Badge variant="outline" size="sm">중급</Badge>
+                <Badge variant="neutral" size="sm">락</Badge>
+              </div>
+              <div className="ds-mono" style={{fontSize:18,fontWeight:600,marginTop:2}}>₩4,500</div>
+            </div>
+          </Card>
+
+          <div className="stack">
+            <span className="cap">badges</span>
+            <div className="inline">
+              <Badge variant="solid">NEW</Badge>
+              <Badge variant="outline">입문</Badge>
+              <Badge variant="neutral">발라드</Badge>
+              <Badge variant="success" icon="check">결제 완료</Badge>
+              <Badge variant="warning">D-2</Badge>
+              <Badge variant="danger">만료</Badge>
+            </div>
+            <span className="cap">chips · filters</span>
+            <div className="inline">
+              {['전체','발라드','락','재즈','K-POP'].map(c => (
+                <Chip key={c} selected={sel===c} onClick={() => setSel(c)}>{c}</Chip>
+              ))}
+              <Chip icon="filter" count={128}>필터</Chip>
+            </div>
+            <span className="cap">divider</span>
+            <div><Divider label="또는" spacing={4} /></div>
+            <span className="cap">icons</span>
+            <div className="inline" style={{color:'var(--color-icon)',gap:14}}>
+              <Icon name="search" /><Icon name="heart" /><Icon name="shopping-cart" /><Icon name="download" /><Icon name="star" /><Icon name="user" /><Icon name="music" /><Icon name="chevron-right" />
+            </div>
+          </div>
+        </div>
+      );
+    }
+    ReactDOM.createRoot(document.getElementById('root')).render(<Demo />);
+  </script>
+</body>
+</html>

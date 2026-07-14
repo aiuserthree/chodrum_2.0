@@ -1,0 +1,186 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>CHODRUM Admin — 악보 관리</title>
+<link rel="stylesheet" href="../_ds/drum-sheet-store-design-system-3a2462a0-2443-475e-a3b6-f7937913eb0b/tokens/colors.css">
+<link rel="stylesheet" href="../_ds/drum-sheet-store-design-system-3a2462a0-2443-475e-a3b6-f7937913eb0b/tokens/typography.css">
+<link rel="stylesheet" href="../_ds/drum-sheet-store-design-system-3a2462a0-2443-475e-a3b6-f7937913eb0b/tokens/spacing.css">
+<link rel="stylesheet" href="../_ds/drum-sheet-store-design-system-3a2462a0-2443-475e-a3b6-f7937913eb0b/tokens/radius.css">
+<link rel="stylesheet" href="../_ds/drum-sheet-store-design-system-3a2462a0-2443-475e-a3b6-f7937913eb0b/tokens/elevation.css">
+<link rel="stylesheet" href="../_ds/drum-sheet-store-design-system-3a2462a0-2443-475e-a3b6-f7937913eb0b/tokens/base.css">
+<link rel="stylesheet" href="../_ds/drum-sheet-store-design-system-3a2462a0-2443-475e-a3b6-f7937913eb0b/styles.css">
+<link rel="stylesheet" href="../shared/bo.css">
+</head>
+<body class="bo-body">
+<div id="app"></div>
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+<script src="../_ds/drum-sheet-store-design-system-3a2462a0-2443-475e-a3b6-f7937913eb0b/_ds_bundle.js"></script>
+<script src="../shared/data.js"></script>
+<script src="../shared/config.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="../shared/supabase-client.js"></script>
+<script src="../shared/api.js"></script>
+<script type="text/babel" src="bo-shared.jsx"></script>
+<script type="text/babel">
+/* BO-02-02/05 악보 목록 — 검색/필터 · 일괄 상태 변경 · 수정/삭제 · 노출 관리 */
+const DS = window.DrumSheetStoreDesignSystem_3a2462;
+const { Button, IconButton, Card, Badge, Chip, Select, Input, Checkbox } = DS;
+const B = window.BO;
+const A = window.AdminData;
+const D = window.DrumData;
+
+const STATUS_TONE = { 판매중: 'success', 판매중지: 'warning', 숨김: 'neutral' };
+
+function SheetsPage() {
+  const [rows, setRows] = React.useState(D.sheets.map((s, i) => ({
+    ...s,
+    code: s.code || ('DS-' + (1042 - i)),
+    status: s.status || A.sheetStatus[s.id] || '판매중',
+  })));
+  const [q, setQ] = React.useState('');
+  const [genre, setGenre] = React.useState('전체');
+  const [status, setStatus] = React.useState('전체');
+  const [sel, setSel] = React.useState([]);
+  const [bulk, setBulk] = React.useState('판매중');
+  const [edit, setEdit] = React.useState(null);
+
+  const list = rows.filter((s) =>
+    (genre === '전체' || s.genre === genre) &&
+    (status === '전체' || s.status === status) &&
+    (s.title + s.artist).toLowerCase().includes(q.toLowerCase()));
+  const allOn = list.length > 0 && list.every((s) => sel.includes(s.id));
+
+  const setRow = (id, patch) => setRows((rs) => rs.map((r) => r.id === id ? { ...r, ...patch } : r));
+  const applyBulk = async () => {
+    setRows((rs) => rs.map((r) => sel.includes(r.id) ? { ...r, status: bulk } : r));
+    try { await window.ChodrumAPI.sheets.setStatus(sel, bulk); B.toast(sel.length + '개 악보를 「' + bulk + '」 상태로 변경했어요'); }
+    catch (e) { console.warn(e); B.toast('상태 변경 저장 실패'); }
+    setSel([]);
+  };
+  const removeSel = async () => {
+    const ids = sel.slice();
+    setRows((rs) => rs.filter((r) => !sel.includes(r.id)));
+    try { await window.ChodrumAPI.sheets.remove(ids); B.toast(ids.length + '개 악보를 삭제했어요'); }
+    catch (e) { console.warn(e); B.toast('삭제 동기화 실패'); }
+    setSel([]);
+  };
+  const saveEdit = async () => {
+    setRow(edit.id, edit);
+    try {
+      await window.ChodrumAPI.sheets.upsert(edit);
+      B.toast('저장했어요');
+    } catch (e) { console.warn(e); B.toast('저장 실패'); }
+    setEdit(null);
+  };
+  const toggleStatus = async (s) => {
+    const next = s.status === '판매중' ? '숨김' : '판매중';
+    setRow(s.id, { status: next });
+    try { await window.ChodrumAPI.sheets.setStatus([s.id], next); B.toast('「' + s.title + '」 → ' + next); }
+    catch (e) { console.warn(e); B.toast('상태 변경 실패'); }
+  };
+  const removeOne = async (id) => {
+    setRows((rs) => rs.filter((r) => r.id !== id));
+    try { await window.ChodrumAPI.sheets.remove([id]); B.toast('삭제했어요'); }
+    catch (e) { console.warn(e); B.toast('삭제 실패'); }
+  };
+
+  return (
+    <B.Shell active="sheets" title="악보 관리" actions={<Button variant="primary" size="sm" iconLeft="plus" onClick={() => location.href = 'BO-02-sheet-register.html'}>악보 등록</Button>}>
+      <div data-screen-label="BO-02 악보 관리" style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+        <div className="bo-toolbar">
+          <div style={{ width: 240, maxWidth: '100%' }}><Input size="sm" iconLeft="search" placeholder="곡명 / 아티스트" value={q} onChange={(e) => setQ(e.target.value)} /></div>
+          <div style={{ width: 140 }}><Select size="sm" value={genre} onChange={(e) => setGenre(e.target.value)} options={['전체', ...D.genres]} /></div>
+          <div style={{ width: 130 }}><Select size="sm" value={status} onChange={(e) => setStatus(e.target.value)} options={['전체', '판매중', '판매중지', '숨김']} /></div>
+          <span className="ds-mono" style={{ fontSize: 12, color: 'var(--text-secondary)', marginLeft: 'auto' }}>{list.length}개</span>
+        </div>
+
+        {sel.length ? (
+          <Card padding={12} style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+            <span style={{ fontSize: 13.5, fontWeight: 600 }}>{sel.length}개 선택</span>
+            <div style={{ width: 130 }}><Select size="sm" value={bulk} onChange={(e) => setBulk(e.target.value)} options={['판매중', '판매중지', '숨김']} /></div>
+            <Button variant="secondary" size="sm" onClick={applyBulk}>일괄 상태 변경</Button>
+            <Button variant="ghost" size="sm" iconLeft="trash-2" onClick={removeSel}>삭제</Button>
+            <Button variant="ghost" size="sm" onClick={() => setSel([])}>선택 해제</Button>
+          </Card>
+        ) : null}
+
+        <Card padding={0}>
+          <div style={{ padding: 6 }}>
+            <B.Table minWidth={860} head={[{ l: '' }, '곡명 / 아티스트', 'ID', '장르', '난이도', { l: '가격', r: true }, { l: '판매', r: true }, '상태', '']}>
+              {list.map((s) => (
+                <tr key={s.id}>
+                  <B.Td style={{ width: 40 }}><Checkbox checked={sel.includes(s.id)} onChange={(on) => setSel(on ? [...sel, s.id] : sel.filter((x) => x !== s.id))} /></B.Td>
+                  <B.Td>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                      <B.Thumb />
+                      <div>
+                        <div style={{ fontWeight: 600 }}>{s.title}</div>
+                        <div style={{ fontSize: 12, color: 'var(--text-secondary)' }}>{s.artist} · {s.pages}p</div>
+                      </div>
+                    </div>
+                  </B.Td>
+                  <B.Td><span style={{ ...B.mono, fontSize: 12, color: 'var(--text-secondary)' }}>{s.code}</span></B.Td>
+                  <B.Td><Badge variant="neutral" size="sm">{s.genre}</Badge></B.Td>
+                  <B.Td><Badge variant="outline" size="sm">{s.level}</Badge></B.Td>
+                  <B.Td r><span style={B.mono}>{B.won(s.price)}</span></B.Td>
+                  <B.Td r><span style={B.mono}>{s.sold.toLocaleString('ko-KR')}</span></B.Td>
+                  <B.Td><Badge variant={STATUS_TONE[s.status]} size="sm">{s.status}</Badge></B.Td>
+                  <B.Td>
+                    <div style={{ display: 'flex', gap: 2 }}>
+                      <IconButton name="pencil" variant="ghost" size="sm" label="수정" onClick={() => setEdit({ ...s })} />
+                      <IconButton name={s.status === '판매중' ? 'eye-off' : 'eye'} variant="ghost" size="sm" label="노출 전환"
+                        onClick={() => toggleStatus(s)} />
+                      <IconButton name="trash-2" variant="ghost" size="sm" label="삭제" onClick={() => removeOne(s.id)} />
+                    </div>
+                  </B.Td>
+                </tr>
+              ))}
+            </B.Table>
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 18px', borderTop: '1px solid var(--border-default)' }}>
+            <Checkbox checked={allOn} indeterminate={sel.length > 0 && !allOn} label="전체 선택" onChange={(on) => setSel(on ? list.map((s) => s.id) : [])} />
+            <div className="ds-mono" style={{ fontSize: 12, color: 'var(--text-secondary)', display: 'flex', gap: 12 }}>
+              <span style={{ fontWeight: 600, color: 'var(--color-ink)' }}>1</span><span>2</span><span>3</span><span>›</span>
+            </div>
+          </div>
+        </Card>
+
+        <p style={{ fontSize: 12, color: 'var(--text-secondary)' }}>판매중지 · 숨김 상태의 악보는 스토어에 노출되지 않지만, 이미 구매한 사용자의 다운로드 권한은 유지돼요.</p>
+      </div>
+
+      {/* 악보 수정 모달 (BO-02-02) */}
+      <B.Modal open={!!edit} onClose={() => setEdit(null)} title={edit ? '악보 수정 — ' + edit.code : ''}
+        footer={edit ? (
+          <React.Fragment>
+            <Button variant="secondary" size="sm" onClick={() => setEdit(null)}>취소</Button>
+            <Button variant="primary" size="sm" onClick={saveEdit}>저장</Button>
+          </React.Fragment>
+        ) : null}>
+        {edit ? (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+            <Input label="곡명" value={edit.title} onChange={(e) => setEdit({ ...edit, title: e.target.value })} />
+            <Input label="아티스트" value={edit.artist} onChange={(e) => setEdit({ ...edit, artist: e.target.value })} />
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+              <B.Labeled label="장르"><Select value={edit.genre} onChange={(e) => setEdit({ ...edit, genre: e.target.value })} options={D.genres} /></B.Labeled>
+              <B.Labeled label="난이도"><Select value={edit.level} onChange={(e) => setEdit({ ...edit, level: e.target.value })} options={D.levels} /></B.Labeled>
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+              <Input label="가격 (₩)" type="number" value={String(edit.price)} onChange={(e) => setEdit({ ...edit, price: Number(e.target.value) || 0 })} />
+              <B.Labeled label="노출 상태"><Select value={edit.status} onChange={(e) => setEdit({ ...edit, status: e.target.value })} options={['판매중', '판매중지', '숨김']} /></B.Labeled>
+            </div>
+          </div>
+        ) : null}
+      </B.Modal>
+    </B.Shell>
+  );
+}
+window.ChodrumBoot.whenReady(() => {
+  ReactDOM.createRoot(document.getElementById('app')).render(<SheetsPage />);
+});
+</script>
+</body>
+</html>

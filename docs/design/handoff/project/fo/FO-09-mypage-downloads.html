@@ -1,0 +1,108 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>CHODRUM — 구매 내역 / 다운로드</title>
+<link rel="stylesheet" href="../_ds/drum-sheet-store-design-system-3a2462a0-2443-475e-a3b6-f7937913eb0b/tokens/colors.css">
+<link rel="stylesheet" href="../_ds/drum-sheet-store-design-system-3a2462a0-2443-475e-a3b6-f7937913eb0b/tokens/typography.css">
+<link rel="stylesheet" href="../_ds/drum-sheet-store-design-system-3a2462a0-2443-475e-a3b6-f7937913eb0b/tokens/spacing.css">
+<link rel="stylesheet" href="../_ds/drum-sheet-store-design-system-3a2462a0-2443-475e-a3b6-f7937913eb0b/tokens/radius.css">
+<link rel="stylesheet" href="../_ds/drum-sheet-store-design-system-3a2462a0-2443-475e-a3b6-f7937913eb0b/tokens/elevation.css">
+<link rel="stylesheet" href="../_ds/drum-sheet-store-design-system-3a2462a0-2443-475e-a3b6-f7937913eb0b/tokens/base.css">
+<link rel="stylesheet" href="../_ds/drum-sheet-store-design-system-3a2462a0-2443-475e-a3b6-f7937913eb0b/styles.css">
+<link rel="stylesheet" href="../shared/fo.css">
+</head>
+<body class="fo-body">
+<div id="app"></div>
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+<script src="../_ds/drum-sheet-store-design-system-3a2462a0-2443-475e-a3b6-f7937913eb0b/_ds_bundle.js"></script>
+<script src="../shared/data.js"></script>
+<script src="../shared/store.js"></script>
+<script type="text/babel" src="fo-shared.jsx"></script>
+<script type="text/babel">
+/* FO-09-01 구매 내역 / 다운로드 — 7일 잔여기간 뱃지 · 만료 시 비활성화 */
+const DS = window.DrumSheetStoreDesignSystem_3a2462;
+const { Button, Icon, Chip, Card } = DS;
+const F = window.FO;
+const D = window.DrumData;
+
+function allPurchases() {
+  const day = 86400000;
+  const mine = Store.purchases.list().map((p) => ({
+    id: p.id, orderNo: p.orderNo,
+    date: new Date(p.paidAt).toLocaleDateString('ko-KR', { year: 'numeric', month: '2-digit', day: '2-digit' }).replace(/\. /g, '.').replace(/\.$/, ''),
+    dday: 7 - Math.floor((Date.now() - p.paidAt) / day),
+  }));
+  return [...mine, ...D.purchasesSample];
+}
+
+function DownloadsPage() {
+  F.useStoreTick();
+  const user = Store.user.get();
+  const [filter, setFilter] = React.useState('전체');
+
+  if (!user) {
+    return (
+      <F.Scaffold title="구매 내역 / 다운로드" back={F.PAGES.my}>
+        <div data-screen-label="FO-09-01 구매내역 (비로그인)" className="fo-container mid" style={{ padding: 0 }}>
+          <F.Empty icon="user" title="로그인이 필요해요" sub="구매 내역과 다운로드는 로그인 후 이용할 수 있어요." action="로그인 / 회원가입" href={F.PAGES.login} />
+          <div style={{ maxWidth: 420, margin: '0 auto' }}>
+            <Button variant="ghost" size="sm" fullWidth onClick={() => Store.user.set({ type: 'email', provider: 'email', name: '김드럼', email: 'kim@example.com' })}>샘플 회원으로 화면 보기</Button>
+          </div>
+        </div>
+      </F.Scaffold>
+    );
+  }
+
+  const purchases = allPurchases();
+  const list = purchases.filter((p) => filter === '전체' || (filter === '다운로드 가능' ? p.dday >= 0 : p.dday < 0));
+
+  return (
+    <F.Scaffold title="구매 내역 / 다운로드" back={F.PAGES.my}>
+      <div data-screen-label="FO-09-01 구매 내역 / 다운로드" className="fo-container mid" style={{ padding: 0 }}>
+        <div className="fo-chips" style={{ padding: '18px 0 6px' }}>
+          {['전체', '다운로드 가능', '기간 만료'].map((k) => <Chip key={k} selected={filter === k} onClick={() => setFilter(k)}>{k}</Chip>)}
+        </div>
+
+        {list.length ? (
+          <div>
+            {list.map((p, i) => {
+              const s = D.byId(p.id);
+              const expired = p.dday < 0;
+              return (
+                <div key={p.orderNo + p.id + i} style={{ display: 'flex', gap: 12, padding: '16px 0', borderTop: i ? '1px solid var(--border-default)' : 'none', alignItems: 'center' }}>
+                  <div style={{ width: 52, flex: 'none', borderRadius: 8, overflow: 'hidden', border: '1px solid var(--border-default)' }}><F.StaffThumb ratio="1 / 1" size={17} /></div>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontSize: 14.5, fontWeight: 600, letterSpacing: '-0.3px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{s.title}</div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 7, marginTop: 5, flexWrap: 'wrap' }}>
+                      <F.DdayBadge dday={p.dday} />
+                      <span className="ds-mono" style={{ fontSize: 11, color: 'var(--text-secondary)' }}>{p.date}</span>
+                      <span className="ds-mono fo-desktop" style={{ fontSize: 11, color: 'var(--text-tertiary)' }}>{p.orderNo}</span>
+                    </div>
+                    {expired ? <div className="fo-caption" style={{ marginTop: 4 }}>다운로드 기간이 만료되었어요. 고객센터에서 재발급을 요청할 수 있어요.</div> : null}
+                  </div>
+                  <Button variant={expired ? 'secondary' : 'primary'} size="sm" iconLeft="download" disabled={expired}
+                    onClick={() => F.toast('「' + s.title + '」 PDF 다운로드가 시작되었어요 (샘플)')}>{expired ? '만료' : 'PDF'}</Button>
+                </div>
+              );
+            })}
+          </div>
+        ) : (
+          <F.Empty icon="download" title={filter === '기간 만료' ? '만료된 항목이 없어요' : '구매한 악보가 없어요'} sub="결제가 완료된 악보가 여기에 표시돼요." action="악보 둘러보기" href={F.PAGES.list} />
+        )}
+
+        <div style={{ marginTop: 20, padding: '12px 14px', background: 'var(--surface-sunken)', border: '1px solid var(--border-default)', borderRadius: 'var(--radius-lg)', display: 'flex', gap: 8 }}>
+          <Icon name="info" size={14} style={{ color: 'var(--color-icon)', marginTop: 1, flex: 'none' }} />
+          <span className="fo-caption">다운로드는 <b>결제일로부터 7일(168시간)</b> 동안 가능하고, 기간 내에는 여러 번 받을 수 있어요. PDF 파일로 저장돼요.</span>
+        </div>
+      </div>
+    </F.Scaffold>
+  );
+}
+ReactDOM.createRoot(document.getElementById('app')).render(<DownloadsPage />);
+</script>
+</body>
+</html>

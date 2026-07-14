@@ -1,0 +1,97 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>CHODRUM — FO / BO Screens</title>
+<style>
+  :root { font-family: "Pretendard", "Apple SD Gothic Neo", sans-serif; color: #1a1a1a; background: #f6f4f1; }
+  body { margin: 0; padding: 48px 24px 64px; max-width: 920px; margin-inline: auto; }
+  h1 { font-size: 1.75rem; margin: 0 0 8px; letter-spacing: -0.02em; }
+  p.lead { margin: 0 0 32px; color: #5c5c5c; }
+  section { margin-bottom: 36px; }
+  h2 { font-size: 1.1rem; margin: 0 0 12px; border-bottom: 1px solid #ddd; padding-bottom: 8px; }
+  ul { list-style: none; padding: 0; margin: 0; columns: 2; gap: 24px; }
+  @media (max-width: 640px) { ul { columns: 1; } }
+  li { margin: 0 0 8px; break-inside: avoid; }
+  a { color: #0b5fff; text-decoration: none; }
+  a:hover { text-decoration: underline; }
+  .quick { display: flex; flex-wrap: wrap; gap: 12px; margin-bottom: 28px; }
+  .quick a { background: #1a1a1a; color: #fff; padding: 10px 16px; border-radius: 8px; text-decoration: none; }
+  .quick a:hover { opacity: 0.9; text-decoration: none; }
+</style>
+</head>
+<body>
+  <h1>CHODRUM</h1>
+  <p class="lead">Front Office / Back Office HTML 스크린 인덱스</p>
+  <div class="quick">
+    <a href="fo/FO-01-home.html">FO 홈</a>
+    <a href="bo/BO-01-dashboard.html">BO 대시보드</a>
+  </div>
+  <section style="margin-bottom:28px;padding:16px 18px;background:#fff;border:1px solid #e5e2dc;border-radius:10px;">
+    <h2 style="border:0;padding:0;margin:0 0 8px;font-size:1rem;">Supabase 연결</h2>
+    <p style="margin:0 0 8px;color:#5c5c5c;font-size:0.95rem;line-height:1.5;">
+      FO↔BO 데이터는 Supabase를 통해 공유됩니다. 키가 없으면 로컬 <code>data.js</code> 데모로 동작합니다.
+      설정: <code>html/shared/config.js</code> · 가이드: <code>docs/supabase-setup.md</code>
+    </p>
+    <p id="sb-status" style="margin:0;font-size:0.9rem;color:#5c5c5c;">연결 상태 확인 중…</p>
+  </section>
+  <script src="shared/config.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="shared/supabase-client.js"></script>
+  <script>
+    (function () {
+      var el = document.getElementById('sb-status');
+      var live = window.ChodrumSB && window.ChodrumSB.configured;
+      el.textContent = live
+        ? '상태: live (Supabase 설정됨)'
+        : '상태: demo (config.js에 SUPABASE_URL / ANON_KEY를 넣어주세요)';
+      el.style.color = live ? '#0a7a3e' : '#8a6d00';
+    })();
+  </script>
+  <section>
+    <h2>Front Office (fo)</h2>
+    <ul>
+      <li><a href="fo/FO-01-home.html">FO-01-home.html</a></li>
+      <li><a href="fo/FO-02-sheet-list.html">FO-02-sheet-list.html</a></li>
+      <li><a href="fo/FO-03-sheet-detail.html">FO-03-sheet-detail.html</a></li>
+      <li><a href="fo/FO-04-wishlist.html">FO-04-wishlist.html</a></li>
+      <li><a href="fo/FO-05-cart.html">FO-05-cart.html</a></li>
+      <li><a href="fo/FO-06-checkout.html">FO-06-checkout.html</a></li>
+      <li><a href="fo/FO-07-order-complete.html">FO-07-order-complete.html</a></li>
+      <li><a href="fo/FO-08-find-id.html">FO-08-find-id.html</a></li>
+      <li><a href="fo/FO-08-login.html">FO-08-login.html</a></li>
+      <li><a href="fo/FO-08-auth-callback.html">FO-08-auth-callback.html</a> (OAuth 콜백)</li>
+      <li><a href="fo/FO-08-oauth-terms.html">FO-08-oauth-terms.html</a> (소셜 약관 동의)</li>
+      <li><a href="fo/FO-08-password-reset.html">FO-08-password-reset.html</a></li>
+      <li><a href="fo/FO-08-signup.html">FO-08-signup.html</a></li>
+      <li><a href="fo/FO-09-mypage-downloads.html">FO-09-mypage-downloads.html</a></li>
+      <li><a href="fo/FO-09-mypage-edit.html">FO-09-mypage-edit.html</a></li>
+      <li><a href="fo/FO-09-mypage-withdraw.html">FO-09-mypage-withdraw.html</a></li>
+      <li><a href="fo/FO-09-mypage.html">FO-09-mypage.html</a></li>
+      <li><a href="fo/FO-10-guest-lookup.html">FO-10-guest-lookup.html</a></li>
+      <li><a href="fo/FO-11-guide.html">FO-11-guide.html</a></li>
+      <li><a href="fo/FO-11-marketing.html">FO-11-marketing.html</a></li>
+      <li><a href="fo/FO-11-privacy.html">FO-11-privacy.html</a></li>
+      <li><a href="fo/FO-11-terms.html">FO-11-terms.html</a></li>
+    </ul>
+  </section>
+  <section>
+    <h2>Back Office (bo)</h2>
+    <ul>
+      <li><a href="bo/BO-01-dashboard.html">BO-01-dashboard.html</a></li>
+      <li><a href="bo/BO-02-categories.html">BO-02-categories.html</a></li>
+      <li><a href="bo/BO-02-pricing.html">BO-02-pricing.html</a></li>
+      <li><a href="bo/BO-02-sheet-register.html">BO-02-sheet-register.html</a></li>
+      <li><a href="bo/BO-02-sheets.html">BO-02-sheets.html</a></li>
+      <li><a href="bo/BO-03-orders.html">BO-03-orders.html</a></li>
+      <li><a href="bo/BO-04-members.html">BO-04-members.html</a></li>
+      <li><a href="bo/BO-05-downloads.html">BO-05-downloads.html</a></li>
+      <li><a href="bo/BO-06-reports.html">BO-06-reports.html</a></li>
+      <li><a href="bo/BO-07-settings.html">BO-07-settings.html</a></li>
+      <li><a href="bo/BO-08-main-banners.html">BO-08-main-banners.html</a></li>
+      <li><a href="bo/BO-08-main-featured.html">BO-08-main-featured.html</a></li>
+    </ul>
+  </section>
+</body>
+</html>

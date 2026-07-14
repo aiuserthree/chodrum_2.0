@@ -1,0 +1,167 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>CHODRUM — 이용약관</title>
+<link rel="stylesheet" href="../_ds/drum-sheet-store-design-system-3a2462a0-2443-475e-a3b6-f7937913eb0b/tokens/colors.css">
+<link rel="stylesheet" href="../_ds/drum-sheet-store-design-system-3a2462a0-2443-475e-a3b6-f7937913eb0b/tokens/typography.css">
+<link rel="stylesheet" href="../_ds/drum-sheet-store-design-system-3a2462a0-2443-475e-a3b6-f7937913eb0b/tokens/spacing.css">
+<link rel="stylesheet" href="../_ds/drum-sheet-store-design-system-3a2462a0-2443-475e-a3b6-f7937913eb0b/tokens/radius.css">
+<link rel="stylesheet" href="../_ds/drum-sheet-store-design-system-3a2462a0-2443-475e-a3b6-f7937913eb0b/tokens/elevation.css">
+<link rel="stylesheet" href="../_ds/drum-sheet-store-design-system-3a2462a0-2443-475e-a3b6-f7937913eb0b/tokens/base.css">
+<link rel="stylesheet" href="../_ds/drum-sheet-store-design-system-3a2462a0-2443-475e-a3b6-f7937913eb0b/styles.css">
+<link rel="stylesheet" href="../shared/fo.css">
+</head>
+<body class="fo-body">
+<div id="app"></div>
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+<script src="../_ds/drum-sheet-store-design-system-3a2462a0-2443-475e-a3b6-f7937913eb0b/_ds_bundle.js"></script>
+<script src="../shared/data.js"></script>
+<script src="../shared/store.js"></script>
+<script type="text/babel" src="fo-shared.jsx"></script>
+<script type="text/babel">
+/* FO-11 이용약관 — 서비스 맞춤 조항 (설계 검토용 샘플 문서) */
+const DS = window.DrumSheetStoreDesignSystem_3a2462;
+const { Card, Badge, Icon } = DS;
+const F = window.FO;
+
+function Art({ n, title, children }) {
+  return (
+    <section id={'art' + n} style={{ paddingTop: 26 }}>
+      <h4 style={{ fontSize: 15.5, fontWeight: 600, letterSpacing: '-0.3px', marginBottom: 10 }}>제{n}조 ({title})</h4>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 8, fontSize: 13.5, lineHeight: 1.75, color: 'var(--text-secondary)' }}>{children}</div>
+    </section>
+  );
+}
+function Ol({ items }) {
+  return (
+    <ol style={{ margin: 0, paddingLeft: 20, display: 'flex', flexDirection: 'column', gap: 6 }}>
+      {items.map((t, i) => <li key={i}>{t}</li>)}
+    </ol>
+  );
+}
+
+function TermsPage() {
+  const toc = [
+    [1, '목적'], [2, '정의'], [3, '약관의 게시와 개정'], [4, '회원가입'], [5, '서비스의 제공'],
+    [6, '구매 및 결제'], [7, '다운로드 기간 및 방법'], [8, '청약철회 및 환불'], [9, '저작권 및 이용 제한'],
+    [10, '회원 탈퇴'], [11, '면책'], [12, '분쟁 해결'],
+  ];
+  return (
+    <F.Scaffold title="이용약관" back={F.PAGES.home} width="mid">
+      <div data-screen-label="FO-11 이용약관" style={{ padding: '28px 0 20px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+          <h2 style={{ fontSize: 'clamp(22px, 3vw, 28px)', letterSpacing: '-0.9px' }}>이용약관</h2>
+          <Badge variant="outline" size="sm">v1.2</Badge>
+        </div>
+        <p className="ds-mono" style={{ fontSize: 12, color: 'var(--text-tertiary)', marginTop: 8 }}>시행일 2026.05.01</p>
+
+        <Card padding={0} style={{ marginTop: 18 }}>
+          <div style={{ padding: '16px 20px', borderBottom: '1px solid var(--border-default)' }}>
+            <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-secondary)', marginBottom: 8 }}>목차</div>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px 14px' }}>
+              {toc.map(([n, t]) => <a key={n} href={'#art' + n} style={{ fontSize: 12.5, color: 'var(--text-secondary)' }}>제{n}조 {t}</a>)}
+            </div>
+          </div>
+
+          <div style={{ padding: '4px 20px 28px' }}>
+            <Art n={1} title="목적">
+              <p>이 약관은 조드럼닷컴(이하 "몰")이 운영하는 CHODRUM 드럼 악보 다운로드 서비스(이하 "서비스")를 이용함에 있어 몰과 이용자의 권리·의무 및 책임사항을 규정함을 목적으로 합니다.</p>
+            </Art>
+            <Art n={2} title="정의">
+              <Ol items={[
+                '"디지털 콘텐츠"란 몰이 판매하는 드럼 악보 PDF 파일을 말합니다.',
+                '"회원"이란 이메일 인증 또는 소셜 계정(구글·네이버·카카오) 연동으로 가입한 자를 말합니다.',
+                '"비회원"이란 가입 없이 주문 시 입력한 이메일로 구매하는 자를 말합니다.',
+                '"다운로드 권한"이란 결제 완료된 디지털 콘텐츠를 정해진 기간 동안 내려받을 수 있는 권리를 말합니다.',
+              ]} />
+            </Art>
+            <Art n={3} title="약관의 게시와 개정">
+              <Ol items={[
+                '몰은 이 약관을 서비스 화면에 게시합니다.',
+                '몰은 관련 법령을 위배하지 않는 범위에서 약관을 개정할 수 있으며, 개정 시 시행일 7일 전부터 공지합니다. 이용자에게 불리한 변경은 30일 전에 공지합니다.',
+                '약관은 버전으로 관리되며 기존 동의 이력은 보존됩니다.',
+              ]} />
+            </Art>
+            <Art n={4} title="회원가입">
+              <Ol items={[
+                '일반 회원은 이메일 인증을 완료한 후 비밀번호를 설정해야 하며, 인증한 이메일이 로그인 ID가 됩니다. 인증이 완료되지 않은 이메일로는 가입할 수 없습니다.',
+                '소셜 회원은 구글·네이버·카카오 계정 인증으로 가입하며 별도의 비밀번호를 두지 않습니다.',
+                '동일 이메일이 일반 가입과 소셜 가입에 중복되는 경우, 몰은 기존 가입 방식을 안내합니다.',
+              ]} />
+            </Art>
+            <Art n={5} title="서비스의 제공">
+              <Ol items={[
+                '몰은 악보 검색·미리보기, 찜, 장바구니, 결제, PDF 다운로드 서비스를 제공합니다.',
+                '악보 미리보기는 일부 페이지에 한해 워터마크가 적용된 상태로 제공됩니다.',
+                '몰은 시스템 점검 등 운영상 필요한 경우 서비스 제공을 일시 중단할 수 있으며 사전에 공지합니다.',
+              ]} />
+            </Art>
+            <Art n={6} title="구매 및 결제">
+              <Ol items={[
+                '모든 결제는 장바구니를 통해서만 진행되며 상세페이지에서의 직접 결제는 지원하지 않습니다.',
+                '결제는 전자결제대행사(PG)를 통해 처리되며, 몰은 카드·간편결제·계좌이체 등 결제 수단을 제공합니다.',
+                '비회원은 주문 시 다운로드 조회용 이메일을 필수로 입력해야 하며, 해당 이메일은 구매 내역 조회의 유일한 수단입니다. 오입력으로 인한 조회 불가에 대해 몰은 책임지지 않습니다.',
+                '결제 실패 시 장바구니는 유지되며 재결제할 수 있습니다.',
+              ]} />
+            </Art>
+            <Art n={7} title="다운로드 기간 및 방법">
+              <Ol items={[
+                '다운로드 권한은 결제 완료 시점부터 7일(168시간) 동안 유효합니다.',
+                '유효 기간 내에는 횟수 제한 없이 재다운로드할 수 있으며, 다운로드 이력이 기록됩니다.',
+                '기간이 만료되면 다운로드 버튼이 비활성화됩니다. 만료 후에는 고객센터를 통해 재부여를 요청할 수 있으며, 재부여 여부는 몰의 판단에 따릅니다.',
+                '파일은 PDF 형식으로 제공되며 이용자 기기에 저장됩니다.',
+              ]} />
+            </Art>
+            <Art n={8} title="청약철회 및 환불">
+              <Ol items={[
+                '디지털 콘텐츠의 특성상, 다운로드가 시작된 이후에는 전자상거래법 제17조 제2항에 따라 청약철회가 제한될 수 있습니다. 몰은 이 사실을 결제 전 고지합니다.',
+                '다운로드 이력이 없는 경우 결제일로부터 7일 이내에 청약철회(환불)를 요청할 수 있습니다.',
+                '환불이 확정되면 해당 콘텐츠의 다운로드 권한은 회수되며, 처리 결과는 이메일로 안내됩니다.',
+                '콘텐츠 하자(파일 손상 등)의 경우 위 제한과 무관하게 교환 또는 환불이 가능합니다.',
+              ]} />
+            </Art>
+            <Art n={9} title="저작권 및 이용 제한">
+              <Ol items={[
+                '판매되는 악보의 저작권은 원저작자 및 편곡자에게 있으며, 구매자는 개인 연습·연주 목적의 이용 권한만을 갖습니다.',
+                '구매한 PDF의 복제·재판매·공유·온라인 게시 등 무단 배포를 금지합니다.',
+                '파일에는 구매자 식별 워터마크가 적용될 수 있으며, 무단 배포 적발 시 권한 회수 및 법적 조치가 이루어질 수 있습니다.',
+              ]} />
+            </Art>
+            <Art n={10} title="회원 탈퇴">
+              <Ol items={[
+                '회원은 언제든지 마이페이지에서 탈퇴를 요청할 수 있습니다.',
+                '탈퇴 시 잔여 다운로드 권한은 소멸하며, 구매 내역은 관련 법령이 정한 기간 동안 보존 후 파기됩니다.',
+              ]} />
+            </Art>
+            <Art n={11} title="면책">
+              <Ol items={[
+                '몰은 천재지변, 통신 장애 등 불가항력으로 인한 서비스 중단에 대해 책임을 지지 않습니다.',
+                '이용자 귀책 사유(이메일 오입력, 계정 관리 소홀 등)로 발생한 손해에 대해 몰은 책임을 지지 않습니다.',
+              ]} />
+            </Art>
+            <Art n={12} title="분쟁 해결">
+              <p>서비스 이용과 관련하여 분쟁이 발생한 경우 몰과 이용자는 성실히 협의하며, 협의가 이루어지지 않는 경우 관련 법령 및 상관례에 따릅니다.</p>
+            </Art>
+
+            <div style={{ marginTop: 30, paddingTop: 16, borderTop: '1px solid var(--border-default)' }}>
+              <p className="ds-mono" style={{ fontSize: 12, color: 'var(--text-tertiary)' }}>부칙 — 이 약관은 2026.05.01부터 시행합니다. (v1.2)</p>
+            </div>
+          </div>
+        </Card>
+
+        <p className="fo-caption" style={{ marginTop: 14, display: 'flex', gap: 6, alignItems: 'flex-start' }}>
+          <Icon name="info" size={13} style={{ color: 'var(--color-icon)', marginTop: 2, flex: 'none' }} />
+          본 문서는 설계 검토용 샘플이에요. 실제 시행 전 법률 검토가 필요해요.
+        </p>
+      </div>
+    </F.Scaffold>
+  );
+}
+ReactDOM.createRoot(document.getElementById('app')).render(<TermsPage />);
+</script>
+</body>
+</html>

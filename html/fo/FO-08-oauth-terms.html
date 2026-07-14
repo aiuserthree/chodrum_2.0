@@ -1,0 +1,177 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>CHODRUM — 약관 동의</title>
+<link rel="stylesheet" href="../_ds/drum-sheet-store-design-system-3a2462a0-2443-475e-a3b6-f7937913eb0b/tokens/colors.css">
+<link rel="stylesheet" href="../_ds/drum-sheet-store-design-system-3a2462a0-2443-475e-a3b6-f7937913eb0b/tokens/typography.css">
+<link rel="stylesheet" href="../_ds/drum-sheet-store-design-system-3a2462a0-2443-475e-a3b6-f7937913eb0b/tokens/spacing.css">
+<link rel="stylesheet" href="../_ds/drum-sheet-store-design-system-3a2462a0-2443-475e-a3b6-f7937913eb0b/tokens/radius.css">
+<link rel="stylesheet" href="../_ds/drum-sheet-store-design-system-3a2462a0-2443-475e-a3b6-f7937913eb0b/tokens/elevation.css">
+<link rel="stylesheet" href="../_ds/drum-sheet-store-design-system-3a2462a0-2443-475e-a3b6-f7937913eb0b/tokens/base.css">
+<link rel="stylesheet" href="../_ds/drum-sheet-store-design-system-3a2462a0-2443-475e-a3b6-f7937913eb0b/styles.css">
+<link rel="stylesheet" href="../shared/fo.css">
+</head>
+<body class="fo-body">
+<div id="app"></div>
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+<script src="../_ds/drum-sheet-store-design-system-3a2462a0-2443-475e-a3b6-f7937913eb0b/_ds_bundle.js"></script>
+<script src="../shared/data.js"></script>
+<script src="../shared/legal-docs.js"></script>
+<script src="../shared/store.js"></script>
+<script src="../shared/config.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="../shared/supabase-client.js"></script>
+<script src="../shared/api.js"></script>
+<script src="../shared/auth.js"></script>
+<script type="text/babel" src="fo-shared.jsx"></script>
+<script type="text/babel">
+/* FO-08 소셜 가입 — 약관 동의 (OAuth 후, members 생성 전) */
+const DS = window.DrumSheetStoreDesignSystem_3a2462;
+const { Button, Checkbox } = DS;
+const F = window.FO;
+const Auth = window.ChodrumAuth;
+
+function OAuthTermsPage() {
+  const [profile, setProfile] = React.useState(null);
+  const [ready, setReady] = React.useState(false);
+  const [t1, setT1] = React.useState(false);
+  const [t2, setT2] = React.useState(false);
+  const [t3, setT3] = React.useState(false);
+  const [busy, setBusy] = React.useState(false);
+  const [err, setErr] = React.useState('');
+  const [doc, setDoc] = React.useState(null); /* 'terms' | 'privacy' | 'marketing' | null */
+
+  React.useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      let p = Auth.getPendingProfile && Auth.getPendingProfile();
+      if (Auth.live && Auth.live()) {
+        try {
+          const restored = await Auth.restoreSession();
+          if (cancelled) return;
+          if (restored) {
+            location.replace(F.PAGES.my);
+            return;
+          }
+        } catch (e) { /* continue */ }
+        p = p || (Auth.getPendingProfile && Auth.getPendingProfile());
+      }
+      if (cancelled) return;
+      if (!p || !p.email) {
+        location.replace(F.PAGES.login);
+        return;
+      }
+      if (Auth.hasConsentForEmail) {
+        try {
+          const ok = await Auth.hasConsentForEmail(p.email);
+          if (ok) {
+            await Auth.restoreSession();
+            location.replace(F.PAGES.my);
+            return;
+          }
+        } catch (e) { /* continue to terms */ }
+      }
+      setProfile(p);
+      setReady(true);
+    })();
+    return () => { cancelled = true; };
+  }, []);
+
+  const submit = async () => {
+    if (!(t1 && t2) || busy) return;
+    setBusy(true);
+    setErr('');
+    try {
+      const r = await Auth.completeTermsConsent({ marketing: t3 });
+      if (!r || !r.ok) {
+        setErr((r && r.error) || '동의를 완료하지 못했어요.');
+        setBusy(false);
+        return;
+      }
+      location.replace(F.PAGES.my);
+    } catch (e) {
+      setErr((e && e.message) || '알 수 없는 오류');
+      setBusy(false);
+    }
+  };
+
+  const decline = async () => {
+    if (busy) return;
+    setBusy(true);
+    try {
+      await Auth.declineTermsConsent();
+    } catch (e) { /* ignore */ }
+    location.replace(F.PAGES.login);
+  };
+
+  if (!ready) {
+    return (
+      <F.Scaffold title="약관 동의" footer={false}>
+        <div className="fo-container narrow" style={{ padding: '48px 0', textAlign: 'center' }}>
+          <p className="fo-caption">잠시만 기다려 주세요…</p>
+        </div>
+      </F.Scaffold>
+    );
+  }
+
+  const docTitle =
+    doc === 'privacy' ? '개인정보 수집 · 이용 동의'
+      : doc === 'marketing' ? '마케팅 수신 동의'
+        : '이용약관';
+
+  return (
+    <F.Scaffold title="약관 동의" footer={false}>
+      <div data-screen-label="FO-08 소셜 약관 동의" className="fo-container narrow" style={{ padding: '0 0 40px' }}>
+        <div style={{ padding: '28px 0 18px' }}>
+          <h2 style={{ fontSize: 22, letterSpacing: '-0.6px', margin: 0 }}>약관에 동의해 주세요</h2>
+          <p style={{ fontSize: 14, color: 'var(--text-secondary)', lineHeight: 1.55, margin: '10px 0 0' }}>
+            {profile.name ? <span><b style={{ fontWeight: 600, color: 'var(--color-ink)' }}>{profile.name}</b>님, </span> : null}
+            소셜 계정으로 가입을 마치려면 필수 약관에 동의가 필요해요.
+          </p>
+          {profile.email ? (
+            <p className="fo-caption" style={{ marginTop: 8 }}>
+              로그인 ID · <span className="ds-mono">{profile.email}</span>
+            </p>
+          ) : null}
+        </div>
+
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+          <Checkbox
+            checked={t1 && t2 && t3}
+            onChange={(on) => { setT1(on); setT2(on); setT3(on); }}
+            label={<b style={{ fontWeight: 600 }}>전체 동의</b>}
+          />
+          <hr className="fo-hr" />
+          <F.LegalTermRow checked={t1} onChange={setT1} kind="terms" label="(필수) 이용약관 동의" onView={() => setDoc('terms')} />
+          <F.LegalTermRow checked={t2} onChange={setT2} kind="privacy" label="(필수) 개인정보 수집 · 이용 동의" onView={() => setDoc('privacy')} />
+          <F.LegalTermRow checked={t3} onChange={setT3} kind="marketing" label="(선택) 신보 소식 · 혜택 알림 수신 동의" onView={() => setDoc('marketing')} />
+          {err ? <p style={{ fontSize: 13, color: 'var(--status-danger)', margin: 0 }}>{err}</p> : null}
+          <Button variant="primary" size="lg" fullWidth disabled={!(t1 && t2) || busy} onClick={submit}>
+            {busy ? '처리 중…' : '동의하고 시작하기'}
+          </Button>
+          <Button variant="ghost" size="md" fullWidth disabled={busy} onClick={decline}>
+            동의하지 않음
+          </Button>
+          <p className="fo-caption" style={{ textAlign: 'center' }}>
+            동의하지 않으면 가입이 완료되지 않으며, 로그인 상태로 남지 않아요.
+          </p>
+        </div>
+      </div>
+
+      <F.Dialog open={!!doc} onClose={() => setDoc(null)} title={docTitle} wide>
+        {doc ? <F.LegalDocBody kind={doc} /> : null}
+      </F.Dialog>
+    </F.Scaffold>
+  );
+}
+
+window.ChodrumBoot.whenReady(() => {
+  ReactDOM.createRoot(document.getElementById('app')).render(<OAuthTermsPage />);
+});
+</script>
+</body>
+</html>

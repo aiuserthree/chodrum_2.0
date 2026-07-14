@@ -1,0 +1,2 @@
+cd "/Users/jhcho/Documents/개인 프로젝트/chodrum 2.0/html"
+python3 -m http.server 8765 --bind 127.0.0.1

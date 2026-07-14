@@ -1,0 +1,393 @@
+/* FO 공용 크롬 — 헤더 · 탭바 · 카드 · 배지 · 다이얼로그 (window.FO 로 노출) */
+const DS = window.DrumSheetStoreDesignSystem_3a2462;
+const { Button, IconButton, Card, Badge, Icon, Input, Checkbox } = DS;
+const DATA = window.DrumData;
+
+const PAGES = {
+  home: 'FO-01-home.html', list: 'FO-02-sheet-list.html', detail: 'FO-03-sheet-detail.html',
+  wish: 'FO-04-wishlist.html', cart: 'FO-05-cart.html', checkout: 'FO-06-checkout.html',
+  complete: 'FO-07-order-complete.html', login: 'FO-08-login.html', signup: 'FO-08-signup.html',
+  reset: 'FO-08-password-reset.html', my: 'FO-09-mypage.html', downloads: 'FO-09-mypage-downloads.html',
+  edit: 'FO-09-mypage-edit.html', withdraw: 'FO-09-mypage-withdraw.html', guest: 'FO-10-guest-lookup.html',
+  terms: 'FO-11-terms.html', privacy: 'FO-11-privacy.html', guide: 'FO-11-guide.html',
+  findId: 'FO-08-find-id.html',
+};
+
+const won = (v) => '₩' + Number(v).toLocaleString('ko-KR');
+const qp = (name) => new URLSearchParams(location.search).get(name);
+const goBack = (fallback) => { if (history.length > 1 && document.referrer) history.back(); else location.href = fallback || PAGES.home; };
+
+function toast(msg) {
+  let el = document.getElementById('fo-toast');
+  if (!el) { el = document.createElement('div'); el.id = 'fo-toast'; el.className = 'fo-toast'; document.body.appendChild(el); }
+  el.textContent = msg;
+  el.classList.add('show');
+  clearTimeout(el._t);
+  el._t = setTimeout(() => el.classList.remove('show'), 2000);
+}
+
+/* store:change 구독 → 리렌더 */
+function useStoreTick() {
+  const [, force] = React.useState(0);
+  React.useEffect(() => {
+    const f = () => force((n) => n + 1);
+    window.addEventListener('store:change', f);
+    return () => window.removeEventListener('store:change', f);
+  }, []);
+}
+
+function Money({ value, size = 16, weight = 600, color = 'var(--text-primary)', strike = false }) {
+  return (
+    <span className="ds-mono" style={{ fontSize: size, fontWeight: strike ? 400 : weight, color: strike ? 'var(--text-tertiary)' : color, textDecoration: strike ? 'line-through' : 'none' }}>{won(value)}</span>
+  );
+}
+
+function Stars({ value, size = 12 }) {
+  return (
+    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 3, color: 'var(--color-ink)' }}>
+      <Icon name="star" size={size} />
+      <span className="ds-mono" style={{ fontSize: 12, color: 'var(--text-secondary)' }}>{value.toFixed(1)}</span>
+    </span>
+  );
+}
+
+function StaffThumb({ ratio = '3 / 4', icon = 'music', size = 30, watermark = false, fill = false }) {
+  return (
+    <div style={{ position: 'relative', width: '100%', height: fill ? '100%' : 'auto', aspectRatio: fill ? 'auto' : ratio, background: '#f6f6f6', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
+      <div style={{ position: 'absolute', inset: 0, backgroundImage: 'repeating-linear-gradient(180deg, transparent 0 15px, #e7e7e7 15px 16px)', backgroundPosition: '0 14px' }}></div>
+      <Icon name={icon} size={size} style={{ color: '#cccccc', position: 'relative' }} />
+      {watermark ? (
+        <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', transform: 'rotate(-16deg)', fontFamily: 'var(--font-mono)', fontSize: 20, fontWeight: 500, letterSpacing: 3, color: 'rgba(0,0,0,0.055)', whiteSpace: 'nowrap' }}>미리보기 · PREVIEW · 미리보기</div>
+      ) : null}
+    </div>
+  );
+}
+
+/* 다운로드 잔여기간 뱃지 — 7~4일 녹색 / 3~2일 주황 / 1일 이하 빨강 / 만료 회색 */
+function DdayBadge({ dday }) {
+  if (dday === null || dday === undefined) return <Badge variant="neutral" size="sm">회수됨</Badge>;
+  if (dday < 0) return <Badge variant="neutral" size="sm">기간 만료</Badge>;
+  const v = dday >= 4 ? 'success' : dday >= 2 ? 'warning' : 'danger';
+  return <Badge variant={v} size="sm">D-{dday}</Badge>;
+}
+
+/* ---------------- 헤더 / 탭바 / 푸터 ---------------- */
+function CartIcon() {
+  useStoreTick();
+  const n = Store.cart.count();
+  return (
+    <a href={PAGES.cart} style={{ position: 'relative', display: 'inline-flex' }} aria-label="장바구니">
+      <IconButton name="shopping-cart" variant="ghost" label="장바구니" />
+      {n ? <span className="ds-mono" style={{ position: 'absolute', top: 2, right: 2, minWidth: 16, height: 16, padding: '0 4px', borderRadius: 9999, background: 'var(--color-ink)', color: '#fff', fontSize: 10, fontWeight: 600, display: 'flex', alignItems: 'center', justifyContent: 'center', pointerEvents: 'none' }}>{n}</span> : null}
+    </a>
+  );
+}
+
+/* GNB 프로필 호버 드롭다운 (데스크톱) */
+function UserMenu({ user }) {
+  const [open, setOpen] = React.useState(false);
+  const items = [
+    ['구매내역 / 다운로드', 'download', PAGES.downloads],
+    ['찜 목록', 'heart', PAGES.wish],
+    ['내 정보 수정', 'user', PAGES.edit],
+  ];
+  return (
+    <span style={{ position: 'relative', display: 'inline-flex' }} onMouseEnter={() => setOpen(true)} onMouseLeave={() => setOpen(false)}>
+      <Button variant="ghost" size="sm" iconLeft="user" iconRight="chevron-down" onClick={() => location.href = PAGES.my}>{user.name}</Button>
+      {open ? (
+        <div style={{ position: 'absolute', top: '100%', right: 0, paddingTop: 6, zIndex: 60 }}>
+          <div style={{ width: 208, background: 'var(--surface-card)', border: '1px solid var(--border-default)', borderRadius: 12, boxShadow: 'var(--shadow-xl)', padding: 6, display: 'flex', flexDirection: 'column' }}>
+            {items.map(([l, ic, href]) => (
+              <a key={l} href={href}
+                style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '9px 10px', borderRadius: 8, fontSize: 13.5, fontWeight: 500, color: 'var(--text-primary)', textDecoration: 'none', transition: 'background 100ms ease' }}
+                onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(0,0,0,0.04)'; }}
+                onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; }}>
+                <Icon name={ic} size={16} style={{ color: 'var(--color-icon)' }} />{l}
+              </a>
+            ))}
+          </div>
+        </div>
+      ) : null}
+    </span>
+  );
+}
+
+function Header({ tab, title, back }) {
+  useStoreTick();
+  const user = Store.user.get();
+  const search = (e) => { e.preventDefault(); const q = new FormData(e.target).get('q'); location.href = PAGES.list + (q ? '?q=' + encodeURIComponent(q) : ''); };
+  return (
+    <header className="fo-header">
+      <div className="fo-header-in">
+        {title ? <span className="fo-mobile" style={{ display: 'inline-flex' }}><IconButton name="chevron-left" variant="ghost" label="뒤로" onClick={() => goBack(back)} /></span> : null}
+        <a href={PAGES.home} className={'fo-wordmark' + (title ? ' fo-desktop' : '')}>
+          <img src="../shared/logo.png" alt="CHODRUM 로고" style={{ width: 32, height: 32, objectFit: 'contain', display: 'block', flex: 'none' }} />
+          CHODRUM
+        </a>
+        {title ? <span className="fo-header-title">{title}</span> : null}
+        <nav className="fo-nav">
+          <a href={PAGES.home} className={tab === 'home' ? 'on' : ''}>홈</a>
+          <a href={PAGES.list} className={tab === 'list' ? 'on' : ''}>악보</a>
+          <a href={PAGES.guest}>비회원 주문 조회</a>
+        </nav>
+        <form className="fo-header-search" onSubmit={search}>
+          <Input size="sm" name="q" iconLeft="search" placeholder="곡명, 아티스트 검색" />
+        </form>
+        <div className="fo-header-icons">
+          <span className="fo-mobile" style={{ display: 'inline-flex' }}><a href={PAGES.list} aria-label="검색"><IconButton name="search" variant="ghost" label="검색" /></a></span>
+          <a href={PAGES.wish} aria-label="찜 목록"><IconButton name="heart" variant="ghost" label="찜 목록" /></a>
+          <CartIcon />
+          <span className="fo-desktop" style={{ display: 'inline-flex', marginLeft: 6 }}>
+            {user
+              ? <UserMenu user={user} />
+              : <Button variant="secondary" size="sm" onClick={() => location.href = PAGES.login}>로그인</Button>}
+          </span>
+        </div>
+      </div>
+    </header>
+  );
+}
+
+function TabBar({ active }) {
+  useStoreTick();
+  const n = Store.cart.count();
+  const tabs = [
+    { k: 'home', ic: 'house', l: '홈', href: PAGES.home },
+    { k: 'list', ic: 'search', l: '악보', href: PAGES.list },
+    { k: 'cart', ic: 'shopping-cart', l: '장바구니', href: PAGES.cart },
+    { k: 'my', ic: 'user', l: '마이', href: PAGES.my },
+  ];
+  return (
+    <nav className="fo-tabbar">
+      {tabs.map((t) => (
+        <a key={t.k} href={t.href} className={'fo-tab' + (active === t.k ? ' on' : '')}>
+          <span style={{ position: 'relative', display: 'inline-flex' }}>
+            <Icon name={t.ic} size={22} />
+            {t.k === 'cart' && n ? <span className="ds-mono" style={{ position: 'absolute', top: -4, right: -8, minWidth: 15, height: 15, padding: '0 3px', borderRadius: 9999, background: 'var(--color-ink)', color: '#fff', fontSize: 9, fontWeight: 600, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>{n}</span> : null}
+          </span>
+          <span>{t.l}</span>
+        </a>
+      ))}
+    </nav>
+  );
+}
+
+function Footer() {
+  const FRow = ({ k, v, mono }) => (
+    <div style={{ display: 'flex', gap: 10, fontSize: 12.5, lineHeight: 1.6 }}>
+      <span style={{ width: 116, flex: 'none', color: 'var(--text-tertiary)' }}>{k}</span>
+      <span className={mono ? 'ds-mono' : ''} style={{ color: 'var(--text-secondary)' }}>{v}</span>
+    </div>
+  );
+  const FTitle = ({ children }) => <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 10, color: 'var(--text-primary)' }}>{children}</div>;
+  return (
+    <footer className="fo-footer">
+      <div className="fo-footer-in">
+        <div className="fo-footer-top">
+          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
+            <img src="../shared/logo.png" alt="CHODRUM 로고" style={{ width: 24, height: 24, objectFit: 'contain', display: 'block' }} />
+            <span style={{ fontSize: 15, fontWeight: 600, letterSpacing: '-0.3px' }}>CHODRUM</span>
+          </span>
+          <div className="fo-footer-links">
+            <a href={PAGES.guest}>비회원 주문 조회</a>
+            <a href={PAGES.terms}>이용약관</a>
+            <a href={PAGES.privacy} style={{ fontWeight: 600, color: 'var(--text-primary)' }}>개인정보처리방침</a>
+            <a href={PAGES.guide}>이용안내</a>
+          </div>
+        </div>
+
+        <div className="fo-footer-grid">
+          <div>
+            <FTitle>쇼핑몰 기본정보</FTitle>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
+              <FRow k="상호명" v="조드럼닷컴" />
+              <FRow k="대표자명" v="조준형" />
+              <FRow k="사업장 주소" v="14238 경기도 광명시 디지털로 63" />
+              <FRow k="대표 전화" v="010-9872-5784" mono />
+              <FRow k="사업자 등록번호" v={<span className="ds-mono">3663101280 <a href="#" style={{ fontSize: 12, whiteSpace: 'nowrap' }}>[사업자정보확인]</a></span>} />
+              <FRow k="통신판매업 신고번호" v="2023-경기광명-0200" mono />
+              <FRow k="개인정보보호책임자" v="조준형" />
+            </div>
+          </div>
+          <div>
+            <FTitle>고객센터 정보</FTitle>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
+              <FRow k="상담/주문 전화" v="010-9872-5784" mono />
+              <FRow k="상담/주문 이메일" v="chodrumstudio@gmail.com" mono />
+              <FRow k="CS운영시간" v={<span>평일 09:00 ~ 18:00<br />(주말, 공휴일 제외)</span>} />
+            </div>
+          </div>
+          <div>
+            <FTitle>결제정보</FTitle>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
+              <FRow k="무통장 계좌정보" v={<span>국민은행 <span className="ds-mono">82133700013678</span><br />조준형(조드럼닷컴)</span>} />
+            </div>
+          </div>
+        </div>
+
+        <div className="fo-footer-bottom">
+          <span className="fo-caption">Copyright © 조드럼닷컴. All Rights Reserved. Hosting by Cafe24 Corp.</span>
+          <div className="fo-footer-links">
+            <a href="https://instagram.com/cho.drum" target="_blank" rel="noreferrer">Instagram</a>
+            <a href="https://youtube.com/@chodrum" target="_blank" rel="noreferrer">YouTube</a>
+            <a href="https://pf.kakao.com/_hxdVWxj" target="_blank" rel="noreferrer">Kakao</a>
+            <a href="#">Facebook</a>
+            <a href="#">Twitter</a>
+            <a href="#">Blog</a>
+          </div>
+        </div>
+      </div>
+    </footer>
+  );
+}
+
+/* ---------------- 페이지 스캐폴드 ---------------- */
+function Scaffold({ tab, title, back, width, cta, children, footer = true }) {
+  React.useEffect(() => {
+    document.body.classList.toggle('has-tabbar', !!tab);
+    document.body.classList.toggle('has-cta', !!cta);
+  }, [tab, !!cta]);
+  return (
+    <div className="fo-page">
+      <Header tab={tab} title={title} back={back} />
+      <main className="fo-main">
+        <div className={'fo-container' + (width ? ' ' + width : '')}>{children}</div>
+      </main>
+      {footer ? <Footer /> : null}
+      {tab ? <TabBar active={tab} /> : null}
+      {cta ? <div className={'fo-ctabar' + (tab ? ' above-tabbar' : '')}>{cta}</div> : null}
+    </div>
+  );
+}
+
+/* ---------------- 상품 블록 ---------------- */
+function FavButton({ id, size = 'sm' }) {
+  useStoreTick();
+  const on = Store.fav.has(id);
+  return (
+    <IconButton name="heart" round size={size} variant="secondary" label="찜하기"
+      style={on ? { color: 'var(--status-danger)' } : undefined}
+      onClick={(e) => { e.stopPropagation(); const added = Store.fav.toggle(id); toast(added ? '찜 목록에 담았어요' : '찜을 해제했어요'); }} />
+  );
+}
+
+function SheetCard({ s }) {
+  return (
+    <Card interactive padding={0} onClick={() => location.href = PAGES.detail + '?id=' + s.id} style={{ overflow: 'hidden' }}>
+      <div style={{ position: 'relative' }}>
+        <StaffThumb />
+        <div style={{ position: 'absolute', top: 8, left: 8, display: 'flex', gap: 4 }}>
+          {s.popular ? <Badge variant="solid" size="sm">인기</Badge> : null}
+          {s.isNew ? <Badge variant="solid" size="sm">NEW</Badge> : null}
+        </div>
+        <span style={{ position: 'absolute', top: 6, right: 6 }} onClick={(e) => e.stopPropagation()}><FavButton id={s.id} /></span>
+      </div>
+      <div style={{ padding: '10px 12px 12px', display: 'flex', flexDirection: 'column', gap: 5 }}>
+        <div style={{ fontSize: 14, fontWeight: 600, letterSpacing: '-0.3px', lineHeight: 1.3, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{s.title}</div>
+        <div style={{ fontSize: 12, color: 'var(--text-secondary)' }}>{s.artist}</div>
+        <div style={{ display: 'flex', gap: 4, marginTop: 1 }}>
+          <Badge variant="outline" size="sm">{s.level}</Badge>
+          <Badge variant="neutral" size="sm">{s.genre}</Badge>
+        </div>
+        <div style={{ marginTop: 3, display: 'flex', alignItems: 'baseline', gap: 6 }}>
+          <Money value={s.price} size={16} />
+          {s.orig ? <Money value={s.orig} size={12} strike /> : null}
+        </div>
+      </div>
+    </Card>
+  );
+}
+
+function SheetRow({ s, right, sub, href }) {
+  const open = href === null ? undefined : () => location.href = href || (PAGES.detail + '?id=' + s.id);
+  return (
+    <div style={{ display: 'flex', gap: 12, padding: '14px 0', alignItems: 'center' }}>
+      <div onClick={open} style={{ width: 56, flex: 'none', borderRadius: 8, overflow: 'hidden', border: '1px solid var(--border-default)', cursor: open ? 'pointer' : 'default' }}><StaffThumb ratio="1 / 1" size={20} /></div>
+      <div onClick={open} style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 3, cursor: open ? 'pointer' : 'default' }}>
+        <div style={{ fontSize: 14, fontWeight: 600, letterSpacing: '-0.3px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{s.title}</div>
+        {sub !== undefined ? sub : <div style={{ fontSize: 12, color: 'var(--text-secondary)' }}>{s.artist} · {s.genre}</div>}
+      </div>
+      {right}
+    </div>
+  );
+}
+
+function SectionHeader({ title, action, href, style }) {
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14, ...style }}>
+      <h4 style={{ fontSize: 18, fontWeight: 600, letterSpacing: '-0.4px' }}>{title}</h4>
+      {action ? (
+        <a href={href} style={{ color: 'var(--text-secondary)', fontSize: 13, display: 'inline-flex', alignItems: 'center', gap: 1 }}>
+          {action}<Icon name="chevron-right" size={14} />
+        </a>
+      ) : null}
+    </div>
+  );
+}
+
+function Section({ label, children, first }) {
+  return (
+    <section style={{ paddingTop: first ? 20 : 26 }}>
+      <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-secondary)', marginBottom: 10, letterSpacing: '-0.2px' }}>{label}</div>
+      {children}
+    </section>
+  );
+}
+
+function KV({ k, v }) {
+  return (
+    <div className="fo-kv">
+      <span style={{ color: typeof k === 'string' ? 'var(--text-secondary)' : 'inherit' }}>{k}</span>{v}
+    </div>
+  );
+}
+
+function Empty({ icon, title, sub, action, href, onAction }) {
+  return (
+    <div style={{ padding: '64px 32px', display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', gap: 10 }}>
+      <span style={{ color: 'var(--color-icon)', opacity: 0.6 }}><Icon name={icon} size={40} /></span>
+      <div style={{ fontSize: 16, fontWeight: 600 }}>{title}</div>
+      {sub ? <div style={{ fontSize: 13, color: 'var(--text-secondary)', lineHeight: 1.5, maxWidth: 300 }}>{sub}</div> : null}
+      {action ? <div style={{ marginTop: 8 }}><Button variant="secondary" size="md" onClick={onAction || (() => location.href = href)}>{action}</Button></div> : null}
+    </div>
+  );
+}
+
+function PayOption({ id, label, sub, cur, onPick }) {
+  const on = cur === id;
+  return (
+    <button onClick={() => onPick(id)} style={{ display: 'flex', alignItems: 'center', gap: 10, width: '100%', padding: '13px 14px', textAlign: 'left', background: 'var(--surface-card)', border: '1px solid ' + (on ? 'var(--color-ink)' : 'var(--border-default)'), borderRadius: 'var(--radius-lg)', cursor: 'pointer', boxShadow: on ? '0 0 0 3px var(--focus-ring)' : 'none', transition: 'border-color 100ms ease' }}>
+      <span style={{ width: 18, height: 18, flex: 'none', borderRadius: 9999, border: '2px solid ' + (on ? 'var(--color-ink)' : 'var(--border-strong)'), display: 'flex', alignItems: 'center', justifyContent: 'center' }}>{on ? <span style={{ width: 9, height: 9, borderRadius: 9999, background: 'var(--color-ink)' }}></span> : null}</span>
+      <span style={{ fontSize: 14, fontWeight: 500 }}>{label}</span>
+      {sub ? <span style={{ marginLeft: 'auto', fontSize: 12, color: 'var(--text-secondary)' }}>{sub}</span> : null}
+    </button>
+  );
+}
+
+function Dialog({ open, onClose, title, children }) {
+  if (!open) return null;
+  return (
+    <div className="fo-scrim" onClick={onClose}>
+      <div className="fo-dialog" onClick={(e) => e.stopPropagation()}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
+          <span style={{ fontSize: 17, fontWeight: 600, letterSpacing: '-0.4px' }}>{title}</span>
+          <IconButton name="x" variant="ghost" size="sm" label="닫기" onClick={onClose} />
+        </div>
+        {children}
+      </div>
+    </div>
+  );
+}
+
+/* 화면 상태 미리보기 토글 (설계 검토용) */
+function PreviewToggle({ label = '화면 상태 미리보기', options, value, onChange }) {
+  const { Chip } = DS;
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', padding: '10px 12px', background: 'var(--surface-sunken)', border: '1px dashed var(--border-strong)', borderRadius: 8, marginTop: 16 }}>
+      <span className="ds-mono" style={{ fontSize: 11, color: 'var(--text-tertiary)', letterSpacing: '0.4px' }}>{label}</span>
+      {options.map((o) => <Chip key={o} selected={value === o} onClick={() => onChange(o)}>{o}</Chip>)}
+    </div>
+  );
+}
+
+window.FO = { PAGES, won, qp, goBack, toast, useStoreTick, Money, Stars, StaffThumb, DdayBadge, Header, TabBar, Footer, Scaffold, FavButton, SheetCard, SheetRow, SectionHeader, Section, KV, Empty, PayOption, Dialog, PreviewToggle };

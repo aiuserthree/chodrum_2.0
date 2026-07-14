@@ -1,0 +1,63 @@
+/* ============================================================
+   COLORS — Drum Sheet Store
+   A near-monochrome "blueprint" palette. All chrome is achromatic;
+   colour enters only through content (sheet-music thumbnails) and a
+   restrained functional-status set (see bottom).
+   ============================================================ */
+
+:root {
+  /* --- Base achromatic palette ------------------------------ */
+  --color-paper-white: #ffffff; /* text on dark buttons, pill/button fills */
+  --color-canvas:      #fafafa; /* primary page background */
+  --color-line:        #eaeaea; /* borders: headers, ghost buttons, dividers */
+  --color-subtext:     #666666; /* secondary text, nav links, placeholders */
+  --color-icon:        #7d7d7d; /* inactive icons, tertiary UI */
+  --color-ink:         #171717; /* primary text, headlines, primary fills */
+  --color-onyx:        #000000; /* highest-contrast text, wordmark, icons */
+
+  /* --- Semantic: surfaces ----------------------------------- */
+  --surface-page:    var(--color-canvas);
+  --surface-card:    var(--color-paper-white);
+  --surface-raised:  var(--color-paper-white);
+  --surface-sunken:  var(--color-canvas);
+  --surface-inverse: var(--color-ink);
+
+  /* --- Semantic: text --------------------------------------- */
+  --text-primary:     var(--color-ink);
+  --text-secondary:   var(--color-subtext);
+  --text-tertiary:    var(--color-icon);
+  --text-placeholder: var(--color-subtext);
+  --text-on-inverse:  var(--color-paper-white);
+  --text-link:        var(--color-ink);
+
+  /* --- Semantic: borders ------------------------------------ */
+  --border-default: var(--color-line);              /* 1px solid dividers */
+  --border-faint:   rgba(0, 0, 0, 0.08);            /* pill / chip hairline */
+  --border-strong:  rgba(0, 0, 0, 0.14);            /* emphasised outline */
+
+  /* --- Semantic: interactive -------------------------------- */
+  --action-primary:        var(--color-ink);
+  --action-primary-hover:  var(--color-onyx);
+  --action-primary-text:   var(--color-paper-white);
+  --action-secondary-bg:   var(--color-paper-white);
+  --action-secondary-text: var(--color-ink);
+  --action-ghost-text:     var(--color-subtext);
+  --action-ghost-hover:    var(--color-ink);
+  --action-disabled-bg:    #f2f2f2;
+  --action-disabled-text:  #b8b8b8;
+  --focus-ring:            rgba(0, 0, 0, 0.16);      /* subtle outer glow */
+
+  /* --- Functional status (INTENTIONAL ADDITION) -------------
+     Not part of the extracted achromatic tokens. Added for an
+     e-commerce product: payment success, errors, download-expiry
+     warnings, info. Use SPARINGLY — small text, dots, badges —
+     never as page or component chrome. Documented in readme.md. */
+  --status-success:    #128a5b;
+  --status-success-bg: #ecf6f1;
+  --status-danger:     #c0362c;
+  --status-danger-bg:  #fbeceb;
+  --status-warning:    #a6650a;
+  --status-warning-bg: #fbf1e3;
+  --status-info:       var(--color-ink);
+  --status-info-bg:    #f1f1f1;
+}

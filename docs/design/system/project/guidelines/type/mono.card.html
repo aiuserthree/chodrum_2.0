@@ -1,0 +1,22 @@
+<!-- @dsCard group="Type" viewport="700x150" name="Mono & tabular numerals" subtitle="Geist Mono — prices, counts, technical annotations" -->
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<link rel="stylesheet" href="../../styles.css">
+<style>
+  body { margin: 0; padding: 24px; display: flex; align-items: center; }
+  .grid { display: flex; gap: 32px; align-items: baseline; width: 100%; }
+  .blk { display: flex; flex-direction: column; gap: 6px; }
+  .big { font-family: var(--font-mono); font-variant-numeric: tabular-nums; font-feature-settings: "zero"; color: var(--text-primary); }
+  .t { font-family: var(--font-mono); font-size: 10px; color: var(--text-secondary); }
+</style>
+</head>
+<body>
+  <div class="grid">
+    <div class="blk"><span class="big" style="font-size:32px">₩12,000</span><span class="t">price · tabular</span></div>
+    <div class="blk"><span class="big" style="font-size:32px">0123456789</span><span class="t">slashed zero · "zero"</span></div>
+    <div class="blk"><span class="big" style="font-size:13px;color:var(--text-secondary)">ORD-20260713-0042</span><span class="t">caption · 10–13px</span></div>
+  </div>
+</body>
+</html>

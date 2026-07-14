@@ -1,0 +1,25 @@
+<!-- @dsCard group="Spacing" viewport="700x170" name="Radius" subtitle="chips 6 · buttons 8 · cards & inputs 12 · pills 9999" -->
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<link rel="stylesheet" href="../../styles.css">
+<style>
+  body { margin: 0; padding: 24px; display: flex; align-items: center; }
+  .row { display: flex; gap: 20px; width: 100%; }
+  .blk { display: flex; flex-direction: column; gap: 8px; align-items: center; flex: 1; }
+  .box { width: 100%; height: 60px; background: var(--surface-card); box-shadow: inset 0 0 0 1px var(--border-strong); }
+  .t { font-family: var(--font-mono); font-size: 10px; color: var(--text-secondary); }
+  .n { font-size: 12px; font-weight: 500; }
+</style>
+</head>
+<body>
+  <div class="row">
+    <div class="blk"><div class="box" style="border-radius:6px"></div><div class="n">chips</div><div class="t">6px</div></div>
+    <div class="blk"><div class="box" style="border-radius:8px"></div><div class="n">buttons</div><div class="t">8px</div></div>
+    <div class="blk"><div class="box" style="border-radius:12px"></div><div class="n">cards · inputs</div><div class="t">12px</div></div>
+    <div class="blk"><div class="box" style="border-radius:16px"></div><div class="n">2xl</div><div class="t">16px</div></div>
+    <div class="blk"><div class="box" style="border-radius:9999px"></div><div class="n">pills</div><div class="t">9999px</div></div>
+  </div>
+</body>
+</html>

@@ -1,0 +1,25 @@
+<!-- @dsCard group="Colors" viewport="700x184" name="Functional status" subtitle="Intentional addition — used only for status, never chrome" -->
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<link rel="stylesheet" href="../../styles.css">
+<style>
+  body { margin: 0; padding: 24px; }
+  .row { display: flex; gap: 10px; }
+  .pill { flex: 1; display: flex; align-items: center; gap: 8px; padding: 10px 12px; border-radius: var(--radius-lg); font-size: 13px; font-weight: 500; }
+  .dot { width: 8px; height: 8px; border-radius: 9999px; flex: none; }
+  .note { margin-top: 14px; font-size: 12px; color: var(--text-secondary); line-height: 1.5; }
+  .note b { color: var(--text-primary); font-weight: 500; }
+</style>
+</head>
+<body>
+  <div class="row">
+    <div class="pill" style="background:var(--status-success-bg);color:var(--status-success)"><span class="dot" style="background:var(--status-success)"></span>결제 완료</div>
+    <div class="pill" style="background:var(--status-warning-bg);color:var(--status-warning)"><span class="dot" style="background:var(--status-warning)"></span>다운로드 D-2</div>
+    <div class="pill" style="background:var(--status-danger-bg);color:var(--status-danger)"><span class="dot" style="background:var(--status-danger)"></span>기간 만료</div>
+    <div class="pill" style="background:var(--status-info-bg);color:var(--status-info)"><span class="dot" style="background:var(--status-info)"></span>처리 중</div>
+  </div>
+  <div class="note">Restraint rule: colour signals <b>status only</b> — small badges, dots and inline text. Page and component chrome stay achromatic.</div>
+</body>
+</html>

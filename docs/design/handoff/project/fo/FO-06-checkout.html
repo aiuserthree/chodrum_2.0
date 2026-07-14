@@ -1,0 +1,172 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>CHODRUM — 주문 / 결제</title>
+<link rel="stylesheet" href="../_ds/drum-sheet-store-design-system-3a2462a0-2443-475e-a3b6-f7937913eb0b/tokens/colors.css">
+<link rel="stylesheet" href="../_ds/drum-sheet-store-design-system-3a2462a0-2443-475e-a3b6-f7937913eb0b/tokens/typography.css">
+<link rel="stylesheet" href="../_ds/drum-sheet-store-design-system-3a2462a0-2443-475e-a3b6-f7937913eb0b/tokens/spacing.css">
+<link rel="stylesheet" href="../_ds/drum-sheet-store-design-system-3a2462a0-2443-475e-a3b6-f7937913eb0b/tokens/radius.css">
+<link rel="stylesheet" href="../_ds/drum-sheet-store-design-system-3a2462a0-2443-475e-a3b6-f7937913eb0b/tokens/elevation.css">
+<link rel="stylesheet" href="../_ds/drum-sheet-store-design-system-3a2462a0-2443-475e-a3b6-f7937913eb0b/tokens/base.css">
+<link rel="stylesheet" href="../_ds/drum-sheet-store-design-system-3a2462a0-2443-475e-a3b6-f7937913eb0b/styles.css">
+<link rel="stylesheet" href="../shared/fo.css">
+</head>
+<body class="fo-body">
+<div id="app"></div>
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+<script src="../_ds/drum-sheet-store-design-system-3a2462a0-2443-475e-a3b6-f7937913eb0b/_ds_bundle.js"></script>
+<script src="../shared/data.js"></script>
+<script src="../shared/store.js"></script>
+<script type="text/babel" src="fo-shared.jsx"></script>
+<script type="text/babel">
+/* FO-06 주문/결제 — 장바구니 경유 필수 · 회원 자동입력 / 비회원 이메일 재확인 · PG 결제 */
+const DS = window.DrumSheetStoreDesignSystem_3a2462;
+const { Button, Icon, Input, Checkbox, Card, Badge } = DS;
+const F = window.FO;
+const D = window.DrumData;
+
+function CheckoutPage() {
+  const user = Store.user.get();
+  const selParam = F.qp('sel');
+  const asGuest = F.qp('as') === 'guest';
+  const cart = Store.cart.list();
+  const ids = (selParam ? selParam.split(',') : cart.map((c) => c.id)).filter((id) => cart.some((c) => c.id === id));
+  const items = ids.map((id) => { const c = cart.find((x) => x.id === id); return { ...D.byId(id), qty: c.qty }; });
+  const total = items.reduce((n, it) => n + it.price * it.qty, 0);
+
+  const [mode, setMode] = React.useState(user && !asGuest ? '회원' : '비회원');
+  const member = mode === '회원';
+  const demoUser = user || { name: '김드럼', email: 'kim@example.com', provider: 'email' };
+
+  const [name, setName] = React.useState('');
+  const [phone, setPhone] = React.useState('');
+  const [email, setEmail] = React.useState('');
+  const [email2, setEmail2] = React.useState('');
+  const [pay, setPay] = React.useState('card');
+  const [a1, setA1] = React.useState(false);
+  const [a2, setA2] = React.useState(false);
+  const [a3, setA3] = React.useState(false);
+
+  /* S-07: 장바구니 미경유(결제 대상 없음) → 진입 차단 */
+  if (!items.length) {
+    return (
+      <F.Scaffold title="주문 / 결제" back={F.PAGES.cart}>
+        <div data-screen-label="FO-06 주문/결제 (진입 차단)">
+          <F.Empty icon="shopping-cart" title="장바구니를 통해 결제를 진행해주세요" sub="결제할 상품이 선택되지 않았어요. 모든 결제는 장바구니를 거쳐야 해요." action="장바구니로 이동" href={F.PAGES.cart} />
+        </div>
+      </F.Scaffold>
+    );
+  }
+
+  const emailOk = /.+@.+\..+/.test(email);
+  const emailMatch = email2.length > 0 && email === email2;
+  const guestOk = name.trim().length > 0 && emailOk && emailMatch;
+  const canPay = (member || guestOk) && a1 && a2;
+  const allAgree = a1 && a2 && a3;
+  const setAll = (on) => { setA1(on); setA2(on); setA3(on); };
+
+  const doPay = () => {
+    const order = {
+      no: window.orderNo(),
+      date: new Date().toLocaleString('ko-KR', { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }),
+      items: items.map((it) => ({ id: it.id, qty: it.qty, price: it.price })),
+      total: total,
+      method: { card: '신용 / 체크카드', kakao: '카카오페이', naver: '네이버페이', bank: '계좌이체' }[pay],
+      guest: !member,
+      email: member ? demoUser.email : email,
+      buyer: member ? demoUser.name : name,
+    };
+    Store.lastOrder.set(order);
+    if (member) {
+      Store.purchases.add(items.map((it) => ({ id: it.id, orderNo: order.no, paidAt: Date.now() })));
+    } else {
+      Store.guestOrders.add(email, { orderNo: order.no, date: order.date, items: items.map((it) => ({ id: it.id, dday: 7 })) });
+    }
+    Store.cart.remove(ids);
+    location.href = F.PAGES.complete;
+  };
+
+  const payBtn = (size) => <Button variant="primary" size={size} fullWidth disabled={!canPay} onClick={doPay}>{F.won(total)} 결제하기</Button>;
+
+  return (
+    <F.Scaffold title="주문 / 결제" back={F.PAGES.cart} cta={payBtn('lg')}>
+      <div data-screen-label="FO-06 주문/결제" className="fo-two" style={{ paddingTop: 4 }}>
+        <div>
+          {!user ? <F.PreviewToggle options={['회원', '비회원']} value={mode} onChange={setMode} /> : null}
+
+          <F.Section label="주문자 정보" first>
+            {member ? (
+              <Card padding={16} style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                <F.KV k="이름" v={<span style={{ fontWeight: 500 }}>{demoUser.name}</span>} />
+                <F.KV k="이메일" v={<span className="ds-mono" style={{ fontSize: 13 }}>{demoUser.email}</span>} />
+                <p className="fo-caption" style={{ display: 'flex', alignItems: 'center', gap: 6 }}><Icon name="check" size={13} style={{ color: 'var(--status-success)' }} />회원 정보로 자동 입력되었어요. 구매 내역은 마이페이지에 저장돼요.</p>
+              </Card>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                <Input label="이름" placeholder="주문자 이름" value={name} onChange={(e) => setName(e.target.value)} />
+                <Input label="연락처 (선택)" type="tel" placeholder="010-0000-0000" value={phone} onChange={(e) => setPhone(e.target.value)} />
+                <Input label="이메일 (다운로드 조회용)" type="email" placeholder="you@example.com" value={email} onChange={(e) => setEmail(e.target.value)} hint="비회원은 이 이메일로만 다운로드를 조회할 수 있어요." />
+                <Input label="이메일 재확인" type="email" placeholder="이메일을 한 번 더 입력하세요" value={email2} onChange={(e) => setEmail2(e.target.value)} error={email2 && !emailMatch ? '이메일이 서로 달라요. 다시 확인해주세요.' : undefined} hint={emailMatch ? '이메일이 일치해요.' : undefined} />
+                <div style={{ display: 'flex', gap: 8, padding: '12px 14px', background: 'var(--status-warning-bg)', borderRadius: 'var(--radius-lg)', alignItems: 'flex-start' }}>
+                  <Icon name="triangle-alert" size={15} style={{ color: 'var(--status-warning)', marginTop: 1, flex: 'none' }} />
+                  <span style={{ fontSize: 12.5, lineHeight: 1.55, color: 'var(--text-primary)' }}>이메일을 잘못 입력하면 <b>구매한 악보를 조회할 수 없어요.</b> 결제 전 꼭 다시 확인해주세요.</span>
+                </div>
+              </div>
+            )}
+          </F.Section>
+
+          <F.Section label={'주문 상품 ' + items.length + '건'}>
+            <Card padding={16} style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+              {items.map((it) => (
+                <div key={it.id} className="fo-kv">
+                  <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', paddingRight: 8 }}>{it.title} <span style={{ color: 'var(--text-secondary)' }}>×{it.qty}</span></span>
+                  <F.Money value={it.price * it.qty} size={14} weight={500} />
+                </div>
+              ))}
+              <p className="fo-caption" style={{ marginTop: 2 }}>PDF · 결제일로부터 7일간 다운로드</p>
+            </Card>
+          </F.Section>
+
+          <F.Section label="결제 수단">
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+              <F.PayOption id="card" label="신용 / 체크카드" cur={pay} onPick={setPay} />
+              <F.PayOption id="kakao" label="카카오페이" cur={pay} onPick={setPay} />
+              <F.PayOption id="naver" label="네이버페이" cur={pay} onPick={setPay} />
+              <F.PayOption id="bank" label="계좌이체" cur={pay} onPick={setPay} />
+            </div>
+            <p className="fo-caption" style={{ marginTop: 8 }}>PG사 결제창으로 이동해 안전하게 결제돼요.</p>
+          </F.Section>
+
+          <F.Section label="약관 동의">
+            <Card padding={16} style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+              <Checkbox checked={allAgree} onChange={setAll} label={<b style={{ fontWeight: 600 }}>전체 동의</b>} />
+              <hr className="fo-hr" />
+              <Checkbox checked={a1} onChange={setA1} label="(필수) 구매조건 및 결제 진행 동의" />
+              <Checkbox checked={a2} onChange={setA2} label="(필수) 디지털 콘텐츠 · 환불 정책 동의" />
+              <Checkbox checked={a3} onChange={setA3} label="(선택) 신보 소식 · 혜택 알림 수신 동의" />
+            </Card>
+          </F.Section>
+        </div>
+
+        <div className="fo-side-sticky">
+          <Card padding={16} style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 20 }}>
+            <F.KV k="총 상품금액" v={<F.Money value={total} size={14} weight={500} />} />
+            <F.KV k="수수료" v={<span style={{ fontSize: 14, color: 'var(--text-secondary)' }}>무료</span>} />
+            <hr className="fo-hr" style={{ margin: '4px 0' }} />
+            <F.KV k={<span style={{ fontWeight: 600 }}>총 결제금액</span>} v={<F.Money value={total} size={20} />} />
+            <div className="fo-desktop" style={{ marginTop: 8 }}>{payBtn('lg')}</div>
+            <p className="fo-caption">결제 완료 시점부터 7일 다운로드 기간이 시작돼요. 결제 실패 시 장바구니는 그대로 유지돼요.</p>
+          </Card>
+        </div>
+      </div>
+    </F.Scaffold>
+  );
+}
+ReactDOM.createRoot(document.getElementById('app')).render(<CheckoutPage />);
+</script>
+</body>
+</html>

@@ -1,0 +1,88 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>CHODRUM Admin — 카테고리 / 장르 관리</title>
+<link rel="stylesheet" href="../_ds/drum-sheet-store-design-system-3a2462a0-2443-475e-a3b6-f7937913eb0b/tokens/colors.css">
+<link rel="stylesheet" href="../_ds/drum-sheet-store-design-system-3a2462a0-2443-475e-a3b6-f7937913eb0b/tokens/typography.css">
+<link rel="stylesheet" href="../_ds/drum-sheet-store-design-system-3a2462a0-2443-475e-a3b6-f7937913eb0b/tokens/spacing.css">
+<link rel="stylesheet" href="../_ds/drum-sheet-store-design-system-3a2462a0-2443-475e-a3b6-f7937913eb0b/tokens/radius.css">
+<link rel="stylesheet" href="../_ds/drum-sheet-store-design-system-3a2462a0-2443-475e-a3b6-f7937913eb0b/tokens/elevation.css">
+<link rel="stylesheet" href="../_ds/drum-sheet-store-design-system-3a2462a0-2443-475e-a3b6-f7937913eb0b/tokens/base.css">
+<link rel="stylesheet" href="../_ds/drum-sheet-store-design-system-3a2462a0-2443-475e-a3b6-f7937913eb0b/styles.css">
+<link rel="stylesheet" href="../shared/bo.css">
+</head>
+<body class="bo-body">
+<div id="app"></div>
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+<script src="../_ds/drum-sheet-store-design-system-3a2462a0-2443-475e-a3b6-f7937913eb0b/_ds_bundle.js"></script>
+<script src="../shared/data.js"></script>
+<script type="text/babel" src="bo-shared.jsx"></script>
+<script type="text/babel">
+/* BO-02-03 카테고리/난이도/장르 관리 — 추가/삭제 · 홈 노출 설정 */
+const DS = window.DrumSheetStoreDesignSystem_3a2462;
+const { Button, IconButton, Card, Badge, Input, Checkbox, Icon } = DS;
+const B = window.BO;
+const D = window.DrumData;
+
+function ManageList({ title, hint, items, setItems, countOf, showExpose }) {
+  const [input, setInput] = React.useState('');
+  const add = () => {
+    const v = input.trim();
+    if (!v) return;
+    if (items.some((it) => it.name === v)) { B.toast('이미 있는 항목이에요'); return; }
+    setItems([...items, { name: v, on: true }]);
+    setInput('');
+    B.toast('「' + v + '」 항목을 추가했어요');
+  };
+  return (
+    <Card padding={0}>
+      <B.CardHead title={title} right={<span className="ds-mono" style={{ fontSize: 12, color: 'var(--text-secondary)' }}>{items.length}개</span>} />
+      <div style={{ padding: '0 18px 6px', display: 'flex', flexDirection: 'column' }}>
+        {items.map((it, i) => (
+          <div key={it.name} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '11px 0', borderTop: i ? '1px solid var(--border-default)' : 'none' }}>
+            <Icon name="grip-vertical" size={14} style={{ color: 'var(--color-icon)', opacity: 0.6 }} />
+            <span style={{ fontSize: 14, fontWeight: 500, flex: 1 }}>{it.name}</span>
+            {countOf ? <span className="ds-mono" style={{ fontSize: 11.5, color: 'var(--text-tertiary)' }}>{countOf(it.name)}곡</span> : null}
+            {showExpose ? <Checkbox checked={it.on} onChange={(on) => setItems(items.map((x) => x.name === it.name ? { ...x, on } : x))} label={<span style={{ fontSize: 12, color: 'var(--text-secondary)' }}>홈 노출</span>} /> : null}
+            <IconButton name="trash-2" variant="ghost" size="sm" label="삭제" onClick={() => { setItems(items.filter((x) => x.name !== it.name)); B.toast('삭제했어요'); }} />
+          </div>
+        ))}
+      </div>
+      <div style={{ display: 'flex', gap: 8, padding: '12px 18px 16px', borderTop: '1px solid var(--border-default)' }}>
+        <div style={{ flex: 1 }}><Input size="sm" placeholder="새 항목 이름" value={input} onChange={(e) => setInput(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && add()} /></div>
+        <Button variant="secondary" size="sm" iconLeft="plus" onClick={add}>추가</Button>
+      </div>
+      {hint ? <p style={{ fontSize: 12, color: 'var(--text-secondary)', padding: '0 18px 16px', lineHeight: 1.5 }}>{hint}</p> : null}
+    </Card>
+  );
+}
+
+function CategoriesPage() {
+  const [genres, setGenres] = React.useState(D.genres.map((g) => ({ name: g, on: true })));
+  const [levels, setLevels] = React.useState(D.levels.map((l) => ({ name: l, on: true })));
+  return (
+    <B.Shell active="categories" title="카테고리 / 장르 관리">
+      <div data-screen-label="BO-02-03 카테고리 관리" style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+        <div className="bo-cards2">
+          <ManageList title="장르" items={genres} setItems={setGenres} showExpose
+            countOf={(g) => D.sheets.filter((s) => s.genre === g).length}
+            hint="장르를 삭제해도 해당 악보는 삭제되지 않아요. 미분류 상태가 되며 악보 관리에서 재지정할 수 있어요." />
+          <ManageList title="난이도" items={levels} setItems={setLevels}
+            countOf={(l) => D.sheets.filter((s) => s.level === l).length}
+            hint="난이도는 목록 필터와 악보 카드 뱃지에 사용돼요. 순서대로 노출돼요." />
+        </div>
+        <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+          <Button variant="primary" size="md" iconLeft="check" onClick={() => B.toast('카테고리 설정을 저장했어요')}>변경사항 저장</Button>
+        </div>
+      </div>
+    </B.Shell>
+  );
+}
+ReactDOM.createRoot(document.getElementById('app')).render(<CategoriesPage />);
+</script>
+</body>
+</html>

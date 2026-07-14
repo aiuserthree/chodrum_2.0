@@ -1,0 +1,94 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>CHODRUM — 로그인</title>
+<link rel="stylesheet" href="../_ds/drum-sheet-store-design-system-3a2462a0-2443-475e-a3b6-f7937913eb0b/tokens/colors.css">
+<link rel="stylesheet" href="../_ds/drum-sheet-store-design-system-3a2462a0-2443-475e-a3b6-f7937913eb0b/tokens/typography.css">
+<link rel="stylesheet" href="../_ds/drum-sheet-store-design-system-3a2462a0-2443-475e-a3b6-f7937913eb0b/tokens/spacing.css">
+<link rel="stylesheet" href="../_ds/drum-sheet-store-design-system-3a2462a0-2443-475e-a3b6-f7937913eb0b/tokens/radius.css">
+<link rel="stylesheet" href="../_ds/drum-sheet-store-design-system-3a2462a0-2443-475e-a3b6-f7937913eb0b/tokens/elevation.css">
+<link rel="stylesheet" href="../_ds/drum-sheet-store-design-system-3a2462a0-2443-475e-a3b6-f7937913eb0b/tokens/base.css">
+<link rel="stylesheet" href="../_ds/drum-sheet-store-design-system-3a2462a0-2443-475e-a3b6-f7937913eb0b/styles.css">
+<link rel="stylesheet" href="../shared/fo.css">
+</head>
+<body class="fo-body">
+<div id="app"></div>
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+<script src="../_ds/drum-sheet-store-design-system-3a2462a0-2443-475e-a3b6-f7937913eb0b/_ds_bundle.js"></script>
+<script src="../shared/data.js"></script>
+<script src="../shared/store.js"></script>
+<script type="text/babel" src="fo-shared.jsx"></script>
+<script type="text/babel">
+/* FO-08-01 로그인 — 소셜(구글/네이버/카카오) 상단 배치 + 이메일 로그인 */
+const DS = window.DrumSheetStoreDesignSystem_3a2462;
+const { Button, Input, Divider, SocialButton, Icon } = DS;
+const F = window.FO;
+
+const SOCIAL_NAMES = { kakao: '최스틱', naver: '이비트', google: '박리듬' };
+const SOCIAL_EMAILS = { kakao: 'choi@kakao.com', naver: 'lee@naver.com', google: 'park@gmail.com' };
+
+function LoginPage() {
+  const [email, setEmail] = React.useState('');
+  const [pw, setPw] = React.useState('');
+  const [err, setErr] = React.useState('');
+
+  const socialLogin = (provider) => {
+    /* 소셜 인증 → 이메일/계정이 로그인 ID (비밀번호 없음) */
+    Store.user.set({ type: 'social', provider, name: SOCIAL_NAMES[provider], email: SOCIAL_EMAILS[provider] });
+    location.href = F.PAGES.my;
+  };
+  const emailLogin = (e) => {
+    e.preventDefault();
+    if (!/.+@.+\..+/.test(email) || pw.length < 1) { setErr('이메일 또는 비밀번호를 확인해주세요.'); return; }
+    Store.user.set({ type: 'email', provider: 'email', name: '김드럼', email });
+    location.href = F.PAGES.my;
+  };
+
+  return (
+    <F.Scaffold title="로그인" back={F.PAGES.home} footer={false}>
+      <div data-screen-label="FO-08-01 로그인" className="fo-container narrow" style={{ padding: '0 0 40px' }}>
+        <div style={{ padding: '32px 0 22px', textAlign: 'center' }}>
+          <img src="../shared/logo.png" alt="CHODRUM 로고" style={{ width: 88, height: 88, objectFit: 'contain', display: 'block', margin: '0 auto' }} />
+          <div style={{ fontSize: 23, fontWeight: 600, letterSpacing: '-0.6px', marginTop: 8 }}>CHODRUM</div>
+          <div style={{ fontSize: 14, color: 'var(--text-secondary)', marginTop: 6 }}>다시 오신 걸 환영해요</div>
+        </div>
+
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+          <SocialButton provider="kakao" onClick={() => socialLogin('kakao')} />
+          <SocialButton provider="naver" onClick={() => socialLogin('naver')} />
+          <SocialButton provider="google" onClick={() => socialLogin('google')} />
+        </div>
+
+        <Divider label="또는 이메일로" spacing={20} />
+
+        <form onSubmit={emailLogin} style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+          <Input label="이메일" type="email" placeholder="you@example.com" value={email} onChange={(e) => { setEmail(e.target.value); setErr(''); }} />
+          <Input label="비밀번호" type="password" placeholder="••••••••" value={pw} onChange={(e) => { setPw(e.target.value); setErr(''); }} error={err || undefined} />
+          <Button type="submit" variant="primary" size="lg" fullWidth>로그인</Button>
+        </form>
+
+        <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 10, marginTop: 18, fontSize: 13, flexWrap: 'wrap' }}>
+          <a href={F.PAGES.signup} style={{ fontWeight: 500 }}>회원가입</a>
+          <span style={{ color: 'var(--border-strong)' }}>·</span>
+          <a href={F.PAGES.findId} style={{ color: 'var(--text-secondary)' }}>아이디 찾기</a>
+          <span style={{ color: 'var(--border-strong)' }}>·</span>
+          <a href={F.PAGES.reset} style={{ color: 'var(--text-secondary)' }}>비밀번호 찾기</a>
+          <span style={{ color: 'var(--border-strong)' }}>·</span>
+          <a href={F.PAGES.guest} style={{ color: 'var(--text-secondary)' }}>비회원 주문 조회</a>
+        </div>
+
+        <p className="fo-caption" style={{ textAlign: 'center', marginTop: 22 }}>
+          소셜 회원은 비밀번호 없이 각 플랫폼 인증으로 로그인해요.<br />비밀번호 찾기는 이메일로 가입한 일반 회원만 이용할 수 있어요.
+        </p>
+      </div>
+    </F.Scaffold>
+  );
+}
+ReactDOM.createRoot(document.getElementById('app')).render(<LoginPage />);
+</script>
+</body>
+</html>

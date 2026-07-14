@@ -1,0 +1,33 @@
+/* ============================================================
+   SPACING & LAYOUT — Drum Sheet Store
+   Compact density. 8-based rhythm with a few in-between steps
+   (10/11/36/50) carried from the source extraction.
+   ============================================================ */
+
+:root {
+  --spacing-4:  4px;
+  --spacing-6:  6px;
+  --spacing-8:  8px;
+  --spacing-10: 10px;
+  --spacing-11: 11px;
+  --spacing-12: 12px;
+  --spacing-16: 16px;
+  --spacing-20: 20px;
+  --spacing-24: 24px;
+  --spacing-32: 32px;
+  --spacing-36: 36px;
+  --spacing-40: 40px;
+  --spacing-48: 48px;
+  --spacing-50: 50px;
+  --spacing-64: 64px;
+  --spacing-80: 80px;
+
+  /* --- Layout ----------------------------------------------- */
+  --page-max-width: 1440px;   /* desktop / admin shell */
+  --mobile-max-width: 430px;  /* mobile-first storefront frame */
+  --section-gap: 96px;        /* generous rhythm between desktop sections */
+  --section-gap-mobile: 48px;
+  --card-padding: 16px;
+  --element-gap: 8px;
+  --safe-inset: 16px;         /* mobile horizontal gutter */
+}

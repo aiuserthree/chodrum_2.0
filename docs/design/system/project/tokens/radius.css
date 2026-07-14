@@ -1,0 +1,21 @@
+/* ============================================================
+   RADIUS — Drum Sheet Store
+   Buttons 8 · cards/inputs 12 · pills 9999. Do not use radii
+   outside 6 / 8 / 12 / 16 / 35 / 9999.
+   ============================================================ */
+
+:root {
+  --radius-md:  4px;
+  --radius-lg:  8px;
+  --radius-xl:  12px;
+  --radius-2xl: 16px;
+  --radius-3xl: 35px;
+  --radius-pill: 9999px;
+
+  /* Named / semantic radii */
+  --radius-buttons: 8px;
+  --radius-cards:   12px;
+  --radius-inputs:  12px;
+  --radius-chips:   6px;
+  --radius-pills:   9999px;
+}

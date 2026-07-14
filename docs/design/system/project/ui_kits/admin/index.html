@@ -1,0 +1,333 @@
+<!-- @dsCard group="Admin" viewport="1280x820" name="Admin back-office (desktop)" subtitle="Dashboard · 악보 / 주문 / 회원 관리 · 설정" -->
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>드럼악보 — Admin</title>
+<link rel="stylesheet" href="../../styles.css">
+<style>
+  html, body { height: 100%; margin: 0; }
+  #app { height: 100%; }
+  ::-webkit-scrollbar { width: 10px; height: 10px; }
+  ::-webkit-scrollbar-thumb { background: #e0e0e0; border-radius: 9999px; border: 3px solid #fff; }
+</style>
+</head>
+<body>
+  <div id="app"></div>
+  <script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+  <script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+  <script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+  <script src="../../_ds_bundle.js"></script>
+  <script>
+/* Sample data for the Admin (BO) UI kit. Fictional. */
+window.AdminData = {
+  stats: [
+    { k: '오늘 매출', v: 428000, unit: '₩', delta: +12.4, ic: 'banknote' },
+    { k: '오늘 주문', v: 37, unit: '건', delta: +8, ic: 'receipt' },
+    { k: '신규 회원', v: 12, unit: '명', delta: +3, ic: 'user-plus' },
+    { k: '다운로드', v: 154, unit: '회', delta: -2.1, ic: 'download' },
+  ],
+  revenue7: [
+    { d: '월', v: 312 }, { d: '화', v: 388 }, { d: '수', v: 274 }, { d: '목', v: 420 },
+    { d: '금', v: 512 }, { d: '토', v: 596 }, { d: '일', v: 428 },
+  ],
+  sheets: [
+    { id: 'DS-1042', title: 'Snare Groove No.7', artist: 'The Metronomes', genre: '락', level: '중급', price: 4500, pages: 6, sales: 1240, status: '판매중' },
+    { id: 'DS-1041', title: '한여름 밤의 셔플', artist: '팔로우비트', genre: '시티팝', level: '초급', price: 3500, pages: 4, sales: 980, status: '판매중' },
+    { id: 'DS-1040', title: 'Double Kick Study', artist: 'IRONHAND', genre: '메탈', level: '고급', price: 6000, pages: 9, sales: 420, status: '판매중' },
+    { id: 'DS-1039', title: '너에게 닿기를', artist: '오후세시', genre: '발라드', level: '입문', price: 3000, pages: 3, sales: 350, status: '숨김' },
+    { id: 'DS-1038', title: 'Ghost Note Basics', artist: 'The Metronomes', genre: '재즈', level: '중급', price: 4000, pages: 5, sales: 760, status: '판매중' },
+    { id: 'DS-1037', title: '예배를 위한 브러시', artist: 'Grace Session', genre: 'CCM', level: '초급', price: 3500, pages: 4, sales: 290, status: '판매중' },
+  ],
+  orders: [
+    { no: 'ORD-20260713-0042', buyer: '김드럼', email: 'kim@example.com', member: true, item: 'Snare Groove No.7 외 1건', amount: 9000, method: '카카오페이', status: '결제완료', date: '07.13 14:22' },
+    { no: 'ORD-20260713-0041', buyer: '(비회원)', email: 'guest82@gmail.com', member: false, item: 'Double Kick Study', amount: 6000, method: '신용카드', status: '결제완료', date: '07.13 13:58' },
+    { no: 'ORD-20260713-0040', buyer: '이비트', email: 'lee@naver.com', member: true, item: '봄, 첫 박자', amount: 3000, method: '네이버페이', status: '환불', date: '07.13 12:30' },
+    { no: 'ORD-20260713-0039', buyer: '박리듬', email: 'park@gmail.com', member: true, item: 'Ghost Note Basics 외 2건', amount: 11500, method: '신용카드', status: '결제완료', date: '07.13 11:04' },
+    { no: 'ORD-20260713-0038', buyer: '(비회원)', email: 'drummer@daum.net', member: false, item: '한여름 밤의 셔플', amount: 3500, method: '계좌이체', status: '대기', date: '07.13 10:41' },
+    { no: 'ORD-20260712-0037', buyer: '최스틱', email: 'choi@kakao.com', member: true, item: 'Blast Beat 101', amount: 5500, method: '카카오페이', status: '결제완료', date: '07.12 22:15' },
+  ],
+  members: [
+    { name: '김드럼', email: 'kim@example.com', type: '이메일', joined: '2026.05.02', orders: 8, status: '정상' },
+    { name: '이비트', email: 'lee@naver.com', type: '네이버', joined: '2026.05.18', orders: 3, status: '정상' },
+    { name: '박리듬', email: 'park@gmail.com', type: '구글', joined: '2026.06.01', orders: 12, status: '정상' },
+    { name: '최스틱', email: 'choi@kakao.com', type: '카카오', joined: '2026.06.20', orders: 5, status: '정상' },
+    { name: '정박자', email: 'jung@example.com', type: '이메일', joined: '2026.07.03', orders: 1, status: '휴면' },
+  ],
+};
+
+  </script>
+  <script type="text/babel">
+/* Admin (BO) — desktop back-office shell + views. Composes DS primitives. */
+const DS = window.DrumSheetStoreDesignSystem_3a2462;
+const { Button, IconButton, Card, Badge, Chip, Divider, Icon, Input, Select, Checkbox } = DS;
+const A = window.AdminData;
+const won = (v) => '₩' + Number(v).toLocaleString('ko-KR');
+const mono = { fontFamily: 'var(--font-mono)', fontVariantNumeric: 'tabular-nums' };
+
+const NAV_MAIN = [
+  { k: 'dashboard', ic: 'layout-dashboard', l: '대시보드' },
+  { k: 'sheets', ic: 'music', l: '악보 관리' },
+  { k: 'orders', ic: 'receipt', l: '주문 / 결제' },
+  { k: 'members', ic: 'users', l: '회원 관리' },
+  { k: 'stats', ic: 'trending-up', l: '매출 / 통계' },
+];
+const NAV_SET = [
+  { k: 'banner', ic: 'image', l: '배너 / 추천' },
+  { k: 'terms', ic: 'file-text', l: '약관 관리' },
+  { k: 'pg', ic: 'credit-card', l: 'PG 설정' },
+  { k: 'email', ic: 'mail', l: '이메일 설정' },
+];
+const TITLES = Object.fromEntries([...NAV_MAIN, ...NAV_SET].map((n) => [n.k, n.l]));
+
+const ORDER_TONE = { 결제완료: 'success', 환불: 'danger', 대기: 'warning' };
+
+/* ---------------- shell ---------------- */
+function Sidebar({ active, setActive }) {
+  const Item = ({ n }) => {
+    const on = active === n.k;
+    return (
+      <button onClick={() => setActive(n.k)} style={{ display: 'flex', alignItems: 'center', gap: 10, width: '100%', padding: '9px 12px', borderRadius: 'var(--radius-lg)', border: 'none', cursor: 'pointer', textAlign: 'left', fontFamily: 'var(--font-sans)', fontSize: 14, fontWeight: on ? 600 : 500, background: on ? '#f1f1f1' : 'transparent', color: on ? 'var(--color-ink)' : 'var(--text-secondary)' }}>
+        <Icon name={n.ic} size={18} style={{ color: on ? 'var(--color-ink)' : 'var(--color-icon)' }} />{n.l}
+      </button>
+    );
+  };
+  return (
+    <aside style={{ width: 232, flex: 'none', borderRight: '1px solid var(--border-default)', background: 'var(--surface-card)', display: 'flex', flexDirection: 'column', padding: 16, gap: 4 }}>
+      <div style={{ display: 'flex', alignItems: 'baseline', gap: 7, padding: '6px 12px 16px' }}>
+        <span style={{ fontSize: 19, fontWeight: 600, letterSpacing: '-0.9px' }}>드럼악보</span>
+        <span style={{ ...mono, fontSize: 10, letterSpacing: '1px', textTransform: 'uppercase', color: 'var(--text-secondary)' }}>Admin</span>
+      </div>
+      {NAV_MAIN.map((n) => <Item key={n.k} n={n} />)}
+      <div style={{ ...mono, fontSize: 10, letterSpacing: '0.6px', textTransform: 'uppercase', color: 'var(--text-tertiary)', padding: '18px 12px 6px' }}>설정</div>
+      {NAV_SET.map((n) => <Item key={n.k} n={n} />)}
+    </aside>
+  );
+}
+
+function Topbar({ title }) {
+  return (
+    <div style={{ height: 60, flex: 'none', borderBottom: '1px solid var(--border-default)', background: 'rgba(255,255,255,0.9)', backdropFilter: 'blur(8px)', display: 'flex', alignItems: 'center', gap: 16, padding: '0 28px' }}>
+      <h4 style={{ fontSize: 20, fontWeight: 600, letterSpacing: '-0.5px' }}>{title}</h4>
+      <div style={{ marginLeft: 'auto', width: 240 }}><Input size="sm" iconLeft="search" placeholder="주문번호, 회원, 악보 검색" /></div>
+      <span style={{ width: 34, height: 34, borderRadius: 9999, background: 'var(--surface-inverse)', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 13, fontWeight: 600, flex: 'none' }}>관</span>
+    </div>
+  );
+}
+
+/* ---------------- primitives ---------------- */
+function StatCard({ s }) {
+  const up = s.delta >= 0;
+  return (
+    <Card padding={18} style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+        <span style={{ fontSize: 13, color: 'var(--text-secondary)' }}>{s.k}</span>
+        <span style={{ color: 'var(--color-icon)' }}><Icon name={s.ic} size={18} /></span>
+      </div>
+      <div style={{ ...mono, fontSize: 26, fontWeight: 600, letterSpacing: '-1px' }}>{s.unit === '₩' ? won(s.v) : s.v.toLocaleString('ko-KR') + s.unit}</div>
+      <div style={{ fontSize: 12, color: up ? 'var(--status-success)' : 'var(--status-danger)', display: 'flex', alignItems: 'center', gap: 3 }}>
+        <Icon name={up ? 'arrow-up-right' : 'arrow-down-right'} size={13} />{Math.abs(s.delta)}%<span style={{ color: 'var(--text-tertiary)' }}>&nbsp;전일 대비</span>
+      </div>
+    </Card>
+  );
+}
+
+function Bars() {
+  const max = Math.max(...A.revenue7.map((r) => r.v));
+  return (
+    <Card padding={20} style={{ gridColumn: '1 / 3' }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 18 }}>
+        <span style={{ fontSize: 15, fontWeight: 600 }}>주간 매출</span>
+        <span style={{ ...mono, fontSize: 12, color: 'var(--text-secondary)' }}>최근 7일 · 만원</span>
+      </div>
+      <div style={{ display: 'flex', alignItems: 'flex-end', gap: 12, height: 140 }}>
+        {A.revenue7.map((r, i) => (
+          <div key={r.d} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8, height: '100%', justifyContent: 'flex-end' }}>
+            <div style={{ width: '100%', maxWidth: 34, height: (r.v / max * 100) + '%', background: i === A.revenue7.length - 1 ? 'var(--color-ink)' : '#e0e0e0', borderRadius: 4, transition: 'height 400ms ease' }} />
+            <span style={{ fontSize: 11, color: 'var(--text-secondary)' }}>{r.d}</span>
+          </div>
+        ))}
+      </div>
+    </Card>
+  );
+}
+
+function Table({ head, children }) {
+  return (
+    <div style={{ overflowX: 'auto' }}>
+      <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13.5 }}>
+        <thead>
+          <tr>{head.map((h, i) => <th key={i} style={{ textAlign: h.r ? 'right' : 'left', padding: '10px 12px', fontSize: 12, fontWeight: 500, color: 'var(--text-secondary)', borderBottom: '1px solid var(--border-default)', whiteSpace: 'nowrap' }}>{h.l || h}</th>)}</tr>
+        </thead>
+        <tbody>{children}</tbody>
+      </table>
+    </div>
+  );
+}
+function Td({ children, r, style }) {
+  return <td style={{ padding: '12px', borderBottom: '1px solid var(--border-default)', textAlign: r ? 'right' : 'left', verticalAlign: 'middle', ...style }}>{children}</td>;
+}
+function Thumb() {
+  return <span style={{ width: 34, height: 34, borderRadius: 6, border: '1px solid var(--border-default)', background: '#f6f6f6', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', color: '#c9c9c9', flex: 'none' }}><Icon name="music" size={15} /></span>;
+}
+
+/* ---------------- views ---------------- */
+function Dashboard() {
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 16 }}>
+        {A.stats.map((s) => <StatCard key={s.k} s={s} />)}
+      </div>
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+        <Bars />
+      </div>
+      <Card padding={0}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '16px 18px' }}>
+          <span style={{ fontSize: 15, fontWeight: 600 }}>최근 주문</span>
+          <Button variant="ghost" size="sm" iconRight="chevron-right">전체보기</Button>
+        </div>
+        <div style={{ padding: '0 6px 6px' }}>
+          <Table head={['주문번호', '주문자', '상품', { l: '금액', r: true }, '상태', { l: '시간', r: true }]}>
+            {A.orders.slice(0, 5).map((o) => (
+              <tr key={o.no}>
+                <Td><span style={{ ...mono, fontSize: 12 }}>{o.no}</span></Td>
+                <Td>{o.buyer}</Td>
+                <Td><span style={{ color: 'var(--text-secondary)' }}>{o.item}</span></Td>
+                <Td r><span style={mono}>{won(o.amount)}</span></Td>
+                <Td><Badge variant={ORDER_TONE[o.status]} size="sm">{o.status}</Badge></Td>
+                <Td r><span style={{ ...mono, fontSize: 12, color: 'var(--text-secondary)' }}>{o.date}</span></Td>
+              </tr>
+            ))}
+          </Table>
+        </div>
+      </Card>
+    </div>
+  );
+}
+
+function Sheets() {
+  const [q, setQ] = React.useState('');
+  const [genre, setGenre] = React.useState('전체');
+  const rows = A.sheets.filter((s) => (genre === '전체' || s.genre === genre) && (s.title + s.artist).toLowerCase().includes(q.toLowerCase()));
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+        <div style={{ width: 260 }}><Input size="sm" iconLeft="search" placeholder="곡명 / 아티스트" value={q} onChange={(e) => setQ(e.target.value)} /></div>
+        <div style={{ width: 150 }}><Select size="sm" value={genre} onChange={(e) => setGenre(e.target.value)} options={['전체', '발라드', '락', '재즈', 'K-POP', '메탈', '시티팝', 'CCM']} /></div>
+        <div style={{ marginLeft: 'auto' }}><Button variant="primary" size="sm" iconLeft="plus">악보 등록</Button></div>
+      </div>
+      <Card padding={0}>
+        <div style={{ padding: 6 }}>
+          <Table head={['', '곡명 / 아티스트', 'ID', '장르', '난이도', { l: '가격', r: true }, { l: '판매', r: true }, '상태', '']}>
+            {rows.map((s) => (
+              <tr key={s.id}>
+                <Td style={{ width: 46 }}><Thumb /></Td>
+                <Td><div style={{ fontWeight: 600 }}>{s.title}</div><div style={{ fontSize: 12, color: 'var(--text-secondary)' }}>{s.artist} · {s.pages}p</div></Td>
+                <Td><span style={{ ...mono, fontSize: 12, color: 'var(--text-secondary)' }}>{s.id}</span></Td>
+                <Td><Badge variant="neutral" size="sm">{s.genre}</Badge></Td>
+                <Td><Badge variant="outline" size="sm">{s.level}</Badge></Td>
+                <Td r><span style={mono}>{won(s.price)}</span></Td>
+                <Td r><span style={mono}>{s.sales.toLocaleString('ko-KR')}</span></Td>
+                <Td><Badge variant={s.status === '판매중' ? 'success' : 'neutral'} size="sm">{s.status}</Badge></Td>
+                <Td><div style={{ display: 'flex', gap: 2 }}><IconButton name="pencil" variant="ghost" size="sm" label="수정" /><IconButton name={s.status === '판매중' ? 'eye-off' : 'eye'} variant="ghost" size="sm" label="노출" /></div></Td>
+              </tr>
+            ))}
+          </Table>
+        </div>
+      </Card>
+    </div>
+  );
+}
+
+function Orders() {
+  const [f, setF] = React.useState('전체');
+  const filters = ['전체', '결제완료', '대기', '환불'];
+  const rows = A.orders.filter((o) => f === '전체' || o.status === f);
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+      <div style={{ display: 'flex', gap: 8 }}>{filters.map((x) => <Chip key={x} selected={f === x} onClick={() => setF(x)}>{x}</Chip>)}</div>
+      <Card padding={0}>
+        <div style={{ padding: 6 }}>
+          <Table head={['주문번호', '주문자', '유형', '상품', '결제수단', { l: '금액', r: true }, '상태', { l: '시간', r: true }]}>
+            {rows.map((o) => (
+              <tr key={o.no}>
+                <Td><span style={{ ...mono, fontSize: 12 }}>{o.no}</span></Td>
+                <Td><div style={{ fontWeight: 500 }}>{o.buyer}</div><div style={{ ...mono, fontSize: 11, color: 'var(--text-secondary)' }}>{o.email}</div></Td>
+                <Td><Badge variant={o.member ? 'outline' : 'neutral'} size="sm">{o.member ? '회원' : '비회원'}</Badge></Td>
+                <Td><span style={{ color: 'var(--text-secondary)' }}>{o.item}</span></Td>
+                <Td>{o.method}</Td>
+                <Td r><span style={mono}>{won(o.amount)}</span></Td>
+                <Td><Badge variant={ORDER_TONE[o.status]} size="sm">{o.status}</Badge></Td>
+                <Td r><span style={{ ...mono, fontSize: 12, color: 'var(--text-secondary)' }}>{o.date}</span></Td>
+              </tr>
+            ))}
+          </Table>
+        </div>
+      </Card>
+    </div>
+  );
+}
+
+function Members() {
+  const TYPE = { 이메일: 'neutral', 구글: 'outline', 네이버: 'outline', 카카오: 'outline' };
+  return (
+    <Card padding={0}>
+      <div style={{ padding: 6 }}>
+        <Table head={['회원', '이메일', '가입유형', '가입일', { l: '주문', r: true }, '상태']}>
+          {A.members.map((m) => (
+            <tr key={m.email}>
+              <Td><div style={{ display: 'flex', alignItems: 'center', gap: 10 }}><span style={{ width: 30, height: 30, borderRadius: 9999, background: 'var(--surface-inverse)', color: '#fff', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, fontWeight: 600 }}>{m.name.slice(0, 1)}</span><span style={{ fontWeight: 600 }}>{m.name}</span></div></Td>
+              <Td><span style={{ ...mono, fontSize: 12, color: 'var(--text-secondary)' }}>{m.email}</span></Td>
+              <Td><Badge variant={TYPE[m.type]} size="sm">{m.type}</Badge></Td>
+              <Td><span style={{ ...mono, fontSize: 12 }}>{m.joined}</span></Td>
+              <Td r><span style={mono}>{m.orders}</span></Td>
+              <Td><Badge variant={m.status === '정상' ? 'success' : 'warning'} size="sm">{m.status}</Badge></Td>
+            </tr>
+          ))}
+        </Table>
+      </div>
+    </Card>
+  );
+}
+
+function Settings({ which }) {
+  const desc = {
+    stats: '기간별 매출, 인기 악보, 결제수단 비중 등 통계 리포트 영역입니다.',
+    banner: '홈 상단 배너와 추천/신규/인기 악보 노출을 설정하는 영역입니다.',
+    terms: '이용약관 · 개인정보 · 환불 정책 문서를 관리하는 영역입니다.',
+    pg: 'PG사 연동 키와 결제수단 활성화를 설정하는 영역입니다.',
+    email: '인증 메일과 다운로드 안내 메일 템플릿을 설정하는 영역입니다.',
+  }[which];
+  return (
+    <Card padding={40} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12, textAlign: 'center' }}>
+      <span style={{ color: 'var(--color-icon)', opacity: 0.6 }}><Icon name="settings-2" size={38} /></span>
+      <div style={{ fontSize: 16, fontWeight: 600 }}>{TITLES[which]}</div>
+      <div style={{ fontSize: 13, color: 'var(--text-secondary)', maxWidth: 380, lineHeight: 1.55 }}>{desc} 설계서에 정의된 화면으로, 세부 UI는 자료 확보 후 구성합니다.</div>
+    </Card>
+  );
+}
+
+function AdminApp() {
+  const [active, setActive] = React.useState('dashboard');
+  let view;
+  if (active === 'dashboard') view = <Dashboard />;
+  else if (active === 'sheets') view = <Sheets />;
+  else if (active === 'orders') view = <Orders />;
+  else if (active === 'members') view = <Members />;
+  else view = <Settings which={active} />;
+  return (
+    <div style={{ display: 'flex', height: '100vh', background: 'var(--surface-page)' }}>
+      <Sidebar active={active} setActive={setActive} />
+      <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column' }}>
+        <Topbar title={TITLES[active]} />
+        <div style={{ flex: 1, overflowY: 'auto', padding: 28 }}>{view}</div>
+      </div>
+    </div>
+  );
+}
+ReactDOM.createRoot(document.getElementById('app')).render(<AdminApp />);
+
+  </script>
+</body>
+</html>

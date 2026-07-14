@@ -1,0 +1,184 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>CHODRUM — 이용안내</title>
+<link rel="stylesheet" href="../_ds/drum-sheet-store-design-system-3a2462a0-2443-475e-a3b6-f7937913eb0b/tokens/colors.css">
+<link rel="stylesheet" href="../_ds/drum-sheet-store-design-system-3a2462a0-2443-475e-a3b6-f7937913eb0b/tokens/typography.css">
+<link rel="stylesheet" href="../_ds/drum-sheet-store-design-system-3a2462a0-2443-475e-a3b6-f7937913eb0b/tokens/spacing.css">
+<link rel="stylesheet" href="../_ds/drum-sheet-store-design-system-3a2462a0-2443-475e-a3b6-f7937913eb0b/tokens/radius.css">
+<link rel="stylesheet" href="../_ds/drum-sheet-store-design-system-3a2462a0-2443-475e-a3b6-f7937913eb0b/tokens/elevation.css">
+<link rel="stylesheet" href="../_ds/drum-sheet-store-design-system-3a2462a0-2443-475e-a3b6-f7937913eb0b/tokens/base.css">
+<link rel="stylesheet" href="../_ds/drum-sheet-store-design-system-3a2462a0-2443-475e-a3b6-f7937913eb0b/styles.css">
+<link rel="stylesheet" href="../shared/fo.css">
+</head>
+<body class="fo-body">
+<div id="app"></div>
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+<script src="../_ds/drum-sheet-store-design-system-3a2462a0-2443-475e-a3b6-f7937913eb0b/_ds_bundle.js"></script>
+<script src="../shared/data.js"></script>
+<script src="../shared/store.js"></script>
+<script src="../shared/config.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="../shared/supabase-client.js"></script>
+<script src="../shared/api.js"></script>
+<script type="text/babel" src="fo-shared.jsx"></script>
+<script type="text/babel">
+/* FO-11 이용안내 — 구매 절차 · 다운로드 정책 · 회원/비회원 · 결제/환불 · FAQ · 고객센터 */
+const DS = window.DrumSheetStoreDesignSystem_3a2462;
+const { Button, Card, Badge, Icon } = DS;
+const F = window.FO;
+
+function GuideSection({ title, children }) {
+  return (
+    <section style={{ marginTop: 32 }}>
+      <h4 style={{ fontSize: 18, fontWeight: 600, letterSpacing: '-0.4px', marginBottom: 14 }}>{title}</h4>
+      {children}
+    </section>
+  );
+}
+
+function Faq({ q, a }) {
+  const [open, setOpen] = React.useState(false);
+  return (
+    <div style={{ borderTop: '1px solid var(--border-default)' }}>
+      <button onClick={() => setOpen(!open)} style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 10, padding: '15px 2px', background: 'none', border: 'none', cursor: 'pointer', textAlign: 'left' }}>
+        <span className="ds-mono" style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-tertiary)', flex: 'none' }}>Q</span>
+        <span style={{ flex: 1, fontSize: 14.5, fontWeight: 500, color: 'var(--text-primary)', letterSpacing: '-0.2px' }}>{q}</span>
+        <Icon name={open ? 'chevron-up' : 'chevron-down'} size={16} style={{ color: 'var(--color-icon)', flex: 'none' }} />
+      </button>
+      {open ? <p style={{ padding: '0 24px 16px', fontSize: 13.5, lineHeight: 1.7, color: 'var(--text-secondary)' }}>{a}</p> : null}
+    </div>
+  );
+}
+
+function GuidePage() {
+  const steps = [
+    { ic: 'search', t: '악보 검색', d: '곡명이나 아티스트로 검색하고, 워터마크 미리보기로 악보를 확인해요.' },
+    { ic: 'shopping-cart', t: '장바구니 담기', d: '모든 결제는 장바구니를 거쳐요. 수량을 정해 담아주세요.' },
+    { ic: 'credit-card', t: '결제', d: '카드·카카오페이·네이버페이·계좌이체로 안전하게 결제해요.' },
+    { ic: 'download', t: 'PDF 다운로드', d: '결제 즉시 다운로드 권한이 생겨요. 7일간 받을 수 있어요.' },
+  ];
+  return (
+    <F.Scaffold title="이용안내" back={F.PAGES.home} width="mid">
+      <div data-screen-label="FO-11 이용안내" style={{ padding: '28px 0 20px' }}>
+        <h2 style={{ fontSize: 'clamp(22px, 3vw, 28px)', letterSpacing: '-0.9px' }}>이용안내</h2>
+        <p style={{ fontSize: 14, color: 'var(--text-secondary)', marginTop: 8, lineHeight: 1.6 }}>CHODRUM에서 드럼 악보를 구매하고 다운로드하는 방법을 안내해요.</p>
+
+        <GuideSection title="구매 절차">
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 10 }}>
+            {steps.map((s, i) => (
+              <Card key={s.t} padding={16} style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                  <span style={{ width: 34, height: 34, borderRadius: 9999, background: 'var(--surface-sunken)', border: '1px solid var(--border-default)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--color-ink)' }}><Icon name={s.ic} size={16} /></span>
+                  <span className="ds-mono" style={{ fontSize: 11, color: 'var(--text-tertiary)' }}>STEP {i + 1}</span>
+                </div>
+                <div style={{ fontSize: 14.5, fontWeight: 600, letterSpacing: '-0.3px' }}>{s.t}</div>
+                <p style={{ fontSize: 12.5, lineHeight: 1.6, color: 'var(--text-secondary)' }}>{s.d}</p>
+              </Card>
+            ))}
+          </div>
+        </GuideSection>
+
+        <GuideSection title="다운로드 정책">
+          <Card padding={18} style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+            {[
+              ['다운로드 기간', <span>결제 완료 시점부터 <b>7일(168시간)</b></span>],
+              ['재다운로드', '기간 내 횟수 제한 없이 가능'],
+              ['파일 형식', 'PDF (기기에 저장)'],
+              ['기간 만료 시', '버튼이 비활성화돼요. 고객센터에서 재발급을 요청할 수 있어요.'],
+            ].map(([k, v]) => (
+              <div key={k} style={{ display: 'flex', gap: 12, fontSize: 13.5, lineHeight: 1.6 }}>
+                <span style={{ width: 96, flex: 'none', color: 'var(--text-tertiary)' }}>{k}</span>
+                <span style={{ color: 'var(--text-secondary)' }}>{v}</span>
+              </div>
+            ))}
+            <div style={{ display: 'flex', gap: 6, alignItems: 'center', paddingTop: 4 }}>
+              <Badge variant="success" size="sm">D-7~4</Badge>
+              <Badge variant="warning" size="sm">D-3~2</Badge>
+              <Badge variant="danger" size="sm">D-1</Badge>
+              <Badge variant="neutral" size="sm">만료</Badge>
+              <span className="fo-caption">잔여 기간은 색상 뱃지로 표시돼요.</span>
+            </div>
+          </Card>
+        </GuideSection>
+
+        <GuideSection title="회원 · 비회원 구매">
+          <div className="fo-grid" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))' }}>
+            <Card padding={18} style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <Icon name="user" size={16} style={{ color: 'var(--color-ink)' }} />
+                <span style={{ fontSize: 14.5, fontWeight: 600 }}>회원 구매</span>
+              </div>
+              <p style={{ fontSize: 13, lineHeight: 1.65, color: 'var(--text-secondary)' }}>이메일 가입 또는 구글·네이버·카카오 간편가입으로 이용해요. 구매 내역이 마이페이지에 저장되고, 주문자 정보가 자동 입력돼요.</p>
+              <div><Button variant="secondary" size="sm" onClick={() => location.href = F.PAGES.signup}>회원가입</Button></div>
+            </Card>
+            <Card padding={18} style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <Icon name="mail" size={16} style={{ color: 'var(--color-ink)' }} />
+                <span style={{ fontSize: 14.5, fontWeight: 600 }}>비회원 구매</span>
+              </div>
+              <p style={{ fontSize: 13, lineHeight: 1.65, color: 'var(--text-secondary)' }}>가입 없이 구매할 수 있어요. 주문 시 입력한 이메일이 <b>유일한 조회 수단</b>이니 정확하게 입력해주세요. 다운로드는 비회원 주문 조회에서 이메일 인증 후 가능해요.</p>
+              <div><Button variant="secondary" size="sm" onClick={() => location.href = F.PAGES.guest}>비회원 주문 조회</Button></div>
+            </Card>
+          </div>
+        </GuideSection>
+
+        <GuideSection title="결제 · 환불">
+          <Card padding={18} style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+            {[
+              ['결제 수단', '신용/체크카드 · 카카오페이 · 네이버페이 · 계좌이체 (PG 연동)'],
+              ['환불 (다운로드 전)', '결제일로부터 7일 이내 청약철회 가능'],
+              ['환불 (다운로드 후)', '디지털 콘텐츠 특성상 제한될 수 있어요. 파일 하자는 예외로 교환·환불돼요.'],
+              ['결제 실패 시', '장바구니가 그대로 유지되어 다시 시도할 수 있어요.'],
+            ].map(([k, v]) => (
+              <div key={k} style={{ display: 'flex', gap: 12, fontSize: 13.5, lineHeight: 1.6 }}>
+                <span style={{ width: 128, flex: 'none', color: 'var(--text-tertiary)' }}>{k}</span>
+                <span style={{ color: 'var(--text-secondary)' }}>{v}</span>
+              </div>
+            ))}
+          </Card>
+        </GuideSection>
+
+        <GuideSection title="자주 묻는 질문">
+          <div style={{ borderBottom: '1px solid var(--border-default)' }}>
+            <Faq q="다운로드 기간이 지났어요. 다시 받을 수 있나요?" a="네, 고객센터(전화·이메일)로 요청하시면 확인 후 다운로드 기간을 재부여해드려요. 재부여 시 새로운 기간이 적용돼요." />
+            <Faq q="비회원으로 구매했는데 이메일을 잘못 입력했어요." a="주문 이메일은 유일한 조회 수단이라 오입력 시 조회가 불가능해요. 결제 정보(주문번호·결제수단)를 확인할 수 있다면 고객센터로 문의해주세요." />
+            <Faq q="구매한 악보를 밴드 멤버와 공유해도 되나요?" a="구매한 PDF는 구매자 개인의 연습·연주 목적으로만 이용할 수 있어요. 복제·공유·재판매는 저작권 보호를 위해 금지되어 있어요." />
+            <Faq q="소셜 계정으로 가입했는데 비밀번호를 바꾸고 싶어요." a="소셜 회원은 비밀번호 없이 각 플랫폼 인증으로 로그인하는 방식이라 비밀번호 변경 메뉴가 없어요. 로그인은 항상 가입한 소셜 계정으로 진행돼요." />
+            <Faq q="악보 미리보기는 어디까지 볼 수 있나요?" a="저작권 보호를 위해 1–2페이지만 워터마크가 적용된 상태로 제공돼요. 난이도·페이지 수 등 상세 정보를 함께 확인해보세요." />
+          </div>
+        </GuideSection>
+
+        <GuideSection title="고객센터">
+          <Card padding={18} style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+            {[
+              ['상담/주문 전화', <span className="ds-mono">010-9872-5784</span>],
+              ['상담/주문 이메일', <span className="ds-mono">chodrumstudio@gmail.com</span>],
+              ['운영시간', '평일 09:00 ~ 18:00 (주말, 공휴일 제외)'],
+            ].map(([k, v]) => (
+              <div key={k} style={{ display: 'flex', gap: 12, fontSize: 13.5 }}>
+                <span style={{ width: 128, flex: 'none', color: 'var(--text-tertiary)' }}>{k}</span>
+                <span style={{ color: 'var(--text-secondary)' }}>{v}</span>
+              </div>
+            ))}
+          </Card>
+        </GuideSection>
+
+        <div style={{ marginTop: 28, display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+          <Button variant="primary" size="md" iconLeft="search" onClick={() => location.href = F.PAGES.list}>악보 둘러보기</Button>
+          <Button variant="secondary" size="md" onClick={() => location.href = F.PAGES.terms}>이용약관</Button>
+          <Button variant="secondary" size="md" onClick={() => location.href = F.PAGES.privacy}>개인정보처리방침</Button>
+          <Button variant="secondary" size="md" onClick={() => location.href = F.PAGES.marketing}>마케팅 수신 동의</Button>
+        </div>
+      </div>
+    </F.Scaffold>
+  );
+}
+ReactDOM.createRoot(document.getElementById('app')).render(<GuidePage />);
+</script>
+</body>
+</html>

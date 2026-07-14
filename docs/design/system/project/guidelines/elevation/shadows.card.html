@@ -1,0 +1,24 @@
+<!-- @dsCard group="Elevation" viewport="700x190" name="Shadows" subtitle="Cards & overlays only — never on buttons or inputs" -->
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<link rel="stylesheet" href="../../styles.css">
+<style>
+  body { margin: 0; padding: 30px 24px; display: flex; align-items: center; }
+  .row { display: flex; gap: 22px; width: 100%; }
+  .blk { display: flex; flex-direction: column; gap: 10px; align-items: center; flex: 1; }
+  .box { width: 100%; height: 66px; background: var(--surface-card); border-radius: var(--radius-xl); }
+  .n { font-size: 12px; font-weight: 500; }
+  .t { font-family: var(--font-mono); font-size: 10px; color: var(--text-secondary); }
+</style>
+</head>
+<body>
+  <div class="row">
+    <div class="blk"><div class="box" style="box-shadow:var(--shadow-subtle)"></div><div class="n">subtle</div><div class="t">default card</div></div>
+    <div class="blk"><div class="box" style="box-shadow:var(--shadow-subtle-2)"></div><div class="n">subtle-2</div><div class="t">outline</div></div>
+    <div class="blk"><div class="box" style="box-shadow:var(--shadow-subtle-3)"></div><div class="n">subtle-3</div><div class="t">raised / sticky</div></div>
+    <div class="blk"><div class="box" style="box-shadow:var(--shadow-xl)"></div><div class="n">xl</div><div class="t">modal / popover</div></div>
+  </div>
+</body>
+</html>

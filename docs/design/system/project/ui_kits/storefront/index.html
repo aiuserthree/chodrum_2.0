@@ -1,0 +1,703 @@
+<!-- @dsCard group="Storefront" viewport="460x820" name="Storefront (mobile)" subtitle="Interactive: browse → detail → cart → checkout → download" -->
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>드럼악보 — Storefront</title>
+<link rel="stylesheet" href="../../styles.css">
+<style>
+  html, body { height: 100%; }
+  body { margin: 0; background: #e9e9ea; display: flex; align-items: center; justify-content: center; padding: 16px; }
+  ::-webkit-scrollbar { width: 0; height: 0; }
+</style>
+</head>
+<body>
+  <div id="app"></div>
+  <script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+  <script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+  <script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+  <script src="../../_ds_bundle.js"></script>
+  <script>
+/* Sample catalogue for the Storefront UI kit — fictional titles, no real artwork.
+   Thumbnails are rendered as staff-line placeholders (see StaffThumb). */
+window.DrumData = {
+  categories: ['전체', '발라드', '락', '재즈', 'K-POP', '메탈', '시티팝', 'CCM'],
+  levels: ['입문', '초급', '중급', '고급'],
+  sorts: ['인기순', '최신순', '가격순', '이름순'],
+  sheets: [
+    { id: 's1', title: 'Snare Groove No.7',   artist: 'The Metronomes', genre: '락',     level: '중급', pages: 6,  price: 4500, popular: true,  isNew: false, rating: 4.8, sold: 1240 },
+    { id: 's2', title: '한여름 밤의 셔플',       artist: '팔로우비트',      genre: '시티팝', level: '초급', pages: 4,  price: 3500, popular: true,  isNew: false, rating: 4.6, sold: 980 },
+    { id: 's3', title: 'Double Kick Study',    artist: 'IRONHAND',       genre: '메탈',   level: '고급', pages: 9,  price: 6000, popular: false, isNew: true,  rating: 4.9, sold: 420 },
+    { id: 's4', title: '너에게 닿기를',          artist: '오후세시',        genre: '발라드', level: '입문', pages: 3,  price: 3000, popular: false, isNew: true,  rating: 4.7, sold: 350 },
+    { id: 's5', title: 'Ghost Note Basics',    artist: 'The Metronomes', genre: '재즈',   level: '중급', pages: 5,  price: 4000, popular: true,  isNew: false, rating: 4.5, sold: 760 },
+    { id: 's6', title: '시티 나이트 드라이브',    artist: 'Neon Kits',      genre: '시티팝', level: '중급', pages: 6,  price: 4500, popular: false, isNew: false, rating: 4.4, sold: 610 },
+    { id: 's7', title: '예배를 위한 브러시',      artist: 'Grace Session',  genre: 'CCM',    level: '초급', pages: 4,  price: 3500, popular: false, isNew: true,  rating: 4.8, sold: 290 },
+    { id: 's8', title: 'Blast Beat 101',       artist: 'IRONHAND',       genre: '메탈',   level: '고급', pages: 8,  price: 5500, popular: false, isNew: false, rating: 4.6, sold: 540 },
+    { id: 's9', title: '봄, 첫 박자',            artist: '오후세시',        genre: 'K-POP',  level: '입문', pages: 3,  price: 3000, popular: true,  isNew: false, rating: 4.9, sold: 1520 },
+  ],
+};
+
+  </script>
+  <script type="text/babel">
+/* Shared storefront chrome & product blocks. Composes DS primitives. */
+const DS = window.DrumSheetStoreDesignSystem_3a2462;
+const { Icon, Badge, IconButton, Card } = DS;
+
+const won = (v) => '₩' + Number(v).toLocaleString('ko-KR');
+
+function Money({ value, size = 16, weight = 600, color = 'var(--text-primary)', strike = false }) {
+  return (
+    <span className="ds-mono" style={{ fontSize: size, fontWeight: weight, color, fontVariantNumeric: 'tabular-nums', textDecoration: strike ? 'line-through' : 'none' }}>
+      {won(value)}
+    </span>
+  );
+}
+
+function StatusBar() {
+  return (
+    <div style={{ height: 42, display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 24px 0 26px', flex: 'none', color: 'var(--color-ink)' }}>
+      <span className="ds-mono" style={{ fontSize: 14, fontWeight: 600 }}>9:41</span>
+      <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+        <Icon name="signal" size={15} /><Icon name="wifi" size={15} /><Icon name="battery-full" size={20} />
+      </div>
+    </div>
+  );
+}
+
+function MobileFrame({ children, tabBar }) {
+  return (
+    <div style={{ width: 390, height: 'min(92vh, 840px)', background: 'var(--surface-card)', borderRadius: 46, boxShadow: 'var(--shadow-xl)', border: '1px solid #e3e3e3', overflow: 'hidden', position: 'relative', display: 'flex', flexDirection: 'column' }}>
+      <StatusBar />
+      <div id="fo-scroll" style={{ flex: 1, overflowY: 'auto', position: 'relative', WebkitOverflowScrolling: 'touch' }}>
+        {children}
+      </div>
+      {tabBar}
+    </div>
+  );
+}
+
+function TopBar({ title, onBack, right, wordmark }) {
+  return (
+    <div style={{ position: 'sticky', top: 0, zIndex: 5, height: 52, display: 'flex', alignItems: 'center', gap: 4, padding: '0 8px', background: 'rgba(255,255,255,0.9)', backdropFilter: 'blur(10px)', WebkitBackdropFilter: 'blur(10px)', borderBottom: '1px solid var(--border-default)' }}>
+      {onBack ? <IconButton name="chevron-left" variant="ghost" label="뒤로" onClick={onBack} /> : <span style={{ width: 8 }} />}
+      {wordmark
+        ? <span style={{ fontSize: 19, fontWeight: 600, letterSpacing: '-0.9px', paddingLeft: 8 }}>드럼악보</span>
+        : <span style={{ fontSize: 16, fontWeight: 600, letterSpacing: '-0.3px', position: 'absolute', left: 0, right: 0, textAlign: 'center', pointerEvents: 'none' }}>{title}</span>}
+      <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 0, zIndex: 1 }}>{right}</div>
+    </div>
+  );
+}
+
+function CartButton({ count, onClick }) {
+  return (
+    <div style={{ position: 'relative' }}>
+      <IconButton name="shopping-cart" variant="ghost" label="장바구니" onClick={onClick} />
+      {count ? (
+        <span className="ds-mono" style={{ position: 'absolute', top: 2, right: 2, minWidth: 16, height: 16, padding: '0 4px', borderRadius: 9999, background: 'var(--color-ink)', color: '#fff', fontSize: 10, fontWeight: 600, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>{count}</span>
+      ) : null}
+    </div>
+  );
+}
+
+function TabBar({ active, onChange, favCount }) {
+  const tabs = [
+    { k: 'home', ic: 'house', l: '홈' },
+    { k: 'list', ic: 'search', l: '악보' },
+    { k: 'fav', ic: 'heart', l: '찜' },
+    { k: 'my', ic: 'user', l: '마이' },
+  ];
+  return (
+    <div style={{ flex: 'none', display: 'flex', borderTop: '1px solid var(--border-default)', background: 'var(--surface-card)', paddingBottom: 10 }}>
+      {tabs.map((t) => {
+        const on = active === t.k;
+        return (
+          <button key={t.k} onClick={() => onChange(t.k)} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3, padding: '9px 0 5px', background: 'none', border: 'none', cursor: 'pointer', color: on ? 'var(--color-ink)' : 'var(--color-icon)' }}>
+            <span style={{ position: 'relative', display: 'inline-flex' }}>
+              <Icon name={t.ic} size={22} />
+              {t.k === 'fav' && favCount ? <span style={{ position: 'absolute', top: -2, right: -4, width: 7, height: 7, borderRadius: 9999, background: 'var(--status-danger)' }} /> : null}
+            </span>
+            <span style={{ fontSize: 10, fontWeight: on ? 600 : 500, letterSpacing: '-0.2px' }}>{t.l}</span>
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+function StaffThumb({ ratio = '3 / 4', icon = 'music', size = 30, watermark = false }) {
+  return (
+    <div style={{ position: 'relative', width: '100%', aspectRatio: ratio, background: '#f6f6f6', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
+      <div style={{ position: 'absolute', inset: 0, backgroundImage: 'repeating-linear-gradient(180deg, transparent 0 15px, #e7e7e7 15px 16px)', backgroundPosition: '0 14px' }} />
+      <Icon name={icon} size={size} style={{ color: '#cccccc', position: 'relative' }} />
+      {watermark ? (
+        <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', transform: 'rotate(-16deg)', fontFamily: 'var(--font-mono)', fontSize: 20, fontWeight: 500, letterSpacing: 3, color: 'rgba(0,0,0,0.055)', whiteSpace: 'nowrap' }}>미리보기 · PREVIEW · 미리보기</div>
+      ) : null}
+    </div>
+  );
+}
+
+function Stars({ value, size = 12 }) {
+  return (
+    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 3, color: 'var(--color-ink)' }}>
+      <Icon name="star" size={size} />
+      <span className="ds-mono" style={{ fontSize: 12, color: 'var(--text-secondary)' }}>{value.toFixed(1)}</span>
+    </span>
+  );
+}
+
+function SheetCard({ sheet, onOpen, faved, onFav }) {
+  return (
+    <Card interactive padding={0} onClick={onOpen} style={{ overflow: 'hidden' }}>
+      <div style={{ position: 'relative' }}>
+        <StaffThumb />
+        <div style={{ position: 'absolute', top: 8, left: 8, display: 'flex', gap: 4 }}>
+          {sheet.popular ? <Badge variant="solid" size="sm">인기</Badge> : null}
+          {sheet.isNew ? <Badge variant="solid" size="sm">NEW</Badge> : null}
+        </div>
+        <span style={{ position: 'absolute', top: 6, right: 6 }} onClick={(e) => { e.stopPropagation(); onFav && onFav(); }}>
+          <IconButton name="heart" round size="sm" variant="secondary" label="찜하기" style={faved ? { color: 'var(--status-danger)' } : undefined} />
+        </span>
+      </div>
+      <div style={{ padding: '10px 12px 12px', display: 'flex', flexDirection: 'column', gap: 5 }}>
+        <div style={{ fontSize: 14, fontWeight: 600, letterSpacing: '-0.3px', lineHeight: 1.3 }}>{sheet.title}</div>
+        <div style={{ fontSize: 12, color: 'var(--text-secondary)' }}>{sheet.artist}</div>
+        <div style={{ display: 'flex', gap: 4, marginTop: 1 }}>
+          <Badge variant="outline" size="sm">{sheet.level}</Badge>
+          <Badge variant="neutral" size="sm">{sheet.genre}</Badge>
+        </div>
+        <div style={{ marginTop: 3 }}><Money value={sheet.price} size={16} /></div>
+      </div>
+    </Card>
+  );
+}
+
+function SheetRow({ sheet, onOpen, right }) {
+  return (
+    <div onClick={onOpen} style={{ display: 'flex', gap: 12, padding: '12px 0', cursor: onOpen ? 'pointer' : 'default' }}>
+      <div style={{ width: 56, flex: 'none', borderRadius: 8, overflow: 'hidden', border: '1px solid var(--border-default)' }}><StaffThumb ratio="1 / 1" size={20} /></div>
+      <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 3 }}>
+        <div style={{ fontSize: 14, fontWeight: 600, letterSpacing: '-0.3px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{sheet.title}</div>
+        <div style={{ fontSize: 12, color: 'var(--text-secondary)' }}>{sheet.artist} · {sheet.genre}</div>
+        <Money value={sheet.price} size={14} />
+      </div>
+      {right}
+    </div>
+  );
+}
+
+function SectionHeader({ title, action, onAction }) {
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 16px', marginBottom: 12 }}>
+      <h4 style={{ fontSize: 18, fontWeight: 600, letterSpacing: '-0.4px' }}>{title}</h4>
+      {action ? (
+        <button onClick={onAction} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-secondary)', fontSize: 13, display: 'inline-flex', alignItems: 'center', gap: 1 }}>
+          {action}<Icon name="chevron-right" size={14} />
+        </button>
+      ) : null}
+    </div>
+  );
+}
+
+Object.assign(window, { Money, won, MobileFrame, TopBar, TabBar, CartButton, StaffThumb, SheetCard, SheetRow, SectionHeader, Stars });
+
+  </script>
+  <script type="text/babel">
+/* Storefront screens — pure views driven by an app context (see app.jsx). */
+const DS = window.DrumSheetStoreDesignSystem_3a2462;
+const { Button, IconButton, Card, Badge, Chip, Divider, Icon, Input, Select, Checkbox, QuantityStepper, SocialButton } = DS;
+const { Money, won, TopBar, CartButton, StaffThumb, SheetCard, SheetRow, SectionHeader, Stars } = window;
+
+const DATA = window.DrumData;
+const byId = (id) => DATA.sheets.find((s) => s.id === id);
+
+/* ---- sticky bottom action bar ---------------------------------- */
+function BottomBar({ children }) {
+  return (
+    <div style={{ position: 'sticky', bottom: 0, background: 'var(--surface-card)', borderTop: '1px solid var(--border-default)', padding: '12px 16px calc(12px + env(safe-area-inset-bottom))', display: 'flex', alignItems: 'center', gap: 10 }}>
+      {children}
+    </div>
+  );
+}
+
+/* ================================================================ HOME */
+function Home({ nav, faves, toggleFav, cartCount }) {
+  const popular = DATA.sheets.filter((s) => s.popular);
+  const fresh = DATA.sheets.filter((s) => s.isNew).concat(DATA.sheets).slice(0, 6);
+  return (
+    <>
+      <TopBar wordmark right={<><IconButton name="search" variant="ghost" label="검색" onClick={() => nav.go('list')} /><CartButton count={cartCount} onClick={() => nav.push('cart')} /></>} />
+      <div style={{ padding: '14px 16px 6px' }}>
+        <div onClick={() => nav.go('list')} style={{ display: 'flex', alignItems: 'center', gap: 8, height: 44, padding: '0 14px', border: '1px solid var(--border-default)', borderRadius: 'var(--radius-inputs)', background: 'var(--surface-card)', cursor: 'pointer', color: 'var(--color-icon)' }}>
+          <Icon name="search" size={18} />
+          <span style={{ fontSize: 15, color: 'var(--text-placeholder)' }}>곡명, 아티스트 검색</span>
+        </div>
+      </div>
+      <div style={{ display: 'flex', gap: 8, overflowX: 'auto', padding: '8px 16px 18px', scrollbarWidth: 'none' }}>
+        {DATA.categories.map((c) => <Chip key={c} onClick={() => nav.go('list', { cat: c })}>{c}</Chip>)}
+      </div>
+      <SectionHeader title="인기 악보" action="전체보기" onAction={() => nav.go('list')} />
+      <div style={{ display: 'flex', gap: 12, overflowX: 'auto', padding: '0 16px 24px', scrollbarWidth: 'none' }}>
+        {popular.map((s) => (
+          <div key={s.id} style={{ width: 150, flex: 'none' }}>
+            <SheetCard sheet={s} onOpen={() => nav.push('detail', { id: s.id })} faved={faves.includes(s.id)} onFav={() => toggleFav(s.id)} />
+          </div>
+        ))}
+      </div>
+      <SectionHeader title="신규 악보" action="전체보기" onAction={() => nav.go('list')} />
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, padding: '0 16px 28px' }}>
+        {fresh.map((s, i) => (
+          <SheetCard key={s.id + i} sheet={s} onOpen={() => nav.push('detail', { id: s.id })} faved={faves.includes(s.id)} onFav={() => toggleFav(s.id)} />
+        ))}
+      </div>
+    </>
+  );
+}
+
+/* ================================================================ LIST */
+function SheetList({ nav, faves, toggleFav, initialCat }) {
+  const [cat, setCat] = React.useState(initialCat || '전체');
+  const [sort, setSort] = React.useState('인기순');
+  let list = DATA.sheets.filter((s) => cat === '전체' || s.genre === cat);
+  list = [...list].sort((a, b) => sort === '가격순' ? a.price - b.price : sort === '이름순' ? a.title.localeCompare(b.title) : sort === '최신순' ? Number(b.isNew) - Number(a.isNew) : b.sold - a.sold);
+  return (
+    <>
+      <TopBar title="악보" onBack={() => nav.back()} right={<CartButton onClick={() => nav.push('cart')} />} />
+      <div style={{ position: 'sticky', top: 52, zIndex: 4, background: 'rgba(255,255,255,0.94)', backdropFilter: 'blur(8px)', borderBottom: '1px solid var(--border-default)' }}>
+        <div style={{ display: 'flex', gap: 8, overflowX: 'auto', padding: '12px 16px', scrollbarWidth: 'none' }}>
+          {DATA.categories.map((c) => <Chip key={c} selected={cat === c} onClick={() => setCat(c)}>{c}</Chip>)}
+        </div>
+      </div>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 16px 10px' }}>
+        <span className="ds-mono" style={{ fontSize: 13, color: 'var(--text-secondary)' }}>{list.length}개의 악보</span>
+        <div style={{ width: 128 }}><Select size="sm" value={sort} onChange={(e) => setSort(e.target.value)} options={DATA.sorts} /></div>
+      </div>
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, padding: '0 16px 28px' }}>
+        {list.map((s) => (
+          <SheetCard key={s.id} sheet={s} onOpen={() => nav.push('detail', { id: s.id })} faved={faves.includes(s.id)} onFav={() => toggleFav(s.id)} />
+        ))}
+      </div>
+    </>
+  );
+}
+
+/* ================================================================ DETAIL */
+function SheetDetail({ nav, id, faves, toggleFav, addToCart, cartCount }) {
+  const s = byId(id);
+  const [qty, setQty] = React.useState(1);
+  const faved = faves.includes(s.id);
+  const related = DATA.sheets.filter((x) => x.genre === s.genre && x.id !== s.id).slice(0, 4);
+  return (
+    <>
+      <TopBar title="악보 상세" onBack={() => nav.back()} right={<CartButton count={cartCount} onClick={() => nav.push('cart')} />} />
+      <div style={{ padding: 16 }}>
+        <Card padding={0} style={{ overflow: 'hidden' }}><StaffThumb ratio="4 / 5" size={44} watermark /></Card>
+      </div>
+      <div style={{ padding: '0 16px', display: 'flex', flexDirection: 'column', gap: 10 }}>
+        <div style={{ display: 'flex', gap: 6 }}>
+          {s.popular ? <Badge variant="solid" size="sm">인기</Badge> : null}
+          <Badge variant="outline" size="sm">{s.level}</Badge>
+          <Badge variant="neutral" size="sm">{s.genre}</Badge>
+        </div>
+        <h3 style={{ fontSize: 24, fontWeight: 600, letterSpacing: '-0.8px', lineHeight: 1.25 }}>{s.title}</h3>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: 14, color: 'var(--text-secondary)' }}>
+          <span>{s.artist}</span><Stars value={s.rating} />
+          <span className="ds-mono" style={{ fontSize: 12 }}>판매 {s.sold.toLocaleString('ko-KR')}</span>
+        </div>
+        <div style={{ marginTop: 4 }}><Money value={s.price} size={28} /></div>
+      </div>
+      <div style={{ margin: '16px', padding: '14px 16px', border: '1px solid var(--border-default)', borderRadius: 'var(--radius-cards)', display: 'flex', flexDirection: 'column', gap: 10 }}>
+        {[['장르', s.genre], ['난이도', s.level], ['페이지', s.pages + '페이지'], ['파일', 'PDF · 결제 후 7일 다운로드']].map(([k, v]) => (
+          <div key={k} style={{ display: 'flex', justifyContent: 'space-between', fontSize: 14 }}>
+            <span style={{ color: 'var(--text-secondary)' }}>{k}</span><span style={{ fontWeight: 500 }}>{v}</span>
+          </div>
+        ))}
+      </div>
+      <div style={{ padding: '0 16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+        <span style={{ fontSize: 15, fontWeight: 600 }}>수량</span>
+        <QuantityStepper value={qty} min={1} max={10} onChange={setQty} />
+      </div>
+      <SectionHeader title="관련 악보" onAction={() => nav.go('list', { cat: s.genre })} action="더보기" />
+      <div style={{ display: 'flex', gap: 12, overflowX: 'auto', padding: '0 16px 24px', scrollbarWidth: 'none' }}>
+        {related.map((r) => <div key={r.id} style={{ width: 140, flex: 'none' }}><SheetCard sheet={r} onOpen={() => nav.replace('detail', { id: r.id })} faved={faves.includes(r.id)} onFav={() => toggleFav(r.id)} /></div>)}
+      </div>
+      <BottomBar>
+        <IconButton name="heart" variant="secondary" size="lg" label="찜하기" onClick={() => toggleFav(s.id)} style={faved ? { color: 'var(--status-danger)', borderColor: 'var(--status-danger)' } : undefined} />
+        <div style={{ flex: 1 }}><Button variant="primary" size="lg" fullWidth iconLeft="shopping-cart" onClick={() => { addToCart(s.id, qty); nav.push('cart'); }}>장바구니 담기</Button></div>
+      </BottomBar>
+    </>
+  );
+}
+
+/* ================================================================ CART */
+function Cart({ nav, cart, setCart, user }) {
+  const [sel, setSel] = React.useState(cart.map((c) => c.id));
+  React.useEffect(() => { setSel((prev) => prev.filter((id) => cart.some((c) => c.id === id))); }, [cart.length]);
+  const items = cart.map((c) => ({ ...byId(c.id), qty: c.qty }));
+  const selItems = items.filter((it) => sel.includes(it.id));
+  const total = selItems.reduce((n, it) => n + it.price * it.qty, 0);
+  const allOn = sel.length === cart.length && cart.length > 0;
+  const setQty = (id, q) => setCart(cart.map((c) => c.id === id ? { ...c, qty: q } : c));
+  const remove = (id) => setCart(cart.filter((c) => c.id !== id));
+
+  if (!cart.length) {
+    return (
+      <>
+        <TopBar title="장바구니" onBack={() => nav.back()} />
+        <Empty icon="shopping-cart" title="장바구니가 비어 있어요" sub="마음에 드는 악보를 담아보세요." action="악보 둘러보기" onAction={() => nav.go('list')} />
+      </>
+    );
+  }
+  return (
+    <>
+      <TopBar title="장바구니" onBack={() => nav.back()} />
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 16px 6px' }}>
+        <Checkbox checked={allOn} indeterminate={sel.length > 0 && !allOn} label={`전체 선택 (${sel.length}/${cart.length})`} onChange={(on) => setSel(on ? cart.map((c) => c.id) : [])} />
+        <button onClick={() => { setCart(cart.filter((c) => !sel.includes(c.id))); }} style={{ background: 'none', border: 'none', color: 'var(--text-secondary)', fontSize: 13, cursor: 'pointer' }}>선택삭제</button>
+      </div>
+      <div style={{ padding: '0 16px' }}>
+        {items.map((it, i) => (
+          <div key={it.id} style={{ display: 'flex', gap: 10, padding: '14px 0', borderTop: i ? '1px solid var(--border-default)' : 'none', alignItems: 'flex-start' }}>
+            <div style={{ paddingTop: 20 }}><Checkbox checked={sel.includes(it.id)} onChange={(on) => setSel(on ? [...sel, it.id] : sel.filter((x) => x !== it.id))} /></div>
+            <div style={{ width: 52, flex: 'none', borderRadius: 8, overflow: 'hidden', border: '1px solid var(--border-default)' }}><StaffThumb ratio="1 / 1" size={18} /></div>
+            <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 6 }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8 }}>
+                <span style={{ fontSize: 14, fontWeight: 600, letterSpacing: '-0.3px' }}>{it.title}</span>
+                <IconButton name="x" variant="ghost" size="sm" label="삭제" onClick={() => remove(it.id)} />
+              </div>
+              <span style={{ fontSize: 12, color: 'var(--text-secondary)' }}>{it.artist} · {it.level}</span>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 2 }}>
+                <QuantityStepper size="sm" value={it.qty} min={1} max={10} onChange={(q) => setQty(it.id, q)} />
+                <Money value={it.price * it.qty} size={15} />
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
+      <div style={{ margin: 16, padding: 16, background: 'var(--surface-sunken)', borderRadius: 'var(--radius-cards)', display: 'flex', flexDirection: 'column', gap: 8 }}>
+        <Row k="총 상품금액" v={<Money value={total} size={14} weight={500} />} />
+        <Row k="수수료" v={<span style={{ fontSize: 14, color: 'var(--text-secondary)' }}>무료</span>} />
+        <div style={{ height: 1, background: 'var(--border-default)', margin: '2px 0' }} />
+        <Row k={<span style={{ fontWeight: 600 }}>총 결제금액</span>} v={<Money value={total} size={18} />} />
+      </div>
+      <BottomBar>
+        <Button variant="primary" size="lg" fullWidth disabled={!selItems.length} onClick={() => nav.push('checkout', { ids: sel })}>{selItems.length ? `${won(total)} 결제하기` : '상품을 선택하세요'}</Button>
+      </BottomBar>
+    </>
+  );
+}
+
+/* ================================================================ CHECKOUT */
+function PayOption({ id, label, sub, cur, onPick }) {
+  const on = cur === id;
+  return (
+    <button onClick={() => onPick(id)} style={{ display: 'flex', alignItems: 'center', gap: 10, width: '100%', padding: '13px 14px', textAlign: 'left', background: 'var(--surface-card)', border: `1px solid ${on ? 'var(--color-ink)' : 'var(--border-default)'}`, borderRadius: 'var(--radius-lg)', cursor: 'pointer', boxShadow: on ? '0 0 0 3px var(--focus-ring)' : 'none' }}>
+      <span style={{ width: 18, height: 18, borderRadius: 9999, border: `2px solid ${on ? 'var(--color-ink)' : 'var(--border-strong)'}`, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>{on ? <span style={{ width: 9, height: 9, borderRadius: 9999, background: 'var(--color-ink)' }} /> : null}</span>
+      <span style={{ fontSize: 14, fontWeight: 500 }}>{label}</span>
+      {sub ? <span style={{ marginLeft: 'auto', fontSize: 12, color: 'var(--text-secondary)' }}>{sub}</span> : null}
+    </button>
+  );
+}
+
+function Checkout({ nav, cart, ids, user, onPaid }) {
+  const items = cart.filter((c) => ids.includes(c.id)).map((c) => ({ ...byId(c.id), qty: c.qty }));
+  const total = items.reduce((n, it) => n + it.price * it.qty, 0);
+  const [email, setEmail] = React.useState(user && user.email ? user.email : '');
+  const [pay, setPay] = React.useState('card');
+  const [agreeAll, setAgreeAll] = React.useState(false);
+  const [a1, setA1] = React.useState(false);
+  const [a2, setA2] = React.useState(false);
+  const guest = !user || user.type === 'guest';
+  const canPay = (!guest || /.+@.+\..+/.test(email)) && a1 && a2;
+  const setAll = (on) => { setAgreeAll(on); setA1(on); setA2(on); };
+  React.useEffect(() => { setAgreeAll(a1 && a2); }, [a1, a2]);
+
+  return (
+    <>
+      <TopBar title="주문 / 결제" onBack={() => nav.back()} />
+      <Section label="주문자 정보">
+        {guest ? (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+            <Input label="이메일 (다운로드 조회용)" type="email" placeholder="you@example.com" value={email} onChange={(e) => setEmail(e.target.value)} hint="비회원은 이 이메일로만 다운로드를 조회할 수 있어요." />
+          </div>
+        ) : (
+          <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 14 }}>
+            <span style={{ color: 'var(--text-secondary)' }}>{user.name}</span><span className="ds-mono" style={{ fontSize: 13 }}>{user.email}</span>
+          </div>
+        )}
+      </Section>
+      <Section label={`주문 상품 ${items.length}건`}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+          {items.map((it) => (
+            <div key={it.id} style={{ display: 'flex', justifyContent: 'space-between', fontSize: 14, padding: '4px 0' }}>
+              <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', paddingRight: 8 }}>{it.title} <span style={{ color: 'var(--text-secondary)' }}>×{it.qty}</span></span>
+              <Money value={it.price * it.qty} size={14} weight={500} />
+            </div>
+          ))}
+        </div>
+      </Section>
+      <Section label="결제 수단">
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+          <PayOption id="card" label="신용 / 체크카드" cur={pay} onPick={setPay} />
+          <PayOption id="kakao" label="카카오페이" cur={pay} onPick={setPay} />
+          <PayOption id="naver" label="네이버페이" cur={pay} onPick={setPay} />
+          <PayOption id="bank" label="계좌이체" cur={pay} onPick={setPay} />
+        </div>
+      </Section>
+      <Section label="약관 동의">
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+          <Checkbox checked={agreeAll} onChange={setAll} label={<b style={{ fontWeight: 600 }}>전체 동의</b>} />
+          <div style={{ height: 1, background: 'var(--border-default)' }} />
+          <Checkbox checked={a1} onChange={setA1} label="(필수) 구매조건 및 결제 진행 동의" />
+          <Checkbox checked={a2} onChange={setA2} label="(필수) 디지털 콘텐츠 · 환불 정책 동의" />
+        </div>
+      </Section>
+      <div style={{ margin: '4px 16px 16px', padding: 16, background: 'var(--surface-sunken)', borderRadius: 'var(--radius-cards)' }}>
+        <Row k={<span style={{ fontWeight: 600 }}>총 결제금액</span>} v={<Money value={total} size={20} />} />
+      </div>
+      <BottomBar>
+        <Button variant="primary" size="lg" fullWidth disabled={!canPay} onClick={() => onPaid({ items, total, email: guest ? email : user.email, guest })}>{won(total)} 결제하기</Button>
+      </BottomBar>
+    </>
+  );
+}
+
+/* ================================================================ COMPLETE */
+function Complete({ nav, order }) {
+  const orderNo = 'ORD-20260713-' + String(Math.floor(1000 + Math.random() * 8999));
+  return (
+    <>
+      <TopBar title="결제 완료" />
+      <div style={{ padding: '40px 24px', display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', gap: 14 }}>
+        <span style={{ width: 60, height: 60, borderRadius: 9999, background: 'var(--status-success-bg)', color: 'var(--status-success)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Icon name="check" size={30} /></span>
+        <h3 style={{ fontSize: 22, fontWeight: 600, letterSpacing: '-0.6px' }}>결제가 완료되었어요</h3>
+        <span className="ds-mono" style={{ fontSize: 13, color: 'var(--text-secondary)' }}>{orderNo}</span>
+        <p style={{ fontSize: 14, color: 'var(--text-secondary)', lineHeight: 1.55, maxWidth: 280 }}>
+          {order.guest
+            ? <>비회원 주문이 완료되었어요. <b style={{ color: 'var(--text-primary)' }}>{order.email}</b> 로 다운로드 조회 링크를 보냈어요. 결제일로부터 <b style={{ color: 'var(--text-primary)' }}>7일간</b> 다운로드할 수 있어요.</>
+            : <>마이페이지 &gt; 구매 내역에서 PDF를 다운로드하세요. 결제일로부터 <b style={{ color: 'var(--text-primary)' }}>7일간</b> 다운로드할 수 있어요.</>}
+        </p>
+      </div>
+      <div style={{ padding: '0 16px', display: 'flex', flexDirection: 'column', gap: 10 }}>
+        <Button variant="primary" size="lg" fullWidth iconLeft="download" onClick={() => order.guest ? nav.reset('list') : nav.reset('my')}>{order.guest ? '주문 조회하기' : '다운로드 하러 가기'}</Button>
+        <Button variant="secondary" size="lg" fullWidth onClick={() => nav.reset('home')}>홈으로</Button>
+      </div>
+    </>
+  );
+}
+
+/* ================================================================ WISHLIST */
+function Wishlist({ nav, faves, toggleFav, addToCart }) {
+  const items = faves.map(byId).filter(Boolean);
+  return (
+    <>
+      <TopBar title="찜 목록" right={<CartButton onClick={() => nav.push('cart')} />} />
+      {items.length ? (
+        <div style={{ padding: '4px 16px 24px' }}>
+          {items.map((s, i) => (
+            <div key={s.id} style={{ borderTop: i ? '1px solid var(--border-default)' : 'none' }}>
+              <SheetRow sheet={s} onOpen={() => nav.push('detail', { id: s.id })} right={
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 6, alignItems: 'flex-end' }}>
+                  <IconButton name="heart" variant="ghost" size="sm" label="찜 해제" onClick={() => toggleFav(s.id)} style={{ color: 'var(--status-danger)' }} />
+                  <Button variant="secondary" size="sm" iconLeft="shopping-cart" onClick={() => { addToCart(s.id, 1); nav.push('cart'); }}>담기</Button>
+                </div>
+              } />
+            </div>
+          ))}
+        </div>
+      ) : <Empty icon="heart" title="찜한 악보가 없어요" sub="하트를 눌러 악보를 저장하세요." action="악보 둘러보기" onAction={() => nav.go('list')} />}
+    </>
+  );
+}
+
+/* ================================================================ MYPAGE */
+function MyPage({ nav, user, setUser, purchases }) {
+  if (!user || user.type === 'guest') {
+    return (
+      <>
+        <TopBar title="마이페이지" />
+        <Empty icon="user" title="로그인이 필요해요" sub="구매 내역과 다운로드는 로그인 후 이용할 수 있어요." action="로그인 / 회원가입" onAction={() => nav.push('login')} />
+        <div style={{ padding: '0 16px' }}>
+          <div style={{ borderTop: '1px solid var(--border-default)', paddingTop: 16 }}>
+            <button onClick={() => nav.push('guest')} style={{ width: '100%', textAlign: 'left', background: 'none', border: 'none', padding: '12px 0', cursor: 'pointer', display: 'flex', justifyContent: 'space-between', alignItems: 'center', color: 'var(--text-primary)', fontSize: 14 }}>비회원 주문 조회<Icon name="chevron-right" size={16} style={{ color: 'var(--color-icon)' }} /></button>
+          </div>
+        </div>
+      </>
+    );
+  }
+  return (
+    <>
+      <TopBar title="마이페이지" />
+      <div style={{ padding: '16px', display: 'flex', alignItems: 'center', gap: 12 }}>
+        <span style={{ width: 48, height: 48, borderRadius: 9999, background: 'var(--surface-inverse)', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18, fontWeight: 600 }}>{user.name.slice(0, 1)}</span>
+        <div style={{ flex: 1 }}>
+          <div style={{ fontSize: 16, fontWeight: 600 }}>{user.name}</div>
+          <div className="ds-mono" style={{ fontSize: 12, color: 'var(--text-secondary)' }}>{user.email}</div>
+        </div>
+        <Button variant="secondary" size="sm" onClick={() => { setUser(null); nav.go('home'); }}>로그아웃</Button>
+      </div>
+      <Section label="구매 내역 / 다운로드">
+        <div style={{ display: 'flex', flexDirection: 'column' }}>
+          {purchases.map((p, i) => {
+            const s = byId(p.id);
+            const expired = p.dday < 0;
+            return (
+              <div key={p.id} style={{ display: 'flex', gap: 10, padding: '14px 0', borderTop: i ? '1px solid var(--border-default)' : 'none', alignItems: 'center' }}>
+                <div style={{ width: 48, flex: 'none', borderRadius: 8, overflow: 'hidden', border: '1px solid var(--border-default)' }}><StaffThumb ratio="1 / 1" size={16} /></div>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontSize: 14, fontWeight: 600, letterSpacing: '-0.3px' }}>{s.title}</div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 4 }}>
+                    {expired ? <Badge variant="danger" size="sm">기간 만료</Badge> : <Badge variant={p.dday <= 2 ? 'warning' : 'success'} size="sm">D-{p.dday}</Badge>}
+                    <span className="ds-mono" style={{ fontSize: 11, color: 'var(--text-secondary)' }}>{p.date}</span>
+                  </div>
+                </div>
+                <Button variant={expired ? 'secondary' : 'primary'} size="sm" iconLeft="download" disabled={expired}>{expired ? '만료' : 'PDF'}</Button>
+              </div>
+            );
+          })}
+        </div>
+        <p style={{ fontSize: 12, color: 'var(--text-secondary)', lineHeight: 1.5, marginTop: 12 }}>다운로드는 결제일로부터 7일간 가능해요. 기간이 지난 경우 고객센터로 재발급을 요청할 수 있어요.</p>
+      </Section>
+      <div style={{ padding: '0 16px 28px' }}>
+        {[['찜 목록', () => nav.go('fav')], ['내 정보 수정', () => {}], ['회원 탈퇴', () => {}]].map(([label, fn], i) => (
+          <button key={label} onClick={fn} style={{ width: '100%', textAlign: 'left', background: 'none', border: 'none', borderTop: '1px solid var(--border-default)', padding: '15px 0', cursor: 'pointer', display: 'flex', justifyContent: 'space-between', alignItems: 'center', color: label === '회원 탈퇴' ? 'var(--text-secondary)' : 'var(--text-primary)', fontSize: 14 }}>{label}<Icon name="chevron-right" size={16} style={{ color: 'var(--color-icon)' }} /></button>
+        ))}
+      </div>
+    </>
+  );
+}
+
+/* ================================================================ LOGIN */
+function Login({ nav, setUser }) {
+  const [mode, setMode] = React.useState('login');
+  const signup = mode === 'signup';
+  return (
+    <>
+      <TopBar title={signup ? '회원가입' : '로그인'} onBack={() => nav.back()} />
+      <div style={{ padding: '24px 20px 8px', textAlign: 'center' }}>
+        <div style={{ fontSize: 26, fontWeight: 600, letterSpacing: '-1.2px' }}>드럼악보</div>
+        <div style={{ fontSize: 14, color: 'var(--text-secondary)', marginTop: 6 }}>{signup ? '3초 만에 시작하세요' : '다시 오신 걸 환영해요'}</div>
+      </div>
+      <div style={{ padding: '16px 20px', display: 'flex', flexDirection: 'column', gap: 10 }}>
+        <SocialButton provider="kakao" onClick={() => setUser({ type: 'member', name: '김드럼', email: 'kim@kakao.com' }) || nav.reset('my')} />
+        <SocialButton provider="naver" onClick={() => setUser({ type: 'member', name: '이비트', email: 'lee@naver.com' }) || nav.reset('my')} />
+        <SocialButton provider="google" onClick={() => setUser({ type: 'member', name: '박리듬', email: 'park@gmail.com' }) || nav.reset('my')} />
+        <Divider label="또는 이메일로" spacing={6} />
+        <Input label="이메일" type="email" placeholder="you@example.com" />
+        <Input label="비밀번호" type="password" placeholder="••••••••" />
+        {signup ? <Input label="비밀번호 확인" type="password" placeholder="••••••••" /> : null}
+        <Button variant="primary" size="lg" fullWidth onClick={() => { setUser({ type: 'member', name: '김드럼', email: 'kim@example.com' }); nav.reset('my'); }}>{signup ? '이메일로 가입하기' : '로그인'}</Button>
+        <div style={{ display: 'flex', justifyContent: 'center', gap: 16, marginTop: 4, fontSize: 13, color: 'var(--text-secondary)' }}>
+          <button onClick={() => setMode(signup ? 'login' : 'signup')} style={{ background: 'none', border: 'none', color: 'var(--text-primary)', cursor: 'pointer', fontSize: 13 }}>{signup ? '로그인' : '회원가입'}</button>
+          {!signup ? <><span>·</span><button style={{ background: 'none', border: 'none', color: 'var(--text-secondary)', cursor: 'pointer', fontSize: 13 }}>비밀번호 찾기</button></> : null}
+        </div>
+      </div>
+    </>
+  );
+}
+
+/* ================================================================ GUEST LOOKUP */
+function GuestLookup({ nav }) {
+  const [sent, setSent] = React.useState(false);
+  return (
+    <>
+      <TopBar title="비회원 주문 조회" onBack={() => nav.back()} />
+      <div style={{ padding: 20, display: 'flex', flexDirection: 'column', gap: 14 }}>
+        <p style={{ fontSize: 14, color: 'var(--text-secondary)', lineHeight: 1.55 }}>주문 시 입력한 이메일로 인증하면 구매한 악보를 다운로드할 수 있어요.</p>
+        <Input label="주문 이메일" type="email" placeholder="you@example.com" />
+        {sent ? <Input label="인증코드" placeholder="6자리 코드" hint="이메일로 받은 코드를 입력하세요." /> : null}
+        <Button variant="primary" size="lg" fullWidth onClick={() => setSent(true)}>{sent ? '인증하고 조회하기' : '인증코드 받기'}</Button>
+      </div>
+    </>
+  );
+}
+
+/* ---- small shared bits ----------------------------------------- */
+function Section({ label, children }) {
+  return (
+    <div style={{ padding: '16px 16px 4px' }}>
+      <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-secondary)', marginBottom: 10, letterSpacing: '-0.2px' }}>{label}</div>
+      {children}
+    </div>
+  );
+}
+function Row({ k, v }) {
+  return <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: 14 }}><span style={{ color: typeof k === 'string' ? 'var(--text-secondary)' : 'inherit' }}>{k}</span>{v}</div>;
+}
+function Empty({ icon, title, sub, action, onAction }) {
+  return (
+    <div style={{ padding: '56px 32px', display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', gap: 10 }}>
+      <span style={{ color: 'var(--color-icon)', opacity: 0.6 }}><Icon name={icon} size={40} /></span>
+      <div style={{ fontSize: 16, fontWeight: 600 }}>{title}</div>
+      <div style={{ fontSize: 13, color: 'var(--text-secondary)', lineHeight: 1.5 }}>{sub}</div>
+      {action ? <div style={{ marginTop: 8 }}><Button variant="secondary" size="md" onClick={onAction}>{action}</Button></div> : null}
+    </div>
+  );
+}
+
+Object.assign(window, { Home, SheetList, SheetDetail, Cart, Checkout, Complete, Wishlist, MyPage, Login, GuestLookup });
+
+  </script>
+  <script type="text/babel">
+/* Storefront app — navigation + state, composing the screens. */
+function App() {
+  const [tab, setTab] = React.useState('home');
+  const [stack, setStack] = React.useState([]);
+  const [listParams, setListParams] = React.useState({});
+  const [cart, setCart] = React.useState([{ id: 's1', qty: 1 }, { id: 's9', qty: 2 }]);
+  const [faves, setFaves] = React.useState(['s3', 's5']);
+  const [user, setUser] = React.useState(null);
+  const [purchases] = React.useState([
+    { id: 's2', date: '2026.07.11', dday: 5 },
+    { id: 's5', date: '2026.07.07', dday: 1 },
+    { id: 's8', date: '2026.06.28', dday: -1 },
+  ]);
+
+  const cartCount = cart.reduce((n, c) => n + c.qty, 0);
+
+  const nav = {
+    go: (t, params) => { if (t === 'list') setListParams(params || {}); setStack([]); setTab(t); },
+    push: (screen, params = {}) => setStack((s) => [...s, { screen, params }]),
+    replace: (screen, params = {}) => setStack((s) => [...s.slice(0, -1), { screen, params }]),
+    back: () => setStack((s) => s.slice(0, -1)),
+    reset: (t) => { setStack([]); setTab(t); },
+  };
+
+  const stackKey = JSON.stringify(stack);
+  React.useEffect(() => { const el = document.getElementById('fo-scroll'); if (el) el.scrollTop = 0; }, [tab, stackKey]);
+
+  const addToCart = (id, qty = 1) => setCart((c) => c.some((x) => x.id === id) ? c.map((x) => x.id === id ? { ...x, qty: Math.min(10, x.qty + qty) } : x) : [...c, { id, qty }]);
+  const toggleFav = (id) => setFaves((f) => f.includes(id) ? f.filter((x) => x !== id) : [...f, id]);
+  const onPaid = (order) => { setCart((c) => c.filter((x) => !order.items.some((it) => it.id === x.id))); setStack([{ screen: 'complete', params: { order } }]); };
+
+  let content = null;
+  let showTabs = false;
+
+  if (stack.length) {
+    const top = stack[stack.length - 1];
+    const p = top.params || {};
+    if (top.screen === 'detail') content = <SheetDetail key={'d' + p.id} nav={nav} id={p.id} faves={faves} toggleFav={toggleFav} addToCart={addToCart} cartCount={cartCount} />;
+    else if (top.screen === 'cart') content = <Cart nav={nav} cart={cart} setCart={setCart} user={user} />;
+    else if (top.screen === 'checkout') content = <Checkout nav={nav} cart={cart} ids={p.ids} user={user} onPaid={onPaid} />;
+    else if (top.screen === 'complete') content = <Complete nav={nav} order={p.order} />;
+    else if (top.screen === 'login') content = <Login nav={nav} setUser={setUser} />;
+    else if (top.screen === 'guest') content = <GuestLookup nav={nav} />;
+  } else {
+    showTabs = true;
+    if (tab === 'home') content = <Home nav={nav} faves={faves} toggleFav={toggleFav} cartCount={cartCount} />;
+    else if (tab === 'list') content = <SheetList key={'list-' + (listParams.cat || 'all')} nav={nav} faves={faves} toggleFav={toggleFav} initialCat={listParams.cat} />;
+    else if (tab === 'fav') content = <Wishlist nav={nav} faves={faves} toggleFav={toggleFav} addToCart={addToCart} />;
+    else if (tab === 'my') content = <MyPage nav={nav} user={user} setUser={setUser} purchases={purchases} />;
+  }
+
+  return (
+    <MobileFrame tabBar={showTabs ? <TabBar active={tab} onChange={(t) => nav.go(t)} favCount={faves.length} /> : null}>
+      {content}
+    </MobileFrame>
+  );
+}
+ReactDOM.createRoot(document.getElementById('app')).render(<App />);
+
+  </script>
+</body>
+</html>

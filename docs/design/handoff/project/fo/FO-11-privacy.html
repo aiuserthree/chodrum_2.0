@@ -1,0 +1,160 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>CHODRUM — 개인정보처리방침</title>
+<link rel="stylesheet" href="../_ds/drum-sheet-store-design-system-3a2462a0-2443-475e-a3b6-f7937913eb0b/tokens/colors.css">
+<link rel="stylesheet" href="../_ds/drum-sheet-store-design-system-3a2462a0-2443-475e-a3b6-f7937913eb0b/tokens/typography.css">
+<link rel="stylesheet" href="../_ds/drum-sheet-store-design-system-3a2462a0-2443-475e-a3b6-f7937913eb0b/tokens/spacing.css">
+<link rel="stylesheet" href="../_ds/drum-sheet-store-design-system-3a2462a0-2443-475e-a3b6-f7937913eb0b/tokens/radius.css">
+<link rel="stylesheet" href="../_ds/drum-sheet-store-design-system-3a2462a0-2443-475e-a3b6-f7937913eb0b/tokens/elevation.css">
+<link rel="stylesheet" href="../_ds/drum-sheet-store-design-system-3a2462a0-2443-475e-a3b6-f7937913eb0b/tokens/base.css">
+<link rel="stylesheet" href="../_ds/drum-sheet-store-design-system-3a2462a0-2443-475e-a3b6-f7937913eb0b/styles.css">
+<link rel="stylesheet" href="../shared/fo.css">
+</head>
+<body class="fo-body">
+<div id="app"></div>
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+<script src="../_ds/drum-sheet-store-design-system-3a2462a0-2443-475e-a3b6-f7937913eb0b/_ds_bundle.js"></script>
+<script src="../shared/data.js"></script>
+<script src="../shared/store.js"></script>
+<script type="text/babel" src="fo-shared.jsx"></script>
+<script type="text/babel">
+/* FO-11 개인정보처리방침 — 수집·이용·보관·위탁·권리 (설계 검토용 샘플 문서) */
+const DS = window.DrumSheetStoreDesignSystem_3a2462;
+const { Card, Badge, Icon } = DS;
+const F = window.FO;
+
+function Sec({ n, title, children }) {
+  return (
+    <section id={'sec' + n} style={{ paddingTop: 26 }}>
+      <h4 style={{ fontSize: 15.5, fontWeight: 600, letterSpacing: '-0.3px', marginBottom: 10 }}>{n}. {title}</h4>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 8, fontSize: 13.5, lineHeight: 1.75, color: 'var(--text-secondary)' }}>{children}</div>
+    </section>
+  );
+}
+function Ul({ items }) {
+  return (
+    <ul style={{ margin: 0, paddingLeft: 20, display: 'flex', flexDirection: 'column', gap: 6 }}>
+      {items.map((t, i) => <li key={i}>{t}</li>)}
+    </ul>
+  );
+}
+function MiniTable({ head, rows }) {
+  return (
+    <div style={{ overflowX: 'auto', border: '1px solid var(--border-default)', borderRadius: 8 }}>
+      <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12.5, minWidth: 420 }}>
+        <thead>
+          <tr>{head.map((h) => <th key={h} style={{ textAlign: 'left', padding: '9px 12px', fontWeight: 500, color: 'var(--text-secondary)', borderBottom: '1px solid var(--border-default)', background: 'var(--surface-sunken)', whiteSpace: 'nowrap' }}>{h}</th>)}</tr>
+        </thead>
+        <tbody>
+          {rows.map((r, i) => (
+            <tr key={i}>{r.map((c, j) => <td key={j} style={{ padding: '9px 12px', borderBottom: i < rows.length - 1 ? '1px solid var(--border-default)' : 'none', verticalAlign: 'top', lineHeight: 1.5 }}>{c}</td>)}</tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+function PrivacyPage() {
+  return (
+    <F.Scaffold title="개인정보처리방침" back={F.PAGES.home} width="mid">
+      <div data-screen-label="FO-11 개인정보처리방침" style={{ padding: '28px 0 20px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+          <h2 style={{ fontSize: 'clamp(22px, 3vw, 28px)', letterSpacing: '-0.9px' }}>개인정보처리방침</h2>
+          <Badge variant="outline" size="sm">v2.0</Badge>
+        </div>
+        <p className="ds-mono" style={{ fontSize: 12, color: 'var(--text-tertiary)', marginTop: 8 }}>시행일 2026.06.15</p>
+        <p style={{ fontSize: 13.5, lineHeight: 1.7, color: 'var(--text-secondary)', marginTop: 12 }}>
+          조드럼닷컴(이하 "몰")은 개인정보 보호법 등 관련 법령을 준수하며, 이용자의 개인정보를 아래와 같이 처리합니다.
+        </p>
+
+        <Card padding={0} style={{ marginTop: 18 }}>
+          <div style={{ padding: '4px 20px 28px' }}>
+            <Sec n={1} title="수집하는 개인정보 항목 및 방법">
+              <MiniTable head={['구분', '수집 항목', '수집 방법']} rows={[
+                ['일반 회원', '이메일(로그인 ID), 비밀번호, 이름, 휴대폰 번호(선택)', '회원가입, 정보 수정'],
+                ['소셜 회원', '소셜 계정 이메일·식별자, 이름', '구글·네이버·카카오 인증'],
+                ['비회원 구매자', '이름, 이메일(다운로드 조회용), 연락처(선택)', '주문/결제'],
+                ['자동 수집', '접속 기록, 기기·브라우저 정보, 다운로드 이력', '서비스 이용 과정'],
+              ]} />
+            </Sec>
+            <Sec n={2} title="개인정보의 이용 목적">
+              <Ul items={[
+                '회원 식별, 로그인 및 계정 관리',
+                '주문·결제 처리 및 디지털 콘텐츠(PDF) 다운로드 권한 관리',
+                '인증코드·주문 안내·다운로드 만료 안내 등 서비스 메일 발송',
+                '고객 문의 응대, 환불·재부여 등 CS 처리',
+                '부정 이용 방지 및 서비스 개선을 위한 통계 분석',
+              ]} />
+            </Sec>
+            <Sec n={3} title="보유 및 이용 기간">
+              <p>개인정보는 수집·이용 목적이 달성되면 지체 없이 파기합니다. 다만 관련 법령에 따라 아래 기간 동안 보존합니다.</p>
+              <MiniTable head={['보존 항목', '근거 법령', '기간']} rows={[
+                ['계약 또는 청약철회 등에 관한 기록', '전자상거래법', '5년'],
+                ['대금결제 및 재화 공급에 관한 기록', '전자상거래법', '5년'],
+                ['소비자 불만 또는 분쟁 처리에 관한 기록', '전자상거래법', '3년'],
+                ['접속에 관한 기록', '통신비밀보호법', '3개월'],
+              ]} />
+            </Sec>
+            <Sec n={4} title="개인정보의 제3자 제공">
+              <p>몰은 이용자의 개인정보를 제3자에게 제공하지 않습니다. 다만 법령에 근거한 요청이 있는 경우는 예외로 합니다.</p>
+            </Sec>
+            <Sec n={5} title="개인정보 처리의 위탁">
+              <MiniTable head={['수탁사', '위탁 업무']} rows={[
+                ['전자결제대행사(PG)', '결제 처리 및 결제 도용 방지'],
+                ['호스팅 사업자', '서비스 인프라 운영'],
+                ['메일 발송 대행사', '인증·안내 메일 발송'],
+              ]} />
+            </Sec>
+            <Sec n={6} title="이용자의 권리">
+              <Ul items={[
+                '이용자는 언제든지 자신의 개인정보를 조회·수정할 수 있으며, 회원 탈퇴를 통해 삭제를 요청할 수 있습니다.',
+                '비회원 구매자는 주문 시 입력한 이메일 인증을 통해 자신의 주문 정보를 조회할 수 있습니다.',
+                '권리 행사는 마이페이지 또는 고객센터(이메일·전화)를 통해 요청할 수 있습니다.',
+              ]} />
+            </Sec>
+            <Sec n={7} title="개인정보의 파기 절차 및 방법">
+              <p>보유 기간이 경과하거나 처리 목적이 달성된 개인정보는 재생 불가능한 방법으로 지체 없이 파기합니다. 전자적 파일은 복구 불가능한 기술적 방법으로 삭제합니다.</p>
+            </Sec>
+            <Sec n={8} title="안전성 확보 조치">
+              <Ul items={[
+                '비밀번호 및 주요 정보의 암호화 저장',
+                '접근 권한 최소화 및 접근 기록 보관',
+                '다운로드 파일의 구매자 식별 워터마크 적용',
+              ]} />
+            </Sec>
+            <Sec n={9} title="개인정보보호책임자">
+              <MiniTable head={['구분', '내용']} rows={[
+                ['책임자', '조준형'],
+                ['이메일', <span className="ds-mono">chodrumstudio@gmail.com</span>],
+                ['전화', <span className="ds-mono">010-9872-5784</span>],
+                ['운영시간', '평일 09:00 ~ 18:00 (주말, 공휴일 제외)'],
+              ]} />
+            </Sec>
+            <Sec n={10} title="고지 의무">
+              <p>본 방침의 내용이 추가·삭제·수정되는 경우 시행 7일 전부터 공지사항을 통해 안내합니다. 본 방침은 버전으로 관리됩니다.</p>
+            </Sec>
+
+            <div style={{ marginTop: 30, paddingTop: 16, borderTop: '1px solid var(--border-default)' }}>
+              <p className="ds-mono" style={{ fontSize: 12, color: 'var(--text-tertiary)' }}>본 방침은 2026.06.15부터 시행합니다. (v2.0)</p>
+            </div>
+          </div>
+        </Card>
+
+        <p className="fo-caption" style={{ marginTop: 14, display: 'flex', gap: 6, alignItems: 'flex-start' }}>
+          <Icon name="info" size={13} style={{ color: 'var(--color-icon)', marginTop: 2, flex: 'none' }} />
+          본 문서는 설계 검토용 샘플이에요. 실제 시행 전 법률 검토가 필요해요.
+        </p>
+      </div>
+    </F.Scaffold>
+  );
+}
+ReactDOM.createRoot(document.getElementById('app')).render(<PrivacyPage />);
+</script>
+</body>
+</html>

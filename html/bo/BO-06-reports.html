@@ -1,0 +1,136 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>CHODRUM Admin — 통계 / 리포트</title>
+<link rel="stylesheet" href="../_ds/drum-sheet-store-design-system-3a2462a0-2443-475e-a3b6-f7937913eb0b/tokens/colors.css">
+<link rel="stylesheet" href="../_ds/drum-sheet-store-design-system-3a2462a0-2443-475e-a3b6-f7937913eb0b/tokens/typography.css">
+<link rel="stylesheet" href="../_ds/drum-sheet-store-design-system-3a2462a0-2443-475e-a3b6-f7937913eb0b/tokens/spacing.css">
+<link rel="stylesheet" href="../_ds/drum-sheet-store-design-system-3a2462a0-2443-475e-a3b6-f7937913eb0b/tokens/radius.css">
+<link rel="stylesheet" href="../_ds/drum-sheet-store-design-system-3a2462a0-2443-475e-a3b6-f7937913eb0b/tokens/elevation.css">
+<link rel="stylesheet" href="../_ds/drum-sheet-store-design-system-3a2462a0-2443-475e-a3b6-f7937913eb0b/tokens/base.css">
+<link rel="stylesheet" href="../_ds/drum-sheet-store-design-system-3a2462a0-2443-475e-a3b6-f7937913eb0b/styles.css">
+<link rel="stylesheet" href="../shared/bo.css">
+</head>
+<body class="bo-body">
+<div id="app"></div>
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+<script src="../_ds/drum-sheet-store-design-system-3a2462a0-2443-475e-a3b6-f7937913eb0b/_ds_bundle.js"></script>
+<script src="../shared/data.js"></script>
+<script src="../shared/config.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="../shared/supabase-client.js"></script>
+<script src="../shared/api.js"></script>
+<script type="text/babel" src="bo-shared.jsx"></script>
+<script type="text/babel">
+/* BO-06 통계/리포트 — 매출 · 악보별 판매 · 회원 통계 · 엑셀 다운로드 */
+const DS = window.DrumSheetStoreDesignSystem_3a2462;
+const { Button, Card, Badge, Chip } = DS;
+const B = window.BO;
+const A = window.AdminData;
+const D = window.DrumData;
+
+function ReportsPage() {
+  const [period, setPeriod] = React.useState('주');
+  const rev = (A.revenue && A.revenue[period]) || [];
+  const sum = rev.reduce((n, r) => n + r.v, 0);
+  const avg = rev.length ? Math.round(sum / rev.length) : 0;
+  const revMax = rev.length ? Math.max(...rev.map((r) => r.v)) : 0;
+  const top = [...(D.sheets || [])].sort((a, b) => b.sold - a.sold).slice(0, 8);
+  const totalSold = top.reduce((n, s) => n + s.sold, 0) || 1;
+  const joinDist = A.joinDist || [];
+  const joinTotal = joinDist.reduce((n, j) => n + j.n, 0);
+  const joinMax = joinDist.length ? Math.max(...joinDist.map((j) => j.n)) : 1;
+  const emailJoin = (joinDist.find((j) => j.type === '이메일') || joinDist[0] || { n: 0 }).n;
+  const socialPct = joinTotal ? Math.round((joinTotal - emailJoin) / joinTotal * 100) : 0;
+
+  return (
+    <B.Shell active="reports" title="통계 / 리포트"
+      actions={<Button variant="secondary" size="sm" iconLeft="download" onClick={() => B.toast('엑셀 리포트를 내려받았어요 (샘플)')}>엑셀 다운로드</Button>}>
+      <div data-screen-label="BO-06 통계/리포트" style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+        <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+          {['일', '주', '월'].map((p) => <Chip key={p} selected={period === p} onClick={() => setPeriod(p)}>{p}간</Chip>)}
+          <span className="ds-mono" style={{ fontSize: 12, color: 'var(--text-tertiary)', marginLeft: 'auto' }}>2026.07.13 기준</span>
+        </div>
+
+        <div className="bo-dash-row">
+          <Card padding={0}>
+            <B.CardHead title="매출 통계" right={<span className="ds-mono" style={{ fontSize: 12, color: 'var(--text-secondary)' }}>단위: 만원</span>} />
+            <div style={{ padding: '4px 20px 16px' }}><B.BarChart data={rev} /></div>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', borderTop: '1px solid var(--border-default)' }}>
+              {[['합계', sum], ['평균', avg], ['최고', revMax]].map(([k, v], i) => (
+                <div key={k} style={{ padding: '14px 18px', borderLeft: i ? '1px solid var(--border-default)' : 'none' }}>
+                  <div style={{ fontSize: 12, color: 'var(--text-secondary)' }}>{k}</div>
+                  <div className="ds-mono" style={{ fontSize: 17, fontWeight: 600, marginTop: 3 }}>{Number(v).toLocaleString('ko-KR')}<span style={{ fontSize: 11, fontWeight: 500, color: 'var(--text-tertiary)' }}> 만원</span></div>
+                </div>
+              ))}
+            </div>
+          </Card>
+
+          <Card padding={0}>
+            <B.CardHead title="회원 통계" right={<span className="ds-mono" style={{ fontSize: 12, color: 'var(--text-secondary)' }}>총 {joinTotal.toLocaleString('ko-KR')}명</span>} />
+            <div style={{ padding: '0 18px 18px', display: 'flex', flexDirection: 'column', gap: 14 }}>
+              {joinDist.length === 0 ? (
+                <p style={{ fontSize: 13, color: 'var(--text-secondary)', margin: 0 }}>표시할 회원 통계가 없어요.</p>
+              ) : joinDist.map((j) => (
+                <div key={j.type}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, marginBottom: 6 }}>
+                    <span style={{ fontWeight: 500 }}>{j.type}</span>
+                    <span className="ds-mono" style={{ color: 'var(--text-secondary)' }}>{j.n.toLocaleString('ko-KR')}명 · {joinTotal ? Math.round(j.n / joinTotal * 100) : 0}%</span>
+                  </div>
+                  <div style={{ height: 6, background: '#efefef', borderRadius: 9999, overflow: 'hidden' }}>
+                    <div style={{ width: (j.n / joinMax * 100) + '%', height: '100%', background: j.type === '이메일' ? 'var(--color-ink)' : '#c9c9c9', borderRadius: 9999 }}></div>
+                  </div>
+                </div>
+              ))}
+              {joinDist.length > 0 ? (
+                <p style={{ fontSize: 12, color: 'var(--text-secondary)', lineHeight: 1.5 }}>소셜 간편가입(카카오/네이버/구글)이 전체의 {socialPct}%를 차지해요.</p>
+              ) : null}
+            </div>
+          </Card>
+        </div>
+
+        <Card padding={0}>
+          <B.CardHead title="악보별 판매 통계" right={<span className="ds-mono" style={{ fontSize: 12, color: 'var(--text-secondary)' }}>누적 기준</span>} />
+          <div style={{ padding: '0 6px 6px' }}>
+            {top.length === 0 ? (
+              <p style={{ fontSize: 13, color: 'var(--text-secondary)', padding: '12px 12px 18px', margin: 0 }}>표시할 판매 통계가 없어요.</p>
+            ) : (
+            <B.Table minWidth={720} head={[{ l: '#' }, '곡명 / 아티스트', '장르', { l: '판매', r: true }, { l: '매출', r: true }, { l: '비중', r: true }]}>
+              {top.map((s, i) => (
+                <tr key={s.id}>
+                  <B.Td style={{ width: 40 }}><span className="ds-mono" style={{ fontSize: 13, fontWeight: 600, color: i < 3 ? 'var(--color-ink)' : 'var(--text-tertiary)' }}>{i + 1}</span></B.Td>
+                  <B.Td>
+                    <div style={{ fontWeight: 600 }}>{s.title}</div>
+                    <div style={{ fontSize: 12, color: 'var(--text-secondary)' }}>{s.artist}</div>
+                  </B.Td>
+                  <B.Td><Badge variant="neutral" size="sm">{s.genre}</Badge></B.Td>
+                  <B.Td r><span style={B.mono}>{s.sold.toLocaleString('ko-KR')}</span></B.Td>
+                  <B.Td r><span style={B.mono}>{B.won(s.sold * s.price)}</span></B.Td>
+                  <B.Td r style={{ width: 140 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, justifyContent: 'flex-end' }}>
+                      <div style={{ width: 64, height: 5, background: '#efefef', borderRadius: 9999, overflow: 'hidden' }}>
+                        <div style={{ width: ((top[0].sold ? s.sold / top[0].sold : 0) * 100) + '%', height: '100%', background: i < 3 ? 'var(--color-ink)' : '#d4d4d4' }}></div>
+                      </div>
+                      <span className="ds-mono" style={{ fontSize: 12, color: 'var(--text-secondary)', width: 34, textAlign: 'right' }}>{Math.round(s.sold / totalSold * 100)}%</span>
+                    </div>
+                  </B.Td>
+                </tr>
+              ))}
+            </B.Table>
+            )}
+          </div>
+        </Card>
+      </div>
+    </B.Shell>
+  );
+}
+window.ChodrumBoot.whenReady(() => {
+  ReactDOM.createRoot(document.getElementById('app')).render(<ReportsPage />);
+});
+</script>
+</body>
+</html>

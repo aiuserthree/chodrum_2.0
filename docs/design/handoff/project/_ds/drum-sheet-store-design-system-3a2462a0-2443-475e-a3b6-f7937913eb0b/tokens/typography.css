@@ -1,0 +1,37 @@
+/* ============================================================
+   TYPOGRAPHY — Drum Sheet Store
+   Geist (Latin + numerals) paired with Pretendard (Hangul).
+   Signature: progressively tighter negative tracking as size grows.
+   Never use 700+ weight for emphasis — rely on size + 600 weight.
+   ============================================================ */
+
+:root {
+  /* --- Families --------------------------------------------- */
+  /* Latin/digits render in Geist; Hangul falls through to Pretendard. */
+  --font-sans: 'Geist', 'Pretendard Variable', 'Pretendard', ui-sans-serif,
+    system-ui, -apple-system, 'Segoe UI', Roboto, 'Noto Sans KR', sans-serif;
+  --font-mono: 'Geist Mono', ui-monospace, SFMono-Regular, Menlo, Monaco,
+    Consolas, 'Pretendard', monospace;
+
+  /* Compatibility aliases (original extracted token names) */
+  --font-geistsans: var(--font-sans);
+  --font-geistmono: var(--font-mono);
+
+  /* --- Weights ---------------------------------------------- */
+  --font-weight-regular:  400; /* body */
+  --font-weight-medium:   500; /* buttons, labels */
+  --font-weight-semibold: 600; /* headings, emphasis */
+
+  /* OpenType: slashed zero + Geist stylistic sets */
+  --font-features: "zero", "ss09", "ss05";
+
+  /* --- Type scale (size / line-height / tracking) ----------- */
+  --text-caption: 10px;  --leading-caption: 1.5;                            /* mono annotations */
+  --text-body-sm: 14px;  --leading-body-sm: 1.43;                           /* dense UI text, buttons */
+  --text-body:    16px;  --leading-body:    1.5;                            /* default body */
+  --text-subheading: 18px; --leading-subheading: 1.56;
+  --text-heading-sm: 20px; --leading-heading-sm: 1.25;
+  --text-heading:    24px; --leading-heading:    1.33; --tracking-heading:    -0.48px;
+  --text-heading-lg: 32px; --leading-heading-lg: 1.17; --tracking-heading-lg: -1.28px;
+  --text-display:    48px; --leading-display:    1.0;  --tracking-display:    -2.88px;
+}

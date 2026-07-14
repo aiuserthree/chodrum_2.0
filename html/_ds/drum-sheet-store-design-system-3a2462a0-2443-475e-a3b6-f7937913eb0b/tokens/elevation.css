@@ -1,0 +1,31 @@
+/* ============================================================
+   ELEVATION — Drum Sheet Store
+   Shadows are reserved for CARDS, popovers and modals.
+   NEVER put shadows on buttons or inputs (use borders instead).
+   ============================================================ */
+
+:root {
+  /* hairline "border-as-shadow" + faint lift — the default card */
+  --shadow-subtle:
+    rgba(0, 0, 0, 0.08) 0px 0px 0px 1px,
+    rgba(0, 0, 0, 0.04) 0px 2px 1px 0px;
+
+  /* hairline outline only */
+  --shadow-subtle-2:
+    rgba(0, 0, 0, 0.08) 0px 0px 0px 1px;
+
+  /* soft ambient lift (hover cards, sticky bars) */
+  --shadow-subtle-3:
+    rgba(0, 0, 0, 0.04) 0px 2px 2px 0px,
+    rgba(0, 0, 0, 0.04) 0px 8px 8px -8px;
+
+  /* modal / popover */
+  --shadow-xl:
+    rgba(0, 0, 0, 0.25) 0px 25px 50px -12px;
+
+  /* semantic aliases */
+  --elevation-card:    var(--shadow-subtle);
+  --elevation-outline: var(--shadow-subtle-2);
+  --elevation-raised:  var(--shadow-subtle-3);
+  --elevation-overlay: var(--shadow-xl);
+}

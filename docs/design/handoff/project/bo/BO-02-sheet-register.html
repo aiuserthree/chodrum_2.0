@@ -1,0 +1,105 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>CHODRUM Admin — 악보 등록</title>
+<link rel="stylesheet" href="../_ds/drum-sheet-store-design-system-3a2462a0-2443-475e-a3b6-f7937913eb0b/tokens/colors.css">
+<link rel="stylesheet" href="../_ds/drum-sheet-store-design-system-3a2462a0-2443-475e-a3b6-f7937913eb0b/tokens/typography.css">
+<link rel="stylesheet" href="../_ds/drum-sheet-store-design-system-3a2462a0-2443-475e-a3b6-f7937913eb0b/tokens/spacing.css">
+<link rel="stylesheet" href="../_ds/drum-sheet-store-design-system-3a2462a0-2443-475e-a3b6-f7937913eb0b/tokens/radius.css">
+<link rel="stylesheet" href="../_ds/drum-sheet-store-design-system-3a2462a0-2443-475e-a3b6-f7937913eb0b/tokens/elevation.css">
+<link rel="stylesheet" href="../_ds/drum-sheet-store-design-system-3a2462a0-2443-475e-a3b6-f7937913eb0b/tokens/base.css">
+<link rel="stylesheet" href="../_ds/drum-sheet-store-design-system-3a2462a0-2443-475e-a3b6-f7937913eb0b/styles.css">
+<link rel="stylesheet" href="../shared/bo.css">
+</head>
+<body class="bo-body">
+<div id="app"></div>
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+<script src="../_ds/drum-sheet-store-design-system-3a2462a0-2443-475e-a3b6-f7937913eb0b/_ds_bundle.js"></script>
+<script src="../shared/data.js"></script>
+<script type="text/babel" src="bo-shared.jsx"></script>
+<script type="text/babel">
+/* BO-02-01 악보 등록 — PDF 원본 · 워터마크 미리보기 · 정보 입력 · 노출 상태 */
+const DS = window.DrumSheetStoreDesignSystem_3a2462;
+const { Button, Card, Icon, Input, Select, Badge } = DS;
+const B = window.BO;
+const D = window.DrumData;
+
+function FileDrop({ icon, title, sub, file, onPick }) {
+  return (
+    <button onClick={onPick} style={{ width: '100%', padding: '26px 16px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8, background: file ? 'var(--surface-sunken)' : 'var(--surface-card)', border: '1px dashed var(--border-strong)', borderRadius: 'var(--radius-cards)', cursor: 'pointer', textAlign: 'center' }}>
+      <span style={{ color: file ? 'var(--status-success)' : 'var(--color-icon)' }}><Icon name={file ? 'check' : icon} size={26} /></span>
+      <span style={{ fontSize: 14, fontWeight: 600 }}>{file || title}</span>
+      <span style={{ fontSize: 12, color: 'var(--text-secondary)', lineHeight: 1.5 }}>{file ? '다시 선택하려면 클릭하세요' : sub}</span>
+    </button>
+  );
+}
+
+function RegisterPage() {
+  const [pdf, setPdf] = React.useState('');
+  const [img, setImg] = React.useState('');
+  const [form, setForm] = React.useState({ title: '', artist: '', genre: D.genres[0], level: D.levels[1], pages: '', price: '', orig: '', status: '판매중', preview: '2페이지' });
+  const set = (k) => (e) => setForm({ ...form, [k]: e.target.value });
+  const canSave = pdf && form.title.trim() && form.artist.trim() && form.price;
+
+  const save = () => { B.toast('「' + form.title + '」 악보가 등록되었어요'); setTimeout(() => location.href = 'BO-02-sheets.html', 900); };
+
+  return (
+    <B.Shell active="register" title="악보 등록"
+      actions={<Button variant="ghost" size="sm" iconLeft="chevron-left" onClick={() => location.href = 'BO-02-sheets.html'}>목록으로</Button>}>
+      <div data-screen-label="BO-02-01 악보 등록" className="bo-form-cols">
+        {/* 파일 업로드 */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+          <Card padding={18} style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+            <span style={{ fontSize: 15, fontWeight: 600 }}>원본 파일</span>
+            <FileDrop icon="upload" title="PDF 원본 업로드" sub="구매자에게 제공되는 파일 · PDF만 가능" file={pdf} onPick={() => setPdf('snare-groove-no8.pdf')} />
+            <FileDrop icon="image" title="미리보기 이미지 업로드" sub="워터마크가 자동 적용돼요 · 미등록 시 1페이지 자동 추출" file={img} onPick={() => setImg('preview-page-1.png')} />
+          </Card>
+          <Card padding={18} style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+            <span style={{ fontSize: 15, fontWeight: 600 }}>미리보기 확인</span>
+            <div style={{ borderRadius: 8, overflow: 'hidden', border: '1px solid var(--border-default)', position: 'relative', background: '#f6f6f6', aspectRatio: '4 / 5', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <div style={{ position: 'absolute', inset: 0, backgroundImage: 'repeating-linear-gradient(180deg, transparent 0 15px, #e7e7e7 15px 16px)', backgroundPosition: '0 14px' }}></div>
+              <Icon name="music" size={40} style={{ color: '#cccccc', position: 'relative' }} />
+              <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', transform: 'rotate(-16deg)', fontFamily: 'var(--font-mono)', fontSize: 18, fontWeight: 500, letterSpacing: 3, color: 'rgba(0,0,0,0.055)', whiteSpace: 'nowrap' }}>미리보기 · PREVIEW · 미리보기</div>
+            </div>
+            <span style={{ fontSize: 12, color: 'var(--text-secondary)' }}>스토어 상세페이지에 노출되는 워터마크 미리보기예요.</span>
+          </Card>
+        </div>
+
+        {/* 정보 입력 */}
+        <Card padding={18} style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+          <span style={{ fontSize: 15, fontWeight: 600 }}>악보 정보</span>
+          <Input label="곡명" placeholder="예: Snare Groove No.8" value={form.title} onChange={set('title')} />
+          <Input label="아티스트" placeholder="예: The Metronomes" value={form.artist} onChange={set('artist')} />
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+            <B.Labeled label="장르"><Select value={form.genre} onChange={set('genre')} options={D.genres} /></B.Labeled>
+            <B.Labeled label="난이도"><Select value={form.level} onChange={set('level')} options={D.levels} /></B.Labeled>
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+            <Input label="페이지 수" type="number" placeholder="6" value={form.pages} onChange={set('pages')} />
+            <B.Labeled label="미리보기 범위" hint="워터마크 적용 페이지 수"><Select value={form.preview} onChange={set('preview')} options={['1페이지', '2페이지']} /></B.Labeled>
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+            <Input label="판매가 (₩)" type="number" placeholder="4500" value={form.price} onChange={set('price')} />
+            <Input label="정가 (₩ · 선택)" type="number" placeholder="할인 시에만 입력" value={form.orig} onChange={set('orig')} />
+          </div>
+          <B.Labeled label="노출 상태" hint="숨김/판매중지 상태는 스토어에 노출되지 않아요.">
+            <Select value={form.status} onChange={set('status')} options={['판매중', '판매중지', '숨김']} />
+          </B.Labeled>
+          <hr style={{ height: 1, background: 'var(--border-default)', border: 0, margin: '4px 0' }} />
+          <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', flexWrap: 'wrap' }}>
+            <Button variant="secondary" size="md" onClick={() => B.toast('임시저장했어요')}>임시저장</Button>
+            <Button variant="primary" size="md" iconLeft="check" disabled={!canSave} onClick={save}>등록하기</Button>
+          </div>
+        </Card>
+      </div>
+    </B.Shell>
+  );
+}
+ReactDOM.createRoot(document.getElementById('app')).render(<RegisterPage />);
+</script>
+</body>
+</html>

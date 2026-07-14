@@ -1,0 +1,24 @@
+<!-- @dsCard group="Colors" viewport="700x150" name="Borders & dividers" subtitle="One divider colour: Line #eaeaea. Faint / strong for outlines" -->
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<link rel="stylesheet" href="../../styles.css">
+<style>
+  body { margin: 0; padding: 24px; }
+  .stack { display: flex; flex-direction: column; gap: 16px; }
+  .item { display: flex; flex-direction: column; gap: 8px; }
+  .lab { display: flex; justify-content: space-between; font-size: 12px; }
+  .lab .n { color: var(--text-primary); font-weight: 500; }
+  .lab .t { font-family: var(--font-mono); font-size: 10px; color: var(--text-secondary); }
+  .line { height: 0; }
+</style>
+</head>
+<body>
+  <div class="stack">
+    <div class="item"><div class="lab"><span class="n">Default divider</span><span class="t">--border-default · #eaeaea</span></div><div class="line" style="border-top:1px solid var(--border-default)"></div></div>
+    <div class="item"><div class="lab"><span class="n">Faint outline (chips, pills)</span><span class="t">--border-faint · rgba(0,0,0,.08)</span></div><div class="line" style="border-top:1px solid var(--border-faint)"></div></div>
+    <div class="item"><div class="lab"><span class="n">Strong outline</span><span class="t">--border-strong · rgba(0,0,0,.14)</span></div><div class="line" style="border-top:1px solid var(--border-strong)"></div></div>
+  </div>
+</body>
+</html>

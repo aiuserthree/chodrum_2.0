@@ -1,0 +1,58 @@
+<!-- @dsCard group="Components" viewport="700x440" name="Form controls" subtitle="Input · Select · Checkbox · QuantityStepper · SocialButton" -->
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<link rel="stylesheet" href="../../styles.css">
+<style>
+  body { margin: 0; padding: 24px; }
+  .cols { display: grid; grid-template-columns: 1fr 1fr; gap: 28px; align-items: start; }
+  .stack { display: flex; flex-direction: column; gap: 14px; }
+  .cap { font-family: var(--font-mono); font-size: 10px; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.5px; }
+  .inline { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; }
+</style>
+</head>
+<body>
+  <div id="root"></div>
+  <script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+  <script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+  <script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+  <script src="../../_ds_bundle.js"></script>
+  <script type="text/babel">
+    const { Input, Select, Checkbox, QuantityStepper, SocialButton } = window.DrumSheetStoreDesignSystem_3a2462;
+    function Demo() {
+      const [qty, setQty] = React.useState(2);
+      const [a, setA] = React.useState(true);
+      const [b, setB] = React.useState(false);
+      return (
+        <div className="cols">
+          <div className="stack">
+            <span className="cap">inputs & select</span>
+            <Input placeholder="곡명, 아티스트 검색" iconLeft="search" />
+            <Input label="이메일" type="email" hint="다운로드 조회에 사용됩니다" />
+            <Input label="비밀번호" type="password" error="비밀번호를 확인해 주세요" />
+            <Select placeholder="정렬" options={['인기순','최신순','가격순','이름순']} />
+          </div>
+          <div className="stack">
+            <span className="cap">checkbox</span>
+            <div className="inline">
+              <Checkbox checked={a} onChange={setA} label="전체 선택" />
+              <Checkbox checked={b} onChange={setB} label="약관 동의" />
+              <Checkbox indeterminate label="일부 선택" />
+              <Checkbox disabled label="비활성" />
+            </div>
+            <span className="cap">quantity</span>
+            <QuantityStepper value={qty} min={1} max={10} onChange={setQty} />
+            <span className="cap">account entry</span>
+            <SocialButton provider="kakao" />
+            <SocialButton provider="naver" />
+            <SocialButton provider="google" />
+            <SocialButton provider="email" />
+          </div>
+        </div>
+      );
+    }
+    ReactDOM.createRoot(document.getElementById('root')).render(<Demo />);
+  </script>
+</body>
+</html>

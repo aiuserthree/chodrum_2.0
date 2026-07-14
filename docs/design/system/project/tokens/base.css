@@ -1,0 +1,65 @@
+/* ============================================================
+   BASE — Drum Sheet Store
+   Light foundational element styles. Applies the type system,
+   canvas background and sensible resets so specimens/components
+   render correctly. Kept deliberately un-opinionated.
+   ============================================================ */
+
+*, *::before, *::after { box-sizing: border-box; }
+
+html {
+  -webkit-text-size-adjust: 100%;
+  text-rendering: optimizeLegibility;
+}
+
+body {
+  margin: 0;
+  font-family: var(--font-sans);
+  font-size: var(--text-body);
+  line-height: var(--leading-body);
+  font-weight: var(--font-weight-regular);
+  font-feature-settings: var(--font-features);
+  color: var(--text-primary);
+  background: var(--surface-page);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Headings: weight 600, tightened tracking scales with size.
+   (Reset margins — layout owns spacing.) */
+h1, h2, h3, h4, h5, h6 {
+  margin: 0;
+  font-family: var(--font-sans);
+  font-weight: var(--font-weight-semibold);
+  color: var(--text-primary);
+  letter-spacing: var(--tracking-heading);
+}
+h1 { font-size: var(--text-display);    line-height: var(--leading-display);    letter-spacing: var(--tracking-display); }
+h2 { font-size: var(--text-heading-lg); line-height: var(--leading-heading-lg); letter-spacing: var(--tracking-heading-lg); }
+h3 { font-size: var(--text-heading);    line-height: var(--leading-heading);    letter-spacing: var(--tracking-heading); }
+h4 { font-size: var(--text-heading-sm); line-height: var(--leading-heading-sm); letter-spacing: normal; }
+
+p { margin: 0; }
+
+/* Links — monochrome; underline on hover only. */
+a {
+  color: var(--text-link);
+  text-decoration: none;
+}
+a:hover {
+  color: var(--color-onyx);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+/* Monospace helper for technical annotations / tabular numerals */
+.ds-mono {
+  font-family: var(--font-mono);
+  font-feature-settings: "zero";
+  font-variant-numeric: tabular-nums;
+}
+
+::selection {
+  background: var(--color-ink);
+  color: var(--color-paper-white);
+}
