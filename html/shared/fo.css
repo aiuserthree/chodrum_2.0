@@ -217,6 +217,26 @@ body.has-cta.has-tabbar main.fo-main { padding-bottom: 164px; }
 @media (min-width: 768px) { .fo-footer-grid { grid-template-columns: 1.25fr 1fr 1fr; gap: 28px; } }
 .fo-footer-bottom { display: flex; flex-direction: column; gap: 10px; padding-top: 18px; border-top: 1px solid var(--border-default); }
 @media (min-width: 768px) { .fo-footer-bottom { flex-direction: row; align-items: center; justify-content: space-between; } }
+.fo-footer-sns { display: flex; flex-wrap: wrap; align-items: center; gap: 2px; }
+.fo-footer-sns a {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border-radius: var(--radius-buttons);
+  color: var(--color-icon);
+  transition: background 120ms ease, color 120ms ease;
+  -webkit-tap-highlight-color: transparent;
+}
+.fo-footer-sns a:hover,
+.fo-footer-sns a:focus-visible {
+  color: var(--color-ink);
+  background: rgba(0, 0, 0, 0.04);
+  outline: none;
+}
+.fo-footer-sns a:active { transform: scale(0.94); }
+.fo-footer-sns svg { width: 18px; height: 18px; display: block; }
 
 /* ---------- 토스트 ---------- */
 .fo-toast { position: fixed; left: 50%; bottom: 96px; transform: translate(-50%, 12px); background: var(--color-ink); color: var(--color-paper-white); font-size: 13.5px; font-weight: 500; letter-spacing: -0.2px; padding: 11px 18px; border-radius: 9999px; box-shadow: var(--shadow-xl); opacity: 0; pointer-events: none; transition: opacity 140ms ease, transform 140ms ease; z-index: 70; max-width: calc(100vw - 48px); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }

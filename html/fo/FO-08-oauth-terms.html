@@ -66,9 +66,10 @@ function OAuthTermsPage() {
         location.replace(F.PAGES.login);
         return;
       }
-      if (Auth.hasConsentForEmail) {
+      if (Auth.hasOAuthConsentForEmail || Auth.hasConsentForEmail) {
         try {
-          const ok = await Auth.hasConsentForEmail(p.email);
+          const check = Auth.hasOAuthConsentForEmail || Auth.hasConsentForEmail;
+          const ok = await check(p.email);
           if (ok) {
             await Auth.restoreSession();
             location.replace(F.PAGES.my);

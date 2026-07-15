@@ -231,16 +231,33 @@
     }
   }
 
-  async function fetchConsentForEmail(email) {
-    if (email && window.ChodrumAPI && ChodrumAPI.members) {
-      try {
-        var row = await ChodrumAPI.members.getByEmail(email);
-        if (ChodrumAPI.members.hasConsent(row)) return true;
-      } catch (e) {
-        console.warn('[CHODRUM] consent check', e);
-      }
+  /**
+   * App membership consent = members row with terms+privacy.
+   * Ghost row (exists, consent null) must NOT fall through to Auth metadata,
+   * or a leftover session meta can skip FO-08-oauth-terms.
+   */
+  async function fetchMemberConsentForEmail(email) {
+    if (!email || !window.ChodrumAPI || !ChodrumAPI.members) return null;
+    try {
+      var row = await ChodrumAPI.members.getByEmail(email);
+      if (!row) return null;
+      return ChodrumAPI.members.hasConsent(row);
+    } catch (e) {
+      console.warn('[CHODRUM] consent check', e);
+      return null;
     }
+  }
+
+  async function fetchConsentForEmail(email) {
+    var memberConsent = await fetchMemberConsentForEmail(email);
+    if (memberConsent !== null) return memberConsent;
     return fetchConsentFromSession(email);
+  }
+
+  /** OAuth onboarding: only members consent skips terms (never Auth meta alone). */
+  async function fetchOAuthConsentForEmail(email) {
+    var memberConsent = await fetchMemberConsentForEmail(email);
+    return memberConsent === true;
   }
 
   async function persistConsentMetadata(consent) {
@@ -783,11 +800,11 @@
     profile.type = 'social';
     profile.fromOAuth = true;
 
-    var consented = await fetchConsentForEmail(profile.email);
+    var consented = await fetchOAuthConsentForEmail(profile.email);
     if (!consented) {
       setPendingProfile(profile);
       var cur = window.Store && Store.user && Store.user.get();
-      if (cur && cur.fromOAuth) Store.user.clear();
+      if (cur) Store.user.clear();
       return { ok: true, needsTerms: true, profile: profile };
     }
 
@@ -910,11 +927,11 @@
 
     var profile = profileFromUser(session.user);
     if (profile && profile.fromOAuth) {
-      var consented = await fetchConsentForEmail(profile.email);
+      var consented = await fetchOAuthConsentForEmail(profile.email);
       if (!consented) {
         setPendingProfile(profile);
         var cur = window.Store && Store.user && Store.user.get();
-        if (cur && cur.fromOAuth) Store.user.clear();
+        if (cur) Store.user.clear();
         return { ok: true, needsTerms: true, profile: profile };
       }
     }
@@ -954,8 +971,9 @@
       }
     }
 
-    await applyProfile(profile, { upsert: false });
-    return { ok: true, profile: profile };
+    /* Must apply enriched profile so Store.user carries consent timestamps */
+    await applyProfile(enriched, { upsert: false });
+    return { ok: true, profile: enriched };
   }
 
   async function declineTermsConsent() {
@@ -1009,16 +1027,25 @@
     declineTermsConsent: declineTermsConsent,
     getPendingProfile: getPendingProfile,
     hasConsentForEmail: fetchConsentForEmail,
+    hasOAuthConsentForEmail: fetchOAuthConsentForEmail,
     restoreSession: restoreSession,
     signOut: signOut,
     live: live,
   };
 
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', function () {
+  /* Skip auto-restore on OAuth callback — finishOAuthRedirect owns that page
+   * and a parallel restoreSession can race with bridge verifyOtp / terms gate. */
+  var isAuthCallback =
+    /FO-08-auth-callback\.html$/i.test(location.pathname || '') ||
+    /auth-callback/i.test(location.pathname || '');
+
+  if (!isAuthCallback) {
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', function () {
+        restoreSession().catch(function () {});
+      });
+    } else {
       restoreSession().catch(function () {});
-    });
-  } else {
-    restoreSession().catch(function () {});
+    }
   }
 })();
