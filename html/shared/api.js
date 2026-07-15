@@ -588,6 +588,7 @@
           name: m.name,
           email: m.email,
           type: m.auth_type,
+          birth: m.birth || '',
           joined: fmtJoined(m.joined_at),
           orders: orderCountByEmail[emailKey] != null ? orderCountByEmail[emailKey] : (m.orders_count || 0),
           status: m.status,
@@ -1113,6 +1114,9 @@
       status: nextStatus,
     };
     if (profile.authId) row.auth_user_id = profile.authId;
+    if (Object.prototype.hasOwnProperty.call(profile, 'birth')) {
+      row.birth = profile.birth ? String(profile.birth).replace(/\D/g, '').slice(0, 8) : null;
+    }
     if (profile.terms_agreed_at) row.terms_agreed_at = profile.terms_agreed_at;
     if (profile.privacy_agreed_at) row.privacy_agreed_at = profile.privacy_agreed_at;
     if (Object.prototype.hasOwnProperty.call(profile, 'marketing_agreed_at')) {
@@ -1158,6 +1162,14 @@
         onConflict: row.auth_user_id ? 'auth_user_id' : 'email',
       });
     }
+    /* migration 010 미적용 시 birth 컬럼 없음 → 제외 후 재시도 */
+    if (res.error && res.error.code === 'PGRST204' && /birth/.test(res.error.message || '')) {
+      console.warn('[CHODRUM] members.birth missing — upsert without birth', res.error.message);
+      delete row.birth;
+      res = await sb().from('members').upsert(row, {
+        onConflict: row.auth_user_id ? 'auth_user_id' : 'email',
+      });
+    }
     if (res.error) {
       console.warn('[CHODRUM] member upsert', res.error);
       var err = new Error(res.error.message || '회원 정보를 저장하지 못했어요.');
@@ -1188,16 +1200,35 @@
 
   async function updateMemberProfile(profile) {
     if (!profile || !profile.email) return profile;
+    var email = String(profile.email || '').trim().toLowerCase();
     if (!live()) {
       (window.AdminData.members || []).forEach(function (m) {
-        if (m.email === profile.email && profile.name) m.name = profile.name;
+        if (String(m.email || '').toLowerCase() !== email) return;
+        if (profile.name) m.name = profile.name;
+        if (Object.prototype.hasOwnProperty.call(profile, 'birth')) m.birth = profile.birth || '';
       });
       return profile;
     }
     var patch = {};
     if (profile.name) patch.name = profile.name;
+    if (Object.prototype.hasOwnProperty.call(profile, 'birth')) {
+      patch.birth = profile.birth ? String(profile.birth).replace(/\D/g, '').slice(0, 8) : null;
+    }
     if (!Object.keys(patch).length) return profile;
-    var res = await sb().from('members').update(patch).eq('email', profile.email);
+    var q = sb().from('members').update(patch);
+    if (profile.authId) q = q.eq('auth_user_id', profile.authId);
+    else q = q.eq('email', email);
+    var res = await q;
+    /* migration 010 미적용: birth 컬럼 없으면 name만 저장 */
+    if (res.error && res.error.code === 'PGRST204' && /birth/.test(res.error.message || '')) {
+      console.warn('[CHODRUM] members.birth missing — update name only', res.error.message);
+      delete patch.birth;
+      if (!Object.keys(patch).length) return profile;
+      q = sb().from('members').update(patch);
+      if (profile.authId) q = q.eq('auth_user_id', profile.authId);
+      else q = q.eq('email', email);
+      res = await q;
+    }
     if (res.error) {
       console.warn('[CHODRUM] member profile', res.error);
       throw new Error(res.error.message || '회원 정보를 저장하지 못했어요.');

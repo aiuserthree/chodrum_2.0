@@ -17,6 +17,7 @@
    - `supabase/migrations/007_banner_sheet_id.sql` (배너 ↔ 악보 연동 `sheet_id`)
    - `supabase/migrations/008_banner_mobile_image.sql` (배너 모바일 이미지 `image_url_mobile`)
    - `supabase/migrations/009_member_provider_identity.sql` (**필수** · 카카오/네이버 동일 이메일이어도 회원·약관 분리)
+   - `supabase/migrations/010_member_birth.sql` (회원 생년월일 `birth` · 내정보수정/아이디찾기)
 3. **Project Settings → API**에서 복사:
    - Project URL
    - `anon` `public` key

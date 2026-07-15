@@ -204,6 +204,7 @@
       auth_provider: provider,
       name: name,
       email: contactEmail,
+      birth: meta.birth || '',
       fromOAuth: true,
       authId: user.id,
       avatar: meta.avatar_url || meta.picture || '',
@@ -224,6 +225,9 @@
       auth_provider: provider,
     };
     if (profile.authId) out.authId = profile.authId;
+    if (Object.prototype.hasOwnProperty.call(profile, 'birth')) {
+      out.birth = profile.birth || '';
+    }
     if (profile.terms_agreed_at) out.terms_agreed_at = profile.terms_agreed_at;
     if (profile.privacy_agreed_at) out.privacy_agreed_at = profile.privacy_agreed_at;
     if (Object.prototype.hasOwnProperty.call(profile, 'marketing_agreed_at')) {
@@ -362,6 +366,10 @@
         if (row) {
           if (row.name) profile.name = row.name;
           if (row.status) profile.status = row.status;
+          if (row.birth) profile.birth = row.birth;
+          else if (Object.prototype.hasOwnProperty.call(row, 'birth') && !profile.birth) {
+            profile.birth = row.birth || '';
+          }
           if (row.terms_agreed_at) profile.terms_agreed_at = row.terms_agreed_at;
           if (row.privacy_agreed_at) profile.privacy_agreed_at = row.privacy_agreed_at;
           if (Object.prototype.hasOwnProperty.call(row, 'marketing_agreed_at')) {
@@ -718,6 +726,68 @@
       return { ok: false, error: '현재 비밀번호가 올바르지 않아요.' };
     }
     return updatePassword(newPassword);
+  }
+
+  /**
+   * FO-09 내 정보 수정 — 이름/생년월일
+   * Auth user_metadata + members 테이블에 동시 저장 (members가 소스 오브 트루스).
+   */
+  async function updateBasicProfile(opts) {
+    opts = opts || {};
+    var nameTrim = String(opts.name || '').trim();
+    var birthRaw = Object.prototype.hasOwnProperty.call(opts, 'birth')
+      ? String(opts.birth || '').replace(/\D/g, '').slice(0, 8)
+      : undefined;
+    if (birthRaw !== undefined && birthRaw && !/^\d{8}$/.test(birthRaw)) {
+      return { ok: false, error: '생년월일 8자리를 확인해주세요.' };
+    }
+    if (!nameTrim) {
+      return { ok: false, error: '이름을 입력해주세요.' };
+    }
+
+    var sessionRes = live() ? await client().auth.getSession() : { data: { session: null } };
+    var user = sessionRes.data && sessionRes.data.session && sessionRes.data.session.user;
+    var cur = (window.Store && Store.user && Store.user.get()) || null;
+    var email = (user && user.email) || (cur && cur.email) || '';
+    var authId = (user && user.id) || (cur && cur.authId) || '';
+
+    if (live() && user) {
+      var metaPatch = {
+        full_name: nameTrim,
+        name: nameTrim,
+      };
+      if (birthRaw !== undefined) metaPatch.birth = birthRaw || '';
+      var upd = await client().auth.updateUser({ data: metaPatch });
+      if (upd.error) {
+        return { ok: false, error: upd.error.message || '회원 정보를 저장하지 못했어요.' };
+      }
+      if (upd.data && upd.data.user) user = upd.data.user;
+    }
+
+    var profile = user ? profileFromUser(user) : Object.assign({}, cur || {});
+    profile.name = nameTrim;
+    if (birthRaw !== undefined) profile.birth = birthRaw || '';
+    if (email) profile.email = email;
+    if (authId) profile.authId = authId;
+
+    if (window.ChodrumAPI && ChodrumAPI.members && profile.email) {
+      try {
+        await ChodrumAPI.members.updateProfile({
+          email: profile.email,
+          authId: profile.authId,
+          name: profile.name,
+          birth: Object.prototype.hasOwnProperty.call(profile, 'birth') ? profile.birth : undefined,
+        });
+      } catch (e) {
+        console.warn('[CHODRUM] updateBasicProfile members', e);
+        return { ok: false, error: (e && e.message) || '회원 정보를 저장하지 못했어요.' };
+      }
+    }
+
+    if (window.Store && Store.user) {
+      Store.user.set(Object.assign({}, cur || {}, profile));
+    }
+    return { ok: true, profile: profile };
   }
 
   /* ---------- OAuth ---------- */
@@ -1150,6 +1220,7 @@
     verifyRecoveryOtp: verifyRecoveryOtp,
     updatePassword: updatePassword,
     changePassword: changePassword,
+    updateBasicProfile: updateBasicProfile,
     signInWithOAuth: signInWithOAuth,
     finishOAuthRedirect: finishOAuthRedirect,
     completeTermsConsent: completeTermsConsent,

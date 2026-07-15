@@ -77,13 +77,13 @@ function EditPage() {
 
   const [saving, setSaving] = React.useState(false);
   const saveProfile = async () => {
-    const next = { ...user, name: name.trim() || user.name, birth: birth || undefined };
+    const nameTrim = name.trim();
+    if (!nameTrim) { F.toast('이름을 입력해주세요.'); return; }
+    if (birth && !/^\d{8}$/.test(birth)) { F.toast('생년월일 8자리를 확인해주세요.'); return; }
     setSaving(true);
     try {
-      if (window.ChodrumAPI && ChodrumAPI.members && next.email) {
-        await ChodrumAPI.members.updateProfile({ email: next.email, name: next.name });
-      }
-      Store.user.set(next);
+      const r = await Auth.updateBasicProfile({ name: nameTrim, birth: birth || '' });
+      if (!r.ok) { F.toast(r.error || '저장에 실패했어요'); return; }
       F.toast('내 정보가 저장되었어요');
     } catch (e) {
       F.toast((e && e.message) || '저장에 실패했어요');
