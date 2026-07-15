@@ -30,7 +30,7 @@ window.CHODRUM_CONFIG = {
   /* 'bridge' = Edge Function kakao-auth (기본) | 'supabase' = Dashboard Kakao Provider */
   KAKAO_OAUTH_MODE: 'bridge',
   /* 네이버 Developers → 애플리케이션 → Client ID (공개). Secret은 Edge Function만. */
-  NAVER_CLIENT_ID: '',
+  NAVER_CLIENT_ID: 'lLQxr7LyzWMJ59p1uGbG',
   /* 'bridge' = Edge Function naver-auth (기본) | 'custom' = Dashboard Custom Provider */
   NAVER_OAUTH_MODE: 'bridge',
   /* BO 관리자 로그인 (FO 회원 인증과 별도). html/bo/BO-00-login.html */

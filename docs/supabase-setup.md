@@ -227,14 +227,17 @@ NAVER_OAUTH_MODE: 'bridge',
 #### C. Edge Function 배포
 
 ```bash
-# CLI 로그인·프로젝트 링크 후
-supabase secrets set NAVER_CLIENT_ID=... NAVER_CLIENT_SECRET=...
+# CLI 로그인·프로젝트 링크 후 (따옴표 권장, <> 괄호 넣지 말 것)
+supabase secrets set "NAVER_CLIENT_ID=발급받은_Client_ID" "NAVER_CLIENT_SECRET=발급받은_Client_Secret"
 supabase functions deploy naver-auth --no-verify-jwt
 ```
 
-소스: `supabase/functions/naver-auth/index.ts`
+소스: `supabase/functions/naver-auth/index.ts`  
+(이미 배포된 경우에도 Client ID/Secret을 바꾼 뒤에는 secrets만 다시 set 하면 됩니다.)
 
 흐름: FO → 네이버 동의 → 콜백 `?code=` → Function이 토큰·프로필 처리 → `hashed_token` → 브라우저 `verifyOtp` → (신규면) 약관 → `members` upsert
+
+**버튼이 회색이면:** `html/shared/config.js`의 `NAVER_CLIENT_ID`가 비어 있거나, 배포된 `config.js`에 아직 반영되지 않은 상태입니다.
 
 #### D. (선택) Custom Provider 모드
 
