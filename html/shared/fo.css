@@ -88,7 +88,15 @@ a.fo-wordmark:hover { text-decoration: none; color: var(--color-onyx); }
 @media (min-width: 768px) { .fo-mobile { display: none !important; } }
 
 /* ---------- 하단 탭바 (모바일) ---------- */
-.fo-tabbar { position: fixed; left: 0; right: 0; bottom: 0; z-index: 45; display: flex; background: var(--surface-card); border-top: 1px solid var(--border-default); padding-bottom: env(safe-area-inset-bottom); }
+.fo-tabbar {
+  position: fixed; left: 0; right: 0; bottom: 0; z-index: 45; display: flex;
+  background: var(--surface-card); border-top: 1px solid var(--border-default);
+  padding-bottom: env(safe-area-inset-bottom);
+  transform: translateY(0);
+  transition: transform 220ms ease;
+  will-change: transform;
+}
+.fo-tabbar.is-hidden { transform: translateY(100%); pointer-events: none; }
 @media (min-width: 768px) { .fo-tabbar { display: none; } }
 a.fo-tab { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 3px; padding: 9px 0 7px; font-size: 10px; font-weight: 500; letter-spacing: -0.2px; color: var(--color-icon); }
 a.fo-tab:hover { text-decoration: none; color: var(--color-icon); }
@@ -97,8 +105,14 @@ body.has-tabbar main.fo-main { padding-bottom: 96px; }
 @media (min-width: 768px) { body.has-tabbar main.fo-main { padding-bottom: 40px; } }
 
 /* ---------- 하단 고정 CTA (모바일) ---------- */
-.fo-ctabar { position: fixed; left: 0; right: 0; bottom: 0; z-index: 46; display: flex; gap: 10px; align-items: center; background: var(--surface-card); border-top: 1px solid var(--border-default); padding: 12px 16px calc(12px + env(safe-area-inset-bottom)); }
+.fo-ctabar {
+  position: fixed; left: 0; right: 0; bottom: 0; z-index: 46; display: flex; gap: 10px; align-items: center;
+  background: var(--surface-card); border-top: 1px solid var(--border-default);
+  padding: 12px 16px calc(12px + env(safe-area-inset-bottom));
+  transition: bottom 220ms ease;
+}
 .fo-ctabar.above-tabbar { bottom: calc(53px + env(safe-area-inset-bottom)); padding-bottom: 12px; }
+body.tabbar-scrolled-away .fo-ctabar.above-tabbar { bottom: 0; padding-bottom: calc(12px + env(safe-area-inset-bottom)); }
 @media (min-width: 768px) { .fo-ctabar { display: none; } }
 body.has-cta main.fo-main { padding-bottom: 108px; }
 body.has-cta.has-tabbar main.fo-main { padding-bottom: 164px; }

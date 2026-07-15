@@ -379,16 +379,62 @@ function Header({ tab, title, back }) {
 function TabBar({ active }) {
   useStoreTick();
   const n = Store.cart.count();
+  const [hidden, setHidden] = React.useState(false);
   const tabs = [
     { k: 'home', ic: 'house', l: '홈', href: PAGES.home },
     { k: 'list', ic: 'search', l: '악보', href: PAGES.list },
     { k: 'cart', ic: 'shopping-cart', l: '장바구니', href: PAGES.cart },
     { k: 'my', ic: 'user', l: '마이', href: PAGES.my },
   ];
+
+  React.useEffect(() => {
+    const mq = window.matchMedia('(max-width: 767px)');
+    let lastY = window.scrollY || 0;
+    let isHidden = false;
+    const THRESHOLD = 8;
+
+    const apply = (next) => {
+      if (isHidden === next) return;
+      isHidden = next;
+      setHidden(next);
+      document.body.classList.toggle('tabbar-scrolled-away', next);
+    };
+
+    const onScroll = () => {
+      if (!mq.matches) {
+        apply(false);
+        lastY = window.scrollY || 0;
+        return;
+      }
+      const y = window.scrollY || 0;
+      const delta = y - lastY;
+      if (y <= 8) {
+        apply(false);
+      } else if (delta > THRESHOLD) {
+        apply(true);
+      } else if (delta < -THRESHOLD) {
+        apply(false);
+      }
+      lastY = y;
+    };
+
+    window.addEventListener('scroll', onScroll, { passive: true });
+    const onMq = () => onScroll();
+    if (mq.addEventListener) mq.addEventListener('change', onMq);
+    else mq.addListener(onMq);
+
+    return () => {
+      window.removeEventListener('scroll', onScroll);
+      if (mq.removeEventListener) mq.removeEventListener('change', onMq);
+      else mq.removeListener(onMq);
+      document.body.classList.remove('tabbar-scrolled-away');
+    };
+  }, []);
+
   return (
-    <nav className="fo-tabbar">
+    <nav className={'fo-tabbar' + (hidden ? ' is-hidden' : '')} aria-hidden={hidden || undefined}>
       {tabs.map((t) => (
-        <a key={t.k} href={t.href} className={'fo-tab' + (active === t.k ? ' on' : '')}>
+        <a key={t.k} href={t.href} className={'fo-tab' + (active === t.k ? ' on' : '')} tabIndex={hidden ? -1 : undefined}>
           <span style={{ position: 'relative', display: 'inline-flex' }}>
             <Icon name={t.ic} size={22} />
             {t.k === 'cart' && n ? <span className="ds-mono" style={{ position: 'absolute', top: -4, right: -8, minWidth: 15, height: 15, padding: '0 3px', borderRadius: 9999, background: 'var(--color-ink)', color: '#fff', fontSize: 9, fontWeight: 600, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>{n}</span> : null}
@@ -417,7 +463,6 @@ function Footer() {
             <span style={{ fontSize: 15, fontWeight: 600, letterSpacing: '-0.3px' }}>CHODRUM</span>
           </span>
           <div className="fo-footer-links">
-            <a href={PAGES.guest}>비회원 주문 조회</a>
             <a href={PAGES.terms}>이용약관</a>
             <a href={PAGES.privacy} style={{ fontWeight: 600, color: 'var(--text-primary)' }}>개인정보처리방침</a>
             <a href={PAGES.marketing}>마케팅 수신 동의</a>
