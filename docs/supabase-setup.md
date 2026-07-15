@@ -274,13 +274,16 @@ FO는 `signInWithOAuth({ provider: 'custom:naver' })` 를 호출합니다.
 ### 5-5. 테스트 방법
 
 ```bash
-cd html && python3 -m http.server 8765 --bind 127.0.0.1
+# Pretty URLs (/login, /bo/login, …) need vercel.json rewrites.
+# Do NOT use plain `python3 -m http.server` — those paths 404.
+python3 scripts/serve-local.py
 ```
 
-1. http://localhost:8765/fo/FO-08-signup.html — 이메일 OTP 가입
-2. http://localhost:8765/fo/FO-08-login.html — Google / 카카오 / 네이버
-3. 신규 소셜 → `FO-08-oauth-terms.html` → 마이페이지
-4. 콘솔: `ChodrumAuth.live() === true`
+1. http://localhost:8765/login — FO 로그인 (또는 `/fo/FO-08-login.html`)
+2. http://localhost:8765/signup — 이메일 OTP 가입
+3. http://localhost:8765/bo/login — BO 관리자 (config.js `ADMIN_ID` / `ADMIN_PASSWORD`, Supabase와 무관)
+4. 신규 소셜 → `/oauth-terms` → 마이페이지
+5. 콘솔: `ChodrumAuth.live() === true`
 
 ## 6. 파일 업로드 (Storage)
 

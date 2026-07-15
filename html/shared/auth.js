@@ -764,12 +764,18 @@
       sessionStorage.removeItem(KAKAO_STATE_KEY);
       setOAuthFlow('naver');
     } catch (e) { /* ignore */ }
+    /*
+     * auth_type=reauthenticate: always show Naver login UI (no silent SSO).
+     * App linking itself is NOT removed — use Developers "연동 해제" or token
+     * delete/unlink for that. Skip unlink-on-logout (destructive for shop users).
+     */
     var url =
       'https://nid.naver.com/oauth2.0/authorize' +
       '?response_type=code' +
       '&client_id=' + encodeURIComponent(clientId) +
       '&redirect_uri=' + encodeURIComponent(callbackUrl()) +
-      '&state=' + encodeURIComponent(state);
+      '&state=' + encodeURIComponent(state) +
+      '&auth_type=reauthenticate';
     location.href = url;
     return { ok: true };
   }
@@ -789,13 +795,19 @@
       sessionStorage.removeItem(NAVER_STATE_KEY);
       setOAuthFlow('kakao');
     } catch (e) { /* ignore */ }
-    /* scope는 Developers 동의 항목 설정을 따름. account_email 필수 권장. */
+    /*
+     * scope는 Developers 동의 항목 설정을 따름. account_email 필수 권장.
+     * prompt=login: force Kakao Account login UI even if browser session exists.
+     * Does not unlink the app — user still skips consent if already connected.
+     * (Kakao Talk in-app browser may ignore prompt=login.)
+     */
     var url =
       'https://kauth.kakao.com/oauth/authorize' +
       '?response_type=code' +
       '&client_id=' + encodeURIComponent(clientId) +
       '&redirect_uri=' + encodeURIComponent(callbackUrl()) +
-      '&state=' + encodeURIComponent(state);
+      '&state=' + encodeURIComponent(state) +
+      '&prompt=login';
     location.href = url;
     return { ok: true };
   }
@@ -947,7 +959,10 @@
         setOAuthFlow('naver-custom');
         var customRes = await client().auth.signInWithOAuth({
           provider: 'custom:naver',
-          options: { redirectTo: callbackUrl() },
+          options: {
+            redirectTo: callbackUrl(),
+            queryParams: { auth_type: 'reauthenticate' },
+          },
         });
         if (customRes.error) {
           setOAuthFlow(null);
@@ -979,6 +994,9 @@
     };
     if (provider === 'google') {
       opts.options.queryParams = { access_type: 'offline', prompt: 'select_account' };
+    } else if (provider === 'kakao') {
+      /* supabase mode — same force-login as bridge */
+      opts.options.queryParams = { prompt: 'login' };
     }
     var res = await client().auth.signInWithOAuth(opts);
     if (res.error) {
