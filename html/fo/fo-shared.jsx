@@ -478,7 +478,7 @@ function Footer() {
               <FRow k="대표자명" v="조준형" />
               <FRow k="사업장 주소" v="14238 경기도 광명시 디지털로 63" />
               <FRow k="대표 전화" v="010-9872-5784" mono />
-              <FRow k="사업자 등록번호" v={<span className="ds-mono">3663101280 <a href="#" style={{ fontSize: 12, whiteSpace: 'nowrap' }}>[사업자정보확인]</a></span>} />
+              <FRow k="사업자 등록번호" v={<span className="ds-mono">3663101280 <a href="https://www.ftc.go.kr/bizCommPop.do?wrkr_no=3663101280" target="_blank" rel="noopener noreferrer" style={{ fontSize: 12, whiteSpace: 'nowrap' }}>[사업자정보확인]</a></span>} />
               <FRow k="통신판매업 신고번호" v="2023-경기광명-0200" mono />
               <FRow k="개인정보보호책임자" v="조준형" />
             </div>
