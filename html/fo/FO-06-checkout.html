@@ -3,6 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="referrer" content="strict-origin-when-cross-origin">
 <title>CHODRUM — 주문 / 결제</title>
 <link rel="stylesheet" href="../_ds/drum-sheet-store-design-system-3a2462a0-2443-475e-a3b6-f7937913eb0b/tokens/colors.css">
 <link rel="stylesheet" href="../_ds/drum-sheet-store-design-system-3a2462a0-2443-475e-a3b6-f7937913eb0b/tokens/typography.css">
@@ -26,7 +27,7 @@
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="../shared/supabase-client.js"></script>
 <script src="../shared/api.js"></script>
-<script type="text/babel" src="fo-shared.jsx"></script>
+<script type="text/babel" src="/fo/fo-shared.jsx"></script>
 <script type="text/babel">
 /* FO-06 주문/결제 — 장바구니 경유 필수 · 회원 자동입력 / 비회원 이메일 재확인 · PG 결제 */
 const DS = window.DrumSheetStoreDesignSystem_3a2462;
@@ -58,7 +59,7 @@ function CheckoutPage() {
   const [a1, setA1] = React.useState(false);
   const [a2, setA2] = React.useState(false);
   const [a3, setA3] = React.useState(false);
-  const [doc, setDoc] = React.useState(null); /* 'marketing' | null */
+  const [doc, setDoc] = React.useState(null); /* 'purchase' | 'refund' | 'marketing' | null */
 
   /* S-07: 장바구니 미경유(결제 대상 없음) → 진입 차단 */
   if (!items.length) {
@@ -82,7 +83,14 @@ function CheckoutPage() {
     const order = {
       no: window.orderNo(),
       date: new Date().toLocaleString('ko-KR', { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }),
-      items: items.map((it) => ({ id: it.id, qty: it.qty, price: it.price })),
+      /* title 스냅샷 필수 — 완료/다운로드 페이지가 시트 hydrate 전에 렌더돼도 이름 유지 */
+      items: items.map((it) => ({
+        id: it.id,
+        sheetId: it.id,
+        qty: it.qty,
+        price: it.price,
+        title: (it.title && it.title !== '삭제되었거나 찾을 수 없는 악보') ? it.title : '악보',
+      })),
       total: total,
       method: { card: '신용 / 체크카드', kakao: '카카오페이', naver: '네이버페이', bank: '계좌이체' }[pay],
       guest: !member,
@@ -106,15 +114,30 @@ function CheckoutPage() {
     }
     Store.lastOrder.set(order);
     if (member) {
-      Store.purchases.add(items.map((it) => ({ id: it.id, orderNo: order.no, paidAt: Date.now() })));
+      Store.purchases.add(order.items.map((it) => ({
+        id: it.id,
+        sheetId: it.id,
+        title: it.title || '악보',
+        orderNo: order.no,
+        paidAt: Date.now(),
+      })));
     } else {
-      Store.guestOrders.add(email, { orderNo: order.no, date: order.date, items: items.map((it) => ({ id: it.id, dday: 7 })) });
+      Store.guestOrders.add(email, {
+        orderNo: order.no,
+        date: order.date,
+        items: order.items.map((it) => ({ id: it.id, sheetId: it.id, title: it.title || '악보', dday: 7 })),
+      });
     }
     Store.cart.remove(ids);
     location.href = F.PAGES.complete;
   };
 
   const payBtn = (size) => <Button variant="primary" size={size} fullWidth disabled={!canPay} onClick={doPay}>{F.won(total)} 결제하기</Button>;
+
+  const docTitle =
+    doc === 'purchase' ? '구매조건 및 결제 진행 동의'
+      : doc === 'refund' ? '디지털 콘텐츠 · 환불 정책 동의'
+        : '마케팅 수신 동의';
 
   return (
     <F.Scaffold title="주문 / 결제" back={F.PAGES.cart} cta={payBtn('lg')}>
@@ -169,8 +192,8 @@ function CheckoutPage() {
             <Card padding={16} style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
               <Checkbox checked={allAgree} onChange={setAll} label={<b style={{ fontWeight: 600 }}>전체 동의</b>} />
               <hr className="fo-hr" />
-              <Checkbox checked={a1} onChange={setA1} label="(필수) 구매조건 및 결제 진행 동의" />
-              <Checkbox checked={a2} onChange={setA2} label="(필수) 디지털 콘텐츠 · 환불 정책 동의" />
+              <F.LegalTermRow checked={a1} onChange={setA1} kind="purchase" label="(필수) 구매조건 및 결제 진행 동의" onView={() => setDoc('purchase')} />
+              <F.LegalTermRow checked={a2} onChange={setA2} kind="refund" label="(필수) 디지털 콘텐츠 · 환불 정책 동의" onView={() => setDoc('refund')} />
               <F.LegalTermRow checked={a3} onChange={setA3} kind="marketing" label="(선택) 신보 소식 · 혜택 알림 수신 동의" onView={() => setDoc('marketing')} />
             </Card>
           </F.Section>
@@ -188,7 +211,7 @@ function CheckoutPage() {
         </div>
       </div>
 
-      <F.Dialog open={!!doc} onClose={() => setDoc(null)} title="마케팅 수신 동의" wide>
+      <F.Dialog open={!!doc} onClose={() => setDoc(null)} title={docTitle} wide>
         {doc ? <F.LegalDocBody kind={doc} /> : null}
       </F.Dialog>
     </F.Scaffold>

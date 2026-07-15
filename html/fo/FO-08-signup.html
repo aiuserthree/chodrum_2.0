@@ -3,6 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="referrer" content="strict-origin-when-cross-origin">
 <title>CHODRUM — 회원가입</title>
 <link rel="stylesheet" href="../_ds/drum-sheet-store-design-system-3a2462a0-2443-475e-a3b6-f7937913eb0b/tokens/colors.css">
 <link rel="stylesheet" href="../_ds/drum-sheet-store-design-system-3a2462a0-2443-475e-a3b6-f7937913eb0b/tokens/typography.css">
@@ -27,7 +28,7 @@
 <script src="../shared/supabase-client.js"></script>
 <script src="../shared/api.js"></script>
 <script src="../shared/auth.js"></script>
-<script type="text/babel" src="fo-shared.jsx"></script>
+<script type="text/babel" src="/fo/fo-shared.jsx"></script>
 <script type="text/babel">
 /* FO-08-02/03 회원가입 — 이메일 OTP 인증 → 비밀번호 → 약관 + 소셜 OAuth */
 const DS = window.DrumSheetStoreDesignSystem_3a2462;
@@ -285,7 +286,9 @@ function SignupPage() {
           <SocialButton provider="google" style={socialStyle('google')} onClick={() => socialSignup('google')} />
           <p className="fo-caption" style={{ textAlign: 'center' }}>
             소셜 간편가입은 비밀번호 없이 플랫폼 계정이 로그인 ID가 돼요.
-            {!Auth.isProviderEnabled('naver') ? ' 네이버는 Client ID·Edge Function 설정 후 활성화돼요.' : ''}
+            {!Auth.isProviderEnabled('kakao') || !Auth.isProviderEnabled('naver')
+              ? ' 카카오·네이버는 Client ID와 Edge Function 설정 후 활성화돼요.'
+              : ''}
           </p>
         </div>
 

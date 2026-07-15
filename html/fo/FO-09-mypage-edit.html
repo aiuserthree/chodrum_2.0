@@ -3,6 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="referrer" content="strict-origin-when-cross-origin">
 <title>CHODRUM — 내 정보 수정</title>
 <link rel="stylesheet" href="../_ds/drum-sheet-store-design-system-3a2462a0-2443-475e-a3b6-f7937913eb0b/tokens/colors.css">
 <link rel="stylesheet" href="../_ds/drum-sheet-store-design-system-3a2462a0-2443-475e-a3b6-f7937913eb0b/tokens/typography.css">
@@ -26,7 +27,7 @@
 <script src="../shared/supabase-client.js"></script>
 <script src="../shared/api.js"></script>
 <script src="../shared/auth.js"></script>
-<script type="text/babel" src="fo-shared.jsx"></script>
+<script type="text/babel" src="/fo/fo-shared.jsx"></script>
 <script type="text/babel">
 /* FO-09-03 내 정보 수정 — 일반: 기본정보+비밀번호 / 소셜: 비밀번호 메뉴 미노출 (실제 로그인 계정 기준) */
 const DS = window.DrumSheetStoreDesignSystem_3a2462;
@@ -74,9 +75,21 @@ function EditPage() {
     );
   }
 
-  const saveProfile = () => {
-    Store.user.set({ ...user, name: name.trim() || user.name, birth: birth || undefined });
-    F.toast('내 정보가 저장되었어요');
+  const [saving, setSaving] = React.useState(false);
+  const saveProfile = async () => {
+    const next = { ...user, name: name.trim() || user.name, birth: birth || undefined };
+    setSaving(true);
+    try {
+      if (window.ChodrumAPI && ChodrumAPI.members && next.email) {
+        await ChodrumAPI.members.updateProfile({ email: next.email, name: next.name });
+      }
+      Store.user.set(next);
+      F.toast('내 정보가 저장되었어요');
+    } catch (e) {
+      F.toast((e && e.message) || '저장에 실패했어요');
+    } finally {
+      setSaving(false);
+    }
   };
 
   return (
@@ -121,7 +134,7 @@ function EditPage() {
         )}
 
         <div style={{ marginTop: 28, display: 'flex', gap: 10 }}>
-          <Button variant="primary" size="lg" fullWidth onClick={saveProfile}>저장하기</Button>
+          <Button variant="primary" size="lg" fullWidth disabled={saving} onClick={saveProfile}>{saving ? '저장 중…' : '저장하기'}</Button>
         </div>
         <p className="fo-caption" style={{ marginTop: 16, textAlign: 'center' }}>계정을 삭제하려면 <a href={F.PAGES.withdraw} style={{ color: 'var(--text-secondary)', textDecoration: 'underline', textUnderlineOffset: 2 }}>회원 탈퇴</a>로 이동하세요.</p>
       </div>

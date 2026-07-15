@@ -19,14 +19,16 @@
   .quick { display: flex; flex-wrap: wrap; gap: 12px; margin-bottom: 28px; }
   .quick a { background: #1a1a1a; color: #fff; padding: 10px 16px; border-radius: 8px; text-decoration: none; }
   .quick a:hover { opacity: 0.9; text-decoration: none; }
+  code { font-size: 0.85em; }
 </style>
 </head>
 <body>
   <h1>CHODRUM</h1>
-  <p class="lead">Front Office / Back Office HTML 스크린 인덱스</p>
+  <p class="lead">Front Office / Back Office HTML 스크린 인덱스 (pretty URL)</p>
   <div class="quick">
-    <a href="fo/FO-01-home.html">FO 홈</a>
-    <a href="bo/BO-01-dashboard.html">BO 대시보드</a>
+    <a href="/home">FO 홈</a>
+    <a href="/bo/login">BO 로그인</a>
+    <a href="/bo/dashboard">BO 대시보드</a>
   </div>
   <section style="margin-bottom:28px;padding:16px 18px;background:#fff;border:1px solid #e5e2dc;border-radius:10px;">
     <h2 style="border:0;padding:0;margin:0 0 8px;font-size:1rem;">Supabase 연결</h2>
@@ -50,47 +52,40 @@
     })();
   </script>
   <section>
-    <h2>Front Office (fo)</h2>
+    <h2>Front Office</h2>
     <ul>
-      <li><a href="fo/FO-01-home.html">FO-01-home.html</a></li>
-      <li><a href="fo/FO-02-sheet-list.html">FO-02-sheet-list.html</a></li>
-      <li><a href="fo/FO-03-sheet-detail.html">FO-03-sheet-detail.html</a></li>
-      <li><a href="fo/FO-04-wishlist.html">FO-04-wishlist.html</a></li>
-      <li><a href="fo/FO-05-cart.html">FO-05-cart.html</a></li>
-      <li><a href="fo/FO-06-checkout.html">FO-06-checkout.html</a></li>
-      <li><a href="fo/FO-07-order-complete.html">FO-07-order-complete.html</a></li>
-      <li><a href="fo/FO-08-find-id.html">FO-08-find-id.html</a></li>
-      <li><a href="fo/FO-08-login.html">FO-08-login.html</a></li>
-      <li><a href="fo/FO-08-auth-callback.html">FO-08-auth-callback.html</a> (OAuth 콜백)</li>
-      <li><a href="fo/FO-08-oauth-terms.html">FO-08-oauth-terms.html</a> (소셜 약관 동의)</li>
-      <li><a href="fo/FO-08-password-reset.html">FO-08-password-reset.html</a></li>
-      <li><a href="fo/FO-08-signup.html">FO-08-signup.html</a></li>
-      <li><a href="fo/FO-09-mypage-downloads.html">FO-09-mypage-downloads.html</a></li>
-      <li><a href="fo/FO-09-mypage-edit.html">FO-09-mypage-edit.html</a></li>
-      <li><a href="fo/FO-09-mypage-withdraw.html">FO-09-mypage-withdraw.html</a></li>
-      <li><a href="fo/FO-09-mypage.html">FO-09-mypage.html</a></li>
-      <li><a href="fo/FO-10-guest-lookup.html">FO-10-guest-lookup.html</a></li>
-      <li><a href="fo/FO-11-guide.html">FO-11-guide.html</a></li>
-      <li><a href="fo/FO-11-marketing.html">FO-11-marketing.html</a></li>
-      <li><a href="fo/FO-11-privacy.html">FO-11-privacy.html</a></li>
-      <li><a href="fo/FO-11-terms.html">FO-11-terms.html</a></li>
+      <li><a href="/home">/home</a> — 홈</li>
+      <li><a href="/sheets">/sheets</a> — 악보 목록</li>
+      <li><a href="/sheet">/sheet</a> — 악보 상세</li>
+      <li><a href="/wishlist">/wishlist</a> — 찜</li>
+      <li><a href="/cart">/cart</a> — 장바구니</li>
+      <li><a href="/checkout">/checkout</a> — 결제</li>
+      <li><a href="/order-complete">/order-complete</a> — 결제 완료</li>
+      <li><a href="/login">/login</a> — 로그인</li>
+      <li><a href="/signup">/signup</a> — 회원가입</li>
+      <li><a href="/find-id">/find-id</a> — 아이디 찾기</li>
+      <li><a href="/password-reset">/password-reset</a> — 비밀번호 찾기</li>
+      <li><a href="/fo/FO-08-auth-callback.html">/fo/FO-08-auth-callback.html</a> (OAuth 콜백 · 유지)</li>
+      <li><a href="/oauth-terms">/oauth-terms</a> — 소셜 약관</li>
+      <li><a href="/mypage">/mypage</a> — 마이페이지</li>
+      <li><a href="/mypage/downloads">/mypage/downloads</a></li>
+      <li><a href="/mypage/edit">/mypage/edit</a></li>
+      <li><a href="/mypage/withdraw">/mypage/withdraw</a></li>
+      <li><a href="/guest-lookup">/guest-lookup</a> — 비회원 조회</li>
+      <li><a href="/guide">/guide</a> · <a href="/terms">/terms</a> · <a href="/privacy">/privacy</a> · <a href="/marketing">/marketing</a></li>
     </ul>
   </section>
   <section>
-    <h2>Back Office (bo)</h2>
+    <h2>Back Office</h2>
     <ul>
-      <li><a href="bo/BO-01-dashboard.html">BO-01-dashboard.html</a></li>
-      <li><a href="bo/BO-02-categories.html">BO-02-categories.html</a></li>
-      <li><a href="bo/BO-02-pricing.html">BO-02-pricing.html</a></li>
-      <li><a href="bo/BO-02-sheet-register.html">BO-02-sheet-register.html</a></li>
-      <li><a href="bo/BO-02-sheets.html">BO-02-sheets.html</a></li>
-      <li><a href="bo/BO-03-orders.html">BO-03-orders.html</a></li>
-      <li><a href="bo/BO-04-members.html">BO-04-members.html</a></li>
-      <li><a href="bo/BO-05-downloads.html">BO-05-downloads.html</a></li>
-      <li><a href="bo/BO-06-reports.html">BO-06-reports.html</a></li>
-      <li><a href="bo/BO-07-settings.html">BO-07-settings.html</a></li>
-      <li><a href="bo/BO-08-main-banners.html">BO-08-main-banners.html</a></li>
-      <li><a href="bo/BO-08-main-featured.html">BO-08-main-featured.html</a></li>
+      <li><a href="/bo/login">/bo/login</a> — 로그인</li>
+      <li><a href="/bo/dashboard">/bo/dashboard</a> — 대시보드 (<code>/bo</code> → 여기로)</li>
+      <li><a href="/bo/sheets">/bo/sheets</a> · <a href="/bo/sheets/register">/bo/sheets/register</a></li>
+      <li><a href="/bo/categories">/bo/categories</a> · <a href="/bo/pricing">/bo/pricing</a></li>
+      <li><a href="/bo/orders">/bo/orders</a> · <a href="/bo/members">/bo/members</a></li>
+      <li><a href="/bo/downloads">/bo/downloads</a> · <a href="/bo/reports">/bo/reports</a></li>
+      <li><a href="/bo/settings">/bo/settings</a></li>
+      <li><a href="/bo/banners">/bo/banners</a> · <a href="/bo/featured">/bo/featured</a></li>
     </ul>
   </section>
 </body>

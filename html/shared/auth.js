@@ -1,24 +1,21 @@
 /**
  * CHODRUM — FO Supabase Auth
- * Email OTP signup / password policy / Google·Kakao OAuth / Naver (Edge Function bridge)
+ * Email OTP signup / password policy /
+ * Google (Supabase) · Kakao (bridge 또는 Supabase) · Naver (Edge Function bridge)
  *
  * Social onboarding: OAuth session alone is not app login.
  * New users must accept terms (FO-08-oauth-terms) before members upsert + Store.user.
  */
 (function () {
   var PROVIDER_META = {
-    google: { enabled: true, authType: '구글', label: 'Google' },
-    kakao: { enabled: true, authType: '카카오', label: '카카오' },
-    naver: {
-      enabled: true,
-      authType: '네이버',
-      label: '네이버',
-      reason: '',
-    },
+    google: { enabled: true, authType: '구글', label: 'Google', reason: '' },
+    kakao: { enabled: false, authType: '카카오', label: '카카오', reason: '' },
+    naver: { enabled: false, authType: '네이버', label: '네이버', reason: '' },
   };
 
   var PENDING_KEY = 'chodrum_oauth_pending';
   var NAVER_STATE_KEY = 'chodrum_naver_oauth_state';
+  var KAKAO_STATE_KEY = 'chodrum_kakao_oauth_state';
   var OAUTH_FLOW_KEY = 'chodrum_oauth_flow';
 
   function cfg() {
@@ -42,11 +39,22 @@
     return String(cfg().NAVER_CLIENT_ID || '').trim();
   }
 
+  function kakaoClientId() {
+    return String(cfg().KAKAO_CLIENT_ID || '').trim();
+  }
+
   function naverMode() {
     /* 'bridge' (default): Edge Function naver-auth
        'custom': Supabase Custom OAuth provider custom:naver */
     var m = String(cfg().NAVER_OAUTH_MODE || 'bridge').trim().toLowerCase();
     return m === 'custom' ? 'custom' : 'bridge';
+  }
+
+  function kakaoMode() {
+    /* 'bridge' (default): Edge Function kakao-auth
+       'supabase': Dashboard Kakao provider */
+    var m = String(cfg().KAKAO_OAUTH_MODE || 'bridge').trim().toLowerCase();
+    return m === 'supabase' ? 'supabase' : 'bridge';
   }
 
   function isNaverReady() {
@@ -55,16 +63,39 @@
     return !!naverClientId();
   }
 
+  function isKakaoReady() {
+    if (!live()) return false;
+    if (kakaoMode() === 'supabase') return true;
+    return !!kakaoClientId();
+  }
+
   function refreshNaverMeta() {
     if (!isNaverReady()) {
       PROVIDER_META.naver.enabled = false;
       PROVIDER_META.naver.reason = !live()
         ? 'Supabase가 설정되지 않았습니다.'
-        : '네이버 Client ID 또는 Edge Function이 필요합니다. docs/supabase-setup.md 를 확인해주세요.';
+        : '네이버 Client ID와 Edge Function(naver-auth)이 필요합니다. docs/supabase-setup.md 를 확인해주세요.';
     } else {
       PROVIDER_META.naver.enabled = true;
       PROVIDER_META.naver.reason = '';
     }
+  }
+
+  function refreshKakaoMeta() {
+    if (!isKakaoReady()) {
+      PROVIDER_META.kakao.enabled = false;
+      PROVIDER_META.kakao.reason = !live()
+        ? 'Supabase가 설정되지 않았습니다.'
+        : '카카오 REST API 키(KAKAO_CLIENT_ID)와 Edge Function(kakao-auth)이 필요합니다. docs/supabase-setup.md 를 확인해주세요.';
+    } else {
+      PROVIDER_META.kakao.enabled = true;
+      PROVIDER_META.kakao.reason = '';
+    }
+  }
+
+  function refreshSocialMeta() {
+    refreshNaverMeta();
+    refreshKakaoMeta();
   }
 
   function setPendingProfile(profile) {
@@ -231,6 +262,26 @@
   async function applyProfile(profile, opts) {
     opts = opts || {};
     if (!profile) return null;
+    /*
+     * BO members 테이블이 이름·상태의 소스 오브 트루스.
+     * Auth 메타데이터만 쓰면 FO/BO 이름이 어긋날 수 있어 DB 값을 머지한다.
+     */
+    if (profile.email && window.ChodrumAPI && ChodrumAPI.members) {
+      try {
+        var row = await ChodrumAPI.members.getByEmail(profile.email);
+        if (row) {
+          if (row.name) profile.name = row.name;
+          if (row.status) profile.status = row.status;
+          if (row.terms_agreed_at) profile.terms_agreed_at = row.terms_agreed_at;
+          if (row.privacy_agreed_at) profile.privacy_agreed_at = row.privacy_agreed_at;
+          if (Object.prototype.hasOwnProperty.call(row, 'marketing_agreed_at')) {
+            profile.marketing_agreed_at = row.marketing_agreed_at;
+          }
+        }
+      } catch (e) {
+        console.warn('[CHODRUM] member merge', e);
+      }
+    }
     if (window.Store && Store.user) Store.user.set(profile);
     /*
      * members upsert ONLY for consented users.
@@ -590,6 +641,7 @@
     var state = randomState();
     try {
       sessionStorage.setItem(NAVER_STATE_KEY, state);
+      sessionStorage.removeItem(KAKAO_STATE_KEY);
       setOAuthFlow('naver');
     } catch (e) { /* ignore */ }
     var url =
@@ -602,7 +654,41 @@
     return { ok: true };
   }
 
-  async function finishNaverBridge(params) {
+  async function startKakaoBridge() {
+    var clientId = kakaoClientId();
+    if (!clientId) {
+      return {
+        ok: false,
+        skipped: true,
+        error: 'KAKAO_CLIENT_ID가 config.js에 없습니다.',
+      };
+    }
+    var state = randomState();
+    try {
+      sessionStorage.setItem(KAKAO_STATE_KEY, state);
+      sessionStorage.removeItem(NAVER_STATE_KEY);
+      setOAuthFlow('kakao');
+    } catch (e) { /* ignore */ }
+    /* scope는 Developers 동의 항목 설정을 따름. account_email 필수 권장. */
+    var url =
+      'https://kauth.kakao.com/oauth/authorize' +
+      '?response_type=code' +
+      '&client_id=' + encodeURIComponent(clientId) +
+      '&redirect_uri=' + encodeURIComponent(callbackUrl()) +
+      '&state=' + encodeURIComponent(state);
+    location.href = url;
+    return { ok: true };
+  }
+
+  /**
+   * Shared Edge Function bridge finish for Kakao / Naver.
+   * provider: 'kakao' | 'naver'
+   */
+  async function finishSocialBridge(provider, params) {
+    var label = provider === 'kakao' ? '카카오' : '네이버';
+    var stateKey = provider === 'kakao' ? KAKAO_STATE_KEY : NAVER_STATE_KEY;
+    var fnName = provider === 'kakao' ? 'kakao-auth' : 'naver-auth';
+
     var code = params.get('code');
     var state = params.get('state');
     var err = params.get('error');
@@ -610,17 +696,17 @@
       return { ok: false, error: params.get('error_description') || err };
     }
     if (!code) {
-      return { ok: false, error: '네이버 인증 코드가 없습니다.' };
+      return { ok: false, error: label + ' 인증 코드가 없습니다.' };
     }
 
     var saved = '';
     try {
-      saved = sessionStorage.getItem(NAVER_STATE_KEY) || '';
-      sessionStorage.removeItem(NAVER_STATE_KEY);
+      saved = sessionStorage.getItem(stateKey) || '';
+      sessionStorage.removeItem(stateKey);
       setOAuthFlow(null);
     } catch (e) { /* ignore */ }
     if (saved && state && saved !== state) {
-      return { ok: false, error: '네이버 로그인 상태 값이 일치하지 않아요. 다시 시도해주세요.' };
+      return { ok: false, error: label + ' 로그인 상태 값이 일치하지 않아요. 다시 시도해주세요.' };
     }
 
     var base = String(cfg().SUPABASE_URL || '').replace(/\/$/, '');
@@ -629,7 +715,7 @@
       return { ok: false, error: 'Supabase 설정이 없습니다.' };
     }
 
-    var fnRes = await fetch(base + '/functions/v1/naver-auth', {
+    var fnRes = await fetch(base + '/functions/v1/' + fnName, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -647,12 +733,14 @@
     try {
       payload = await fnRes.json();
     } catch (e) {
-      return { ok: false, error: '네이버 인증 서버 응답을 읽지 못했어요.' };
+      return { ok: false, error: label + ' 인증 서버 응답을 읽지 못했어요.' };
     }
     if (!fnRes.ok || !payload || !payload.token_hash) {
       return {
         ok: false,
-        error: (payload && payload.error) || '네이버 로그인에 실패했어요. Edge Function 배포·시크릿을 확인해주세요.',
+        error:
+          (payload && payload.error) ||
+          (label + ' 로그인에 실패했어요. Edge Function 배포·시크릿을 확인해주세요.'),
       };
     }
 
@@ -670,18 +758,17 @@
       }
     }
 
-    /* Ensure metadata marks Naver even if verifyOtp reset provider */
     try {
       await client().auth.updateUser({
         data: {
-          auth_provider: 'naver',
-          provider: 'naver',
+          auth_provider: provider,
+          provider: provider,
           full_name: (payload.profile && payload.profile.name) || undefined,
           avatar_url: (payload.profile && payload.profile.avatar) || undefined,
         },
       });
     } catch (e) {
-      console.warn('[CHODRUM] naver metadata', e);
+      console.warn('[CHODRUM] ' + provider + ' metadata', e);
     }
 
     var sessionRes = await client().auth.getSession();
@@ -692,7 +779,7 @@
 
     var profile = profileFromUser(session.user);
     if (payload.profile && payload.profile.name) profile.name = payload.profile.name;
-    profile.provider = 'naver';
+    profile.provider = provider;
     profile.type = 'social';
     profile.fromOAuth = true;
 
@@ -712,7 +799,7 @@
    * Start OAuth. Returns { ok, error, skipped }.
    */
   async function signInWithOAuth(provider) {
-    refreshNaverMeta();
+    refreshSocialMeta();
     var meta = PROVIDER_META[provider];
     if (!meta || !meta.enabled) {
       return {
@@ -748,9 +835,14 @@
       return startNaverBridge();
     }
 
+    if (provider === 'kakao' && kakaoMode() === 'bridge') {
+      return startKakaoBridge();
+    }
+
     setOAuthFlow(provider);
     try {
       sessionStorage.removeItem(NAVER_STATE_KEY);
+      sessionStorage.removeItem(KAKAO_STATE_KEY);
     } catch (e) { /* ignore */ }
 
     var opts = {
@@ -783,9 +875,13 @@
       return { ok: false, error: decodeURIComponent(errDesc || err) };
     }
 
-    /* Naver bridge only when this tab started Naver (avoid stealing Google/Kakao PKCE code) */
-    if (params.get('code') && getOAuthFlow() === 'naver' && naverMode() !== 'custom') {
-      return finishNaverBridge(params);
+    var flow = getOAuthFlow();
+    /* Bridge only when this tab started that provider (avoid stealing Google PKCE code) */
+    if (params.get('code') && flow === 'naver' && naverMode() !== 'custom') {
+      return finishSocialBridge('naver', params);
+    }
+    if (params.get('code') && flow === 'kakao' && kakaoMode() === 'bridge') {
+      return finishSocialBridge('kakao', params);
     }
 
     var sessionRes = await client().auth.getSession();
@@ -880,16 +976,16 @@
   }
 
   function isProviderEnabled(provider) {
-    refreshNaverMeta();
+    refreshSocialMeta();
     return !!(PROVIDER_META[provider] && PROVIDER_META[provider].enabled);
   }
 
   function providerReason(provider) {
-    refreshNaverMeta();
+    refreshSocialMeta();
     return (PROVIDER_META[provider] && PROVIDER_META[provider].reason) || '';
   }
 
-  refreshNaverMeta();
+  refreshSocialMeta();
 
   window.ChodrumAuth = {
     providers: PROVIDER_META,

@@ -3,6 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="referrer" content="strict-origin-when-cross-origin">
 <title>CHODRUM — 악보 목록</title>
 <link rel="stylesheet" href="../_ds/drum-sheet-store-design-system-3a2462a0-2443-475e-a3b6-f7937913eb0b/tokens/colors.css">
 <link rel="stylesheet" href="../_ds/drum-sheet-store-design-system-3a2462a0-2443-475e-a3b6-f7937913eb0b/tokens/typography.css">
@@ -25,7 +26,7 @@
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="../shared/supabase-client.js"></script>
 <script src="../shared/api.js"></script>
-<script type="text/babel" src="fo-shared.jsx"></script>
+<script type="text/babel" src="/fo/fo-shared.jsx"></script>
 <script type="text/babel">
 /* FO-02 악보 목록 — 카테고리/난이도 필터 · 정렬 · 검색 결과 */
 const DS = window.DrumSheetStoreDesignSystem_3a2462;
@@ -59,8 +60,12 @@ function ListPage() {
   list = [...list].sort((a, b) =>
     sort === '가격순' ? a.price - b.price :
     sort === '이름순' ? a.title.localeCompare(b.title, 'ko') :
-    sort === '최신순' ? Number(b.isNew) - Number(a.isNew) :
-    b.sold - a.sold);
+    sort === '최신순' ? (
+      /* 최신순: created_at 내림차순 (NEW 배지와 별개) */
+      (new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime())
+    ) :
+    /* 인기순: 관리자 「인기악보」 체크 우선, 같으면 판매량 */
+    (Number(!!b.popular) - Number(!!a.popular)) || (b.sold - a.sold));
 
   const reco = [...catalog].filter((s) => s.popular).slice(0, 4);
   const cats = ['전체', ...D.genres];

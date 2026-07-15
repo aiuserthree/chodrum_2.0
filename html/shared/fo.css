@@ -116,6 +116,67 @@ body.has-cta.has-tabbar main.fo-main { padding-bottom: 164px; }
 .fo-two { display: grid; grid-template-columns: minmax(0, 1fr); gap: 20px; align-items: start; }
 @media (min-width: 900px) { .fo-two { grid-template-columns: minmax(0, 1fr) 380px; gap: 28px; } .fo-side-sticky { position: sticky; top: 76px; } }
 
+/* YouTube 인페이지 플레이어 (FO-03) — plain iframe, no overlay */
+.fo-yt {
+  position: relative;
+  display: block;
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  min-height: 180px;
+  background: #0f0f0f;
+  border-radius: var(--radius-cards);
+  overflow: hidden;
+}
+.fo-yt iframe {
+  display: block;
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  border: 0;
+  z-index: 1;
+}
+.fo-yt-fallback {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.fo-yt-fallback-img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.fo-yt-fallback-scrim {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(180deg, rgba(15, 15, 15, 0.25) 0%, rgba(15, 15, 15, 0.72) 100%);
+  z-index: 1;
+}
+.fo-yt-open {
+  position: relative;
+  z-index: 2;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 44px;
+  padding: 0 18px;
+  border-radius: 9999px;
+  background: #fff;
+  color: #0f0f0f;
+  font-size: 14px;
+  font-weight: 600;
+  letter-spacing: -0.2px;
+  text-decoration: none;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+}
+.fo-yt-open:hover { background: #f2f2f2; }
+.fo-yt-open:focus-visible {
+  outline: 2px solid var(--color-brand, #c45c26);
+  outline-offset: 3px;
+}
+
 /* 목록: 좌측 필터 — minmax(0,…) 로 칩 가로 스크롤이 페이지를 밀어내지 않게 */
 .fo-list-layout { display: grid; grid-template-columns: minmax(0, 1fr); gap: 8px; align-items: start; }
 .fo-list-layout > * { min-width: 0; }
@@ -187,3 +248,159 @@ body.has-cta.has-tabbar main.fo-main { padding-bottom: 164px; }
 .fo-hr { height: 1px; background: var(--border-default); border: 0; margin: 0; }
 .fo-kv { display: flex; justify-content: space-between; align-items: center; font-size: 14px; gap: 12px; }
 input, select, textarea, button { font-family: inherit; }
+
+/* ---------- 홈 배너 (BO-08) — 관리자 등록 이미지 전폭 ----------
+   레이아웃: fo-container 전폭 · 단일 이미지
+   높이: 220px (모바일 176px)
+   CSS 표시: PC ~1088×220 / Mobile ~360×176
+   권장 업로드(레티나): PC 2240×440 / Mobile 1500×704 — 1×만 올리면 업스케일로 흐릿해짐 */
+.fo-home-banners {
+  margin: 24px 0 0;
+  position: relative;
+}
+.fo-home-banner {
+  position: relative;
+  width: 100%;
+  height: 220px;
+  border-radius: var(--radius-cards, 12px);
+  overflow: hidden;
+  border: 1px solid var(--border-default);
+  background: var(--surface-sunken, #f4f4f4);
+  touch-action: pan-y;
+  user-select: none;
+  -webkit-user-select: none;
+}
+.fo-home-banners.is-dragging .fo-home-banner {
+  cursor: grabbing;
+}
+.fo-home-banner-track {
+  display: flex;
+  height: 100%;
+  width: 100%;
+  will-change: transform;
+  backface-visibility: hidden;
+}
+.fo-home-banner-track.is-animating {
+  transition: transform 320ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+.fo-home-banner-slide {
+  position: relative;
+  flex: 0 0 100%;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+}
+.fo-home-banner-slide.is-link { cursor: pointer; }
+@media (pointer: coarse) {
+  .fo-home-banner-slide { cursor: grab; }
+  .fo-home-banners.is-dragging .fo-home-banner-slide,
+  .fo-home-banners.is-dragging .fo-home-banner-slide.is-link {
+    cursor: grabbing;
+  }
+}
+.fo-home-banner-slide.is-link:hover { opacity: 0.98; }
+.fo-home-banners.is-dragging .fo-home-banner-slide.is-link:hover { opacity: 1; }
+.fo-home-banner-slide picture {
+  display: block;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}
+.fo-home-banner-img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center;
+  image-rendering: auto;
+  -ms-interpolation-mode: bicubic;
+  background: #eee;
+  pointer-events: none;
+  -webkit-user-drag: none;
+}
+.fo-home-banner-fallback {
+  position: absolute;
+  inset: 0;
+  padding: 22px 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  justify-content: center;
+  pointer-events: none;
+}
+.fo-home-banner-fallback strong {
+  font-size: clamp(18px, 2.4vw, 22px);
+  letter-spacing: -0.5px;
+  font-weight: 600;
+}
+.fo-home-banner-nav {
+  position: absolute;
+  top: 50%;
+  z-index: 2;
+  transform: translateY(-50%);
+  width: 36px;
+  height: 36px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  padding: 0;
+  border-radius: 9999px;
+  background: rgba(255, 255, 255, 0.88);
+  color: var(--color-ink, #111);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.14);
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 160ms ease, background 140ms ease;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+}
+/* Hover: show both. Keyboard (:focus-visible): show both.
+   Do not use :focus-within — mouse click leaves focus and sticks arrows visible. */
+.fo-home-banners:hover .fo-home-banner-nav,
+.fo-home-banners:has(.fo-home-banner-nav:focus-visible) .fo-home-banner-nav {
+  opacity: 1;
+}
+.fo-home-banner-nav:hover {
+  background: #fff;
+}
+.fo-home-banner-nav:focus-visible {
+  outline: 2px solid var(--color-brand, #c45c26);
+  outline-offset: 2px;
+}
+.fo-home-banner-nav-prev { left: 10px; }
+.fo-home-banner-nav-next { right: 10px; }
+.fo-home-banner-progress {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 2;
+  height: 3px;
+  background: rgba(0, 0, 0, 0.12);
+  pointer-events: none;
+}
+.fo-home-banner-progress-fill {
+  height: 100%;
+  width: 0;
+  background: var(--color-ink, #111);
+  transform-origin: left center;
+  animation-name: fo-banner-progress;
+  animation-timing-function: linear;
+  animation-fill-mode: forwards;
+}
+.fo-home-banners.is-paused .fo-home-banner-progress-fill {
+  animation-play-state: paused;
+}
+@keyframes fo-banner-progress {
+  from { width: 0%; }
+  to { width: 100%; }
+}
+@media (max-width: 767px) {
+  .fo-home-banner { height: 176px; }
+  /* Mobile: finger-follow swipe — hide arrows */
+  .fo-home-banner-nav { display: none; }
+  .fo-home-banner-progress { height: 2.5px; }
+  .fo-home-banner-slide,
+  .fo-home-banner-slide.is-link { cursor: default; }
+}

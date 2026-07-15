@@ -3,6 +3,22 @@
   var sb = function () { return window.ChodrumSB && window.ChodrumSB.client; };
   var live = function () { return !!(window.ChodrumSB && window.ChodrumSB.configured && sb()); };
 
+  /** NEW badge window: sheets created within this many days. */
+  var NEW_SHEET_DAYS = 14;
+  var NEW_SHEET_MS = NEW_SHEET_DAYS * 24 * 60 * 60 * 1000;
+
+  /** True if created_at / createdAt falls within the NEW window. */
+  function isSheetNew(sheetOrCreatedAt) {
+    var raw = sheetOrCreatedAt;
+    if (raw && typeof raw === 'object') {
+      raw = raw.createdAt != null ? raw.createdAt : raw.created_at;
+    }
+    if (!raw) return false;
+    var t = new Date(raw).getTime();
+    if (isNaN(t)) return false;
+    return (Date.now() - t) <= NEW_SHEET_MS;
+  }
+
   /** Normalize preview image URLs (max 2). Prefer preview_urls[], fall back to preview_url. */
   function normalizePreviewUrls(rowOrSheet) {
     var urls = [];
@@ -37,8 +53,96 @@
     return urls.slice(0, 2);
   }
 
+  /**
+   * Extract YouTube video id from common URL formats:
+   * watch?v=, youtu.be/, shorts/, embed/, live/, m.youtube.com
+   */
+  function parseYouTubeId(raw) {
+    if (!raw) return '';
+    var url = String(raw).trim();
+    if (!url) return '';
+    /* Bare 11-char id */
+    if (/^[\w-]{11}$/.test(url)) return url;
+    try {
+      var u = new URL(url.indexOf('://') === -1 ? 'https://' + url : url);
+      var host = (u.hostname || '').replace(/^www\./, '').toLowerCase();
+      if (host === 'youtu.be') {
+        var shortId = (u.pathname || '').split('/').filter(Boolean)[0] || '';
+        return /^[\w-]{11}$/.test(shortId) ? shortId : '';
+      }
+      if (host === 'youtube.com' || host === 'm.youtube.com' || host === 'music.youtube.com'
+          || host === 'youtube-nocookie.com') {
+        var v = u.searchParams.get('v');
+        if (v && /^[\w-]{11}$/.test(v)) return v;
+        var parts = (u.pathname || '').split('/').filter(Boolean);
+        var kind = parts[0];
+        var id = parts[1] || '';
+        if ((kind === 'embed' || kind === 'shorts' || kind === 'live' || kind === 'v')
+            && /^[\w-]{11}$/.test(id)) {
+          return id;
+        }
+      }
+    } catch (_) {
+      /* fall through */
+    }
+    var m = url.match(
+      /(?:youtube\.com\/(?:watch\?(?:[^#]*&)?v=|embed\/|shorts\/|live\/|v\/)|youtu\.be\/)([\w-]{11})/
+    );
+    return m ? m[1] : '';
+  }
+
+  function youtubeEmbedUrl(id, autoplay) {
+    if (!id) return '';
+    // www.youtube.com — same host as oEmbed. Minimal params for reliability.
+    // Error 153: pair with page <meta name="referrer"> + iframe referrerpolicy.
+    // Note: Referer http://127.0.0.1 is rejected by YouTube ("재생할 수 없음");
+    // use http://localhost (see config.js rewrite).
+    var q = ['rel=0', 'modestbranding=1', 'playsinline=1'];
+    if (autoplay) q.push('autoplay=1');
+    return 'https://www.youtube.com/embed/' + encodeURIComponent(id)
+      + '?' + q.join('&');
+  }
+
+  function youtubeWatchUrl(id) {
+    if (!id) return '';
+    return 'https://www.youtube.com/watch?v=' + encodeURIComponent(id);
+  }
+
+  function youtubeThumbUrl(id) {
+    if (!id) return '';
+    return 'https://i.ytimg.com/vi/' + encodeURIComponent(id) + '/hqdefault.jpg';
+  }
+
+  /** True when this page's origin cannot embed YouTube (IP loopback Referer). */
+  function youtubeEmbedBlockedOnHost() {
+    try {
+      return location.hostname === '127.0.0.1';
+    } catch (_) {
+      return false;
+    }
+  }
+
+  /**
+   * Probe whether YouTube still serves an oEmbed for this video.
+   * Resolves true if embeddable, false if owner disabled / missing.
+   * Network errors resolve null (unknown — keep trying iframe).
+   */
+  function youtubeCanEmbed(id) {
+    if (!id) return Promise.resolve(false);
+    var oembed = 'https://www.youtube.com/oembed?format=json&url='
+      + encodeURIComponent('https://www.youtube.com/watch?v=' + id);
+    return fetch(oembed, { method: 'GET', mode: 'cors', credentials: 'omit' })
+      .then(function (r) {
+        if (r.ok) return true;
+        if (r.status === 401 || r.status === 403 || r.status === 404) return false;
+        return null;
+      })
+      .catch(function () { return null; });
+  }
+
   function mapSheet(row) {
     var previewUrls = normalizePreviewUrls(row);
+    var createdAt = row.created_at || row.createdAt || null;
     return {
       id: row.id,
       code: row.code || '',
@@ -50,18 +154,23 @@
       price: row.price || 0,
       orig: row.orig == null ? undefined : row.orig,
       popular: !!row.popular,
-      isNew: !!row.is_new,
+      /* Display NEW from created_at (14-day auto-expiry), not permanent is_new flag */
+      isNew: isSheetNew(createdAt),
+      createdAt: createdAt || undefined,
       rating: Number(row.rating) || 0,
       sold: row.sold || 0,
       status: row.status || '판매중',
       pdfUrl: row.pdf_url || '',
       previewUrl: previewUrls[0] || '',
       previewUrls: previewUrls,
+      youtubeUrl: row.youtube_url || row.youtubeUrl || '',
     };
   }
 
   function sheetToRow(s) {
     var previewUrls = normalizePreviewUrls(s);
+    var yt = (s.youtubeUrl != null ? s.youtubeUrl : s.youtube_url) || '';
+    yt = String(yt).trim();
     return {
       id: s.id,
       code: s.code || null,
@@ -80,6 +189,7 @@
       pdf_url: s.pdfUrl || null,
       preview_url: previewUrls[0] || null,
       preview_urls: previewUrls.length ? previewUrls : null,
+      youtube_url: yt || null,
     };
   }
 
@@ -259,6 +369,76 @@
     return { url: url, path: path, name: file.name };
   }
 
+  /** True when Storage reports the target bucket is missing (not RLS/MIME). */
+  function isMissingBucketError(err) {
+    var msg = String((err && (err.message || err.error)) || '');
+    var code = String((err && (err.statusCode || err.status)) || '');
+    return /bucket not found/i.test(msg)
+      || (/bucket/i.test(msg) && /not found|does not exist/i.test(msg))
+      || (code === '404' && /bucket/i.test(msg));
+  }
+
+  /**
+   * Upload banner image to Storage bucket `banners` (path: img/...).
+   * Stores the file as-is — no canvas resize, WebP conversion, or quality compression.
+   * Public URL has no image-transform query params (full resolution).
+   * Requires migration 006_banner_images.sql (bucket + policies + image_url).
+   * Mobile column: 008_banner_mobile_image.sql (image_url_mobile).
+   * Recommended masters (retina): PC 2240×440, Mobile 1500×704.
+   * @param {File} file
+   * @returns {Promise<{ url: string, path: string, name: string }>}
+   */
+  async function uploadBannerImage(file) {
+    if (!file) throw new Error('파일이 선택되지 않았어요.');
+    var mime = (file.type || '').toLowerCase();
+    var lower = (file.name || '').toLowerCase();
+    var okImg =
+      /^image\/(png|jpe?g|webp|gif)$/.test(mime) ||
+      /\.(png|jpe?g|webp|gif)$/.test(lower);
+    if (!okImg) {
+      throw new Error('이미지 파일(PNG, JPG, WEBP)만 업로드할 수 있어요.');
+    }
+
+    var path = 'img/' + Date.now() + '-' + sanitizeFileName(file.name);
+    var contentType = file.type || 'image/jpeg';
+    if (contentType === 'image/jpg') contentType = 'image/jpeg';
+
+    if (!live()) {
+      return {
+        url: (typeof URL !== 'undefined' && URL.createObjectURL) ? URL.createObjectURL(file) : '',
+        path: path,
+        name: file.name,
+      };
+    }
+
+    var client = sb();
+    /* Original bytes only — do not transform or downscale before upload. */
+    var up = await client.storage.from('banners').upload(path, file, {
+      cacheControl: '3600',
+      upsert: false,
+      contentType: contentType,
+    });
+    if (up.error) {
+      var msg = up.error.message || String(up.error.error || up.error) || '';
+      if (isMissingBucketError(up.error)) {
+        throw new Error('Storage 버킷(banners)이 없어요. Supabase SQL Editor에서 supabase/migrations/006_banner_images.sql 을 실행해 주세요.');
+      }
+      if (/mime|not supported|not allowed|invalid.*type/i.test(msg)) {
+        throw new Error('이미지 파일(PNG, JPG, WEBP)만 업로드할 수 있어요.');
+      }
+      if (/row-level security|violates|policy|unauthorized|permission|403/i.test(msg)
+          || String(up.error.statusCode || '') === '403') {
+        throw new Error('Storage 업로드 권한이 없어요. 006_banner_images.sql 의 banners_storage_* 정책을 다시 실행해 주세요.');
+      }
+      throw new Error('배너 업로드 실패: ' + (msg || '알 수 없는 오류') + ' — 006_banner_images.sql(버킷·정책)을 확인해 주세요.');
+    }
+
+    var pub = client.storage.from('banners').getPublicUrl(path);
+    var url = pub && pub.data && pub.data.publicUrl;
+    if (!url) throw new Error('업로드 URL을 만들지 못했어요.');
+    return { url: url, path: path, name: file.name };
+  }
+
   function ddayFromExpires(expiresAt, status) {
     if (status === 'REVOKED') return null;
     if (!expiresAt) return status === 'EXPIRED' ? -1 : 7;
@@ -297,6 +477,9 @@
       D.visibleSheets = function () {
         return D.sheets.filter(function (s) { return s.status === '판매중'; });
       };
+    }
+    if (D && A && A.banners) {
+      D.homeBanners = A.banners.slice();
     }
     return { mode: 'demo', error: null };
   }
@@ -340,7 +523,9 @@
     }
 
     var banRes = await client.from('banners').select('*').order('sort_order');
-    if (!banRes.error) {
+    if (banRes.error) {
+      console.warn('[CHODRUM] banners hydrate 실패', banRes.error);
+    } else {
       A.banners = (banRes.data || []).map(function (b) {
         return {
           id: b.id,
@@ -348,9 +533,14 @@
           link: b.link || '',
           period: b.period || '상시',
           img: b.image_name || '',
-          on: !!b.is_on,
+          imgUrl: b.image_url || b.imgUrl || '',
+          imgMobile: b.image_name_mobile || '',
+          imgUrlMobile: b.image_url_mobile || b.imgUrlMobile || '',
+          sheetId: b.sheet_id || b.sheetId || '',
+          on: b.is_on == null ? !!b.on : !!b.is_on,
         };
       });
+      D.homeBanners = A.banners.slice();
     }
 
     var setRes = await client.from('site_settings').select('key, value');
@@ -386,13 +576,20 @@
 
     var memRes = await client.from('members').select('*').order('joined_at', { ascending: false });
     if (!memRes.error) {
+      var orderCountByEmail = {};
+      (A.orders || []).forEach(function (o) {
+        if (!o || !o.email) return;
+        var key = String(o.email).toLowerCase();
+        orderCountByEmail[key] = (orderCountByEmail[key] || 0) + 1;
+      });
       A.members = (memRes.data || []).map(function (m) {
+        var emailKey = String(m.email || '').toLowerCase();
         return {
           name: m.name,
           email: m.email,
           type: m.auth_type,
           joined: fmtJoined(m.joined_at),
-          orders: m.orders_count || 0,
+          orders: orderCountByEmail[emailKey] != null ? orderCountByEmail[emailKey] : (m.orders_count || 0),
           status: m.status,
         };
       });
@@ -445,6 +642,11 @@
     if (!live()) {
       var D = window.DrumData;
       var i = D.sheets.findIndex(function (s) { return s.id === row.id; });
+      /* Local demo: preserve createdAt on edit; stamp now on create (for NEW window) */
+      var createdAt = sheet.createdAt
+        || (i >= 0 && D.sheets[i].createdAt)
+        || new Date().toISOString();
+      row.created_at = createdAt;
       var mapped = mapSheet(row);
       if (i >= 0) D.sheets[i] = Object.assign({}, D.sheets[i], mapped);
       else D.sheets.unshift(mapped);
@@ -459,9 +661,9 @@
       res.error.code === '42703' ||
       /column.*does not exist|Could not find.*column/i.test(res.error.message || '')
     );
-    if (colMiss && /(pdf_url|preview_urls?)/.test(res.error.message || '')) {
+    if (colMiss && /(pdf_url|preview_urls?|youtube_url)/.test(res.error.message || '')) {
       var miss = res.error.message || '';
-      console.warn('[CHODRUM] sheets file URL columns missing — upsert without them', miss);
+      console.warn('[CHODRUM] sheets URL columns missing — upsert without them', miss);
       if (/pdf_url/.test(miss)) delete row.pdf_url;
       if (/preview_urls/.test(miss)) {
         if (wantedMulti) droppedPreviewUrls = true;
@@ -471,6 +673,7 @@
         delete row.preview_url;
         delete row.preview_urls;
       }
+      if (/youtube_url/.test(miss)) delete row.youtube_url;
       res = await sb().from('sheets').upsert(row).select().single();
     }
     if (res.error) throw res.error;
@@ -553,6 +756,7 @@
 
   async function saveBanners(list) {
     window.AdminData.banners = list.slice();
+    window.DrumData.homeBanners = list.slice();
     if (!live()) return;
     var client = sb();
     var del = await client.from('banners').delete().gte('sort_order', -999999);
@@ -565,6 +769,10 @@
         link: b.link || '',
         period: b.period || '상시',
         image_name: b.img || '',
+        image_url: b.imgUrl || '',
+        image_name_mobile: b.imgMobile || '',
+        image_url_mobile: b.imgUrlMobile || '',
+        sheet_id: b.sheetId || null,
         is_on: !!b.on,
         sort_order: i,
       };
@@ -632,6 +840,20 @@
       if (dlIns.error) console.warn('[CHODRUM] downloads insert', dlIns.error);
     }
 
+    if (order.member && order.email) {
+      try {
+        var mem = await getMemberByEmail(order.email);
+        if (mem) {
+          await client
+            .from('members')
+            .update({ orders_count: (mem.orders_count || 0) + 1 })
+            .eq('email', mem.email);
+        }
+      } catch (e) {
+        console.warn('[CHODRUM] members orders_count', e);
+      }
+    }
+
     return Object.assign({}, order, { _id: ordIns.data.id });
   }
 
@@ -673,15 +895,61 @@
       return {
         orderNo: o.order_no,
         date: fmtOrderDate(o.created_at),
+        createdAt: o.created_at ? new Date(o.created_at).getTime() : Date.now(),
         items: (o.order_items || []).map(function (it) {
           var d = (byOrder[o.order_no] || {})[it.sheet_id];
+          var sheet = (window.DrumData && typeof window.DrumData.byId === 'function')
+            ? window.DrumData.byId(it.sheet_id)
+            : null;
           return {
             id: it.sheet_id,
+            sheetId: it.sheet_id,
+            title: (sheet && sheet.title) || '',
             dday: d ? ddayFromExpires(d.expires_at, d.status) : 7,
           };
         }),
       };
     });
+  }
+
+  /* FO 마이페이지용 — 주문+다운로드를 구매 행으로 펼침 (BO와 동일 DB 소스) */
+  async function purchasesForEmail(email) {
+    email = (email || '').toLowerCase();
+    if (!email) return [];
+    if (!live()) {
+      var local = (window.Store && Store.purchases && Store.purchases.list()) || [];
+      var day = 86400000;
+      return local.filter(function (p) { return p && typeof p === 'object'; }).map(function (p) {
+        var id = p.sheetId != null && p.sheetId !== '' ? p.sheetId : p.id;
+        var paidAt = Number(p.paidAt) || Date.now();
+        return {
+          id: id,
+          sheetId: id,
+          title: p.title || '',
+          orderNo: p.orderNo,
+          paidAt: paidAt,
+          date: new Date(paidAt).toLocaleDateString('ko-KR', { year: 'numeric', month: '2-digit', day: '2-digit' }).replace(/\. /g, '.').replace(/\.$/, ''),
+          dday: 7 - Math.floor((Date.now() - paidAt) / day),
+        };
+      }).filter(function (p) { return p.id != null && p.id !== ''; });
+    }
+    var orders = await ordersForEmail(email);
+    var out = [];
+    orders.forEach(function (o) {
+      (o.items || []).forEach(function (it) {
+        var id = it.sheetId || it.id;
+        out.push({
+          id: id,
+          sheetId: id,
+          title: it.title || '',
+          orderNo: o.orderNo,
+          paidAt: o.createdAt || Date.now(),
+          date: o.date,
+          dday: typeof it.dday === 'number' ? it.dday : 7,
+        });
+      });
+    });
+    return out;
   }
 
   /* -------- members (simple upsert on FO signup) -------- */
@@ -718,11 +986,21 @@
     var authType = profile.auth_type || profile.type || '이메일';
     if (authType === 'social') authType = '소셜';
     if (authType === 'email') authType = '이메일';
+    var existing = null;
+    try {
+      existing = await getMemberByEmail(profile.email);
+    } catch (e) {
+      existing = null;
+    }
+    /* 정지 상태는 유지. 탈퇴 후 재가입(동의 완료 upsert)은 정상으로 복구 */
+    var nextStatus = '정상';
+    if (profile.status) nextStatus = profile.status;
+    else if (existing && existing.status && existing.status !== '탈퇴') nextStatus = existing.status;
     var row = {
       name: profile.name,
       email: profile.email,
       auth_type: authType,
-      status: '정상',
+      status: nextStatus,
     };
     if (profile.terms_agreed_at) row.terms_agreed_at = profile.terms_agreed_at;
     if (profile.privacy_agreed_at) row.privacy_agreed_at = profile.privacy_agreed_at;
@@ -747,6 +1025,44 @@
     return profile;
   }
 
+  async function updateMemberStatus(email, status) {
+    if (!email || !status) return false;
+    if (!live()) {
+      (window.AdminData.members || []).forEach(function (m) {
+        if (m.email === email) m.status = status;
+      });
+      return true;
+    }
+    var res = await sb().from('members').update({ status: status }).eq('email', email);
+    if (res.error) {
+      console.warn('[CHODRUM] member status', res.error);
+      throw new Error(res.error.message || '회원 상태를 변경하지 못했어요.');
+    }
+    (window.AdminData.members || []).forEach(function (m) {
+      if (m.email === email) m.status = status;
+    });
+    return true;
+  }
+
+  async function updateMemberProfile(profile) {
+    if (!profile || !profile.email) return profile;
+    if (!live()) {
+      (window.AdminData.members || []).forEach(function (m) {
+        if (m.email === profile.email && profile.name) m.name = profile.name;
+      });
+      return profile;
+    }
+    var patch = {};
+    if (profile.name) patch.name = profile.name;
+    if (!Object.keys(patch).length) return profile;
+    var res = await sb().from('members').update(patch).eq('email', profile.email);
+    if (res.error) {
+      console.warn('[CHODRUM] member profile', res.error);
+      throw new Error(res.error.message || '회원 정보를 저장하지 못했어요.');
+    }
+    return profile;
+  }
+
   /* -------- boot -------- */
   var state = { mode: 'demo', error: null, ready: false };
   var readyPromise = hydrate().then(function (r) {
@@ -763,6 +1079,14 @@
     ready: readyPromise,
     isLive: live,
     hydrate: hydrate,
+    NEW_SHEET_DAYS: NEW_SHEET_DAYS,
+    isSheetNew: isSheetNew,
+    parseYouTubeId: parseYouTubeId,
+    youtubeEmbedUrl: youtubeEmbedUrl,
+    youtubeWatchUrl: youtubeWatchUrl,
+    youtubeThumbUrl: youtubeThumbUrl,
+    youtubeEmbedBlockedOnHost: youtubeEmbedBlockedOnHost,
+    youtubeCanEmbed: youtubeCanEmbed,
     sheets: {
       list: listSheets,
       upsert: upsertSheet,
@@ -772,16 +1096,19 @@
     },
     featured: { save: saveFeatured },
     homePromo: { save: saveHomePromo },
-    banners: { save: saveBanners },
+    banners: { save: saveBanners, uploadImage: uploadBannerImage },
     orders: {
       create: createOrder,
       updateStatus: updateOrderStatus,
       forEmail: ordersForEmail,
+      purchasesForEmail: purchasesForEmail,
     },
     members: {
       upsert: upsertMember,
       getByEmail: getMemberByEmail,
       hasConsent: memberHasConsent,
+      updateStatus: updateMemberStatus,
+      updateProfile: updateMemberProfile,
     },
   };
 

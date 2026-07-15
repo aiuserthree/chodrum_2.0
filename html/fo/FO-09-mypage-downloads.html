@@ -3,6 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="referrer" content="strict-origin-when-cross-origin">
 <title>CHODRUM — 구매 내역 / 다운로드</title>
 <link rel="stylesheet" href="../_ds/drum-sheet-store-design-system-3a2462a0-2443-475e-a3b6-f7937913eb0b/tokens/colors.css">
 <link rel="stylesheet" href="../_ds/drum-sheet-store-design-system-3a2462a0-2443-475e-a3b6-f7937913eb0b/tokens/typography.css">
@@ -25,28 +26,88 @@
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="../shared/supabase-client.js"></script>
 <script src="../shared/api.js"></script>
-<script type="text/babel" src="fo-shared.jsx"></script>
+<script type="text/babel" src="/fo/fo-shared.jsx"></script>
 <script type="text/babel">
 /* FO-09-01 구매 내역 / 다운로드 — 7일 잔여기간 뱃지 · 만료 시 비활성화 */
 const DS = window.DrumSheetStoreDesignSystem_3a2462;
 const { Button, Icon, Chip, Card } = DS;
 const F = window.FO;
-const D = window.DrumData;
+const MISSING = (F && F.MISSING_SHEET_TITLE) || '삭제되었거나 찾을 수 없는 악보';
 
-function allPurchases() {
-  const day = 86400000;
-  const mine = Store.purchases.list().map((p) => ({
-    id: p.id, orderNo: p.orderNo,
-    date: new Date(p.paidAt).toLocaleDateString('ko-KR', { year: 'numeric', month: '2-digit', day: '2-digit' }).replace(/\. /g, '.').replace(/\.$/, ''),
-    dday: 7 - Math.floor((Date.now() - p.paidAt) / day),
-  }));
-  return mine;
+function purchaseSheetId(p) {
+  if (!p || typeof p !== 'object') return '';
+  /* sheetId 우선 — 일부 레코드에서 id 가 다른 의미일 수 있음 */
+  if (p.sheetId != null && p.sheetId !== '') return p.sheetId;
+  if (p.id != null && p.id !== '') return p.id;
+  return '';
+}
+
+/** 스냅샷 → lastOrder → resolveSheet. 절대 throw / undefined.title 없음 */
+function purchaseDisplay(p) {
+  const row = (p && typeof p === 'object') ? p : {};
+  const id = purchaseSheetId(row);
+  let snap = (row.title && row.title !== MISSING) ? String(row.title) : '';
+
+  /* 예전 주문: purchases 에 title 없음 → lastOrder.items 스냅샷 시도 */
+  if (!snap) {
+    try {
+      const order = Store.lastOrder.get();
+      const items = (order && Array.isArray(order.items)) ? order.items : [];
+      const hit = items.find((it) => {
+        if (!it) return false;
+        const iid = (it.sheetId != null && it.sheetId !== '') ? it.sheetId : it.id;
+        return String(iid) === String(id);
+      });
+      if (hit && hit.title && hit.title !== MISSING) snap = String(hit.title);
+    } catch (e) { /* ignore */ }
+  }
+
+  let cover = '';
+  let title = snap || '악보';
+  try {
+    const resolved = (F && typeof F.resolveSheet === 'function')
+      ? F.resolveSheet(id, { title: snap || '악보' })
+      : null;
+    if (F && typeof F.lineTitle === 'function') title = F.lineTitle({ title: snap }, resolved);
+    else {
+      const t = resolved && resolved.title;
+      title = (snap && snap !== MISSING) ? snap : ((t && t !== MISSING) ? t : (snap || '악보'));
+    }
+    if (F && typeof F.sheetCoverUrl === 'function') cover = F.sheetCoverUrl(resolved) || '';
+  } catch (e) {
+    title = snap || '악보';
+    cover = '';
+  }
+  if (!title || title === MISSING) title = snap || '악보';
+  return { id: id, title: title, cover: cover };
 }
 
 function DownloadsPage() {
   F.useStoreTick();
   const user = Store.user.get();
   const [filter, setFilter] = React.useState('전체');
+  const [purchases, setPurchases] = React.useState([]);
+  const [dataReady, setDataReady] = React.useState(false);
+
+  React.useEffect(() => {
+    let cancelled = false;
+    if (!user || !user.email) {
+      setPurchases([]);
+      setDataReady(true);
+      return undefined;
+    }
+    setDataReady(false);
+    F.loadPurchases(user.email).then((list) => {
+      if (cancelled) return;
+      setPurchases(Array.isArray(list) ? list : []);
+      setDataReady(true);
+    }).catch(() => {
+      if (cancelled) return;
+      setPurchases([]);
+      setDataReady(true);
+    });
+    return () => { cancelled = true; };
+  }, [user && user.email]);
 
   if (!user) {
     return (
@@ -58,7 +119,6 @@ function DownloadsPage() {
     );
   }
 
-  const purchases = allPurchases();
   const list = purchases.filter((p) => filter === '전체' || (filter === '다운로드 가능' ? p.dday >= 0 : p.dday < 0));
 
   return (
@@ -68,18 +128,23 @@ function DownloadsPage() {
           {['전체', '다운로드 가능', '기간 만료'].map((k) => <Chip key={k} selected={filter === k} onClick={() => setFilter(k)}>{k}</Chip>)}
         </div>
 
-        {list.length ? (
+        {!dataReady ? (
+          <div style={{ padding: '48px 16px', textAlign: 'center', color: 'var(--text-secondary)', fontSize: 14 }}>구매 내역을 불러오는 중…</div>
+        ) : list.length ? (
           <div>
             {list.map((p, i) => {
-              const s = D.byId(p.id);
-              const expired = p.dday < 0;
+              const disp = purchaseDisplay(p);
+              const title = (disp && disp.title) || (p && p.title) || '악보';
+              const cover = (disp && disp.cover) || '';
+              const expired = !!(p && p.dday < 0);
+              const rowKey = String((p && p.orderNo) || '') + String((p && p.id) || '') + String(i);
               return (
-                <div key={p.orderNo + p.id + i} style={{ display: 'flex', gap: 12, padding: '16px 0', borderTop: i ? '1px solid var(--border-default)' : 'none', alignItems: 'center' }}>
+                <div key={rowKey} style={{ display: 'flex', gap: 12, padding: '16px 0', borderTop: i ? '1px solid var(--border-default)' : 'none', alignItems: 'center' }}>
                   <div style={{ width: 52, flex: 'none', borderRadius: 8, overflow: 'hidden', border: '1px solid var(--border-default)' }}>
-                    <F.StaffThumb ratio="1 / 1" size={17} src={F.sheetCoverUrl(s) || undefined} alt={s.title} />
+                    <F.StaffThumb ratio="1 / 1" size={17} src={cover || undefined} alt={title} />
                   </div>
                   <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ fontSize: 14.5, fontWeight: 600, letterSpacing: '-0.3px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{s.title}</div>
+                    <div style={{ fontSize: 14.5, fontWeight: 600, letterSpacing: '-0.3px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{title}</div>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 7, marginTop: 5, flexWrap: 'wrap' }}>
                       <F.DdayBadge dday={p.dday} />
                       <span className="ds-mono" style={{ fontSize: 11, color: 'var(--text-secondary)' }}>{p.date}</span>
@@ -88,7 +153,7 @@ function DownloadsPage() {
                     {expired ? <div className="fo-caption" style={{ marginTop: 4 }}>다운로드 기간이 만료되었어요. 고객센터에서 재발급을 요청할 수 있어요.</div> : null}
                   </div>
                   <Button variant={expired ? 'secondary' : 'primary'} size="sm" iconLeft="download" disabled={expired}
-                    onClick={() => F.toast('「' + s.title + '」 PDF 다운로드가 시작되었어요 (샘플)')}>{expired ? '만료' : 'PDF'}</Button>
+                    onClick={() => F.downloadSheetPdf(disp.id || p.id, { title, expired })}>{expired ? '만료' : 'PDF'}</Button>
                 </div>
               );
             })}

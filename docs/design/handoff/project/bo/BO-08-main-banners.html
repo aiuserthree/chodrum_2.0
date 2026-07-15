@@ -97,7 +97,7 @@ function BannersPage() {
             style={{ width: '100%', padding: '20px 16px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6, background: form.img ? 'var(--surface-sunken)' : 'var(--surface-card)', border: '1px dashed var(--border-strong)', borderRadius: 'var(--radius-cards)', cursor: 'pointer' }}>
             <span style={{ color: form.img ? 'var(--status-success)' : 'var(--color-icon)' }}><Icon name={form.img ? 'check' : 'image'} size={22} /></span>
             <span style={{ fontSize: 13.5, fontWeight: 600 }}>{form.img || '배너 이미지 업로드'}</span>
-            <span style={{ fontSize: 12, color: 'var(--text-secondary)' }}>{form.img ? '다시 선택하려면 클릭하세요' : '권장 1200×400 · PNG/JPG'}</span>
+            <span style={{ fontSize: 12, color: 'var(--text-secondary)' }}>{form.img ? '다시 선택하려면 클릭하세요' : '권장 사이즈: PC 2240×440 · Mobile 1500×704 · PNG/JPG'}</span>
           </button>
           <Checkbox checked={form.on} onChange={(on) => setForm({ ...form, on })} label="등록 즉시 노출" />
         </div>

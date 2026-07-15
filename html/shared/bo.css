@@ -51,5 +51,107 @@ body.bo-body { background: var(--surface-page); min-height: 100vh; }
 .bo-toast.show { opacity: 1; transform: translate(-50%, 0); }
 
 input, select, textarea, button { font-family: inherit; }
+
+/* BO 로그인 */
+.bo-login-body {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px 16px;
+  background:
+    radial-gradient(1200px 480px at 50% -10%, #ececec 0%, transparent 55%),
+    var(--surface-page);
+}
+.bo-login { width: 100%; max-width: 400px; }
+.bo-login-card {
+  background: var(--surface-card);
+  border: 1px solid var(--border-default);
+  border-radius: 12px;
+  padding: 28px 24px 22px;
+  box-shadow: var(--shadow-md, 0 8px 24px rgba(0, 0, 0, 0.06));
+}
+.bo-login-brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 22px;
+}
+.bo-login-brand img { display: block; flex: none; object-fit: contain; }
+.bo-login-title { font-size: 16px; font-weight: 600; letter-spacing: -0.4px; line-height: 1.2; }
+.bo-login-sub {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  color: var(--text-secondary);
+  margin-top: 2px;
+}
+.bo-login-heading {
+  margin: 0 0 6px;
+  font-size: 20px;
+  font-weight: 600;
+  letter-spacing: -0.5px;
+}
+.bo-login-desc {
+  margin: 0 0 20px;
+  font-size: 13.5px;
+  color: var(--text-secondary);
+  line-height: 1.45;
+}
+.bo-login-form { display: flex; flex-direction: column; gap: 14px; }
+.bo-login-field { display: flex; flex-direction: column; gap: 6px; }
+.bo-login-field > span { font-size: 13px; font-weight: 500; color: var(--text-primary); }
+.bo-login-field input {
+  height: 42px;
+  padding: 0 12px;
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-lg, 8px);
+  font-size: 14px;
+  background: #fff;
+  color: var(--color-ink);
+  outline: none;
+}
+.bo-login-field input:focus { border-color: var(--color-ink); }
+.bo-login-err {
+  margin: 0;
+  font-size: 13px;
+  color: var(--status-danger, #c0392b);
+  line-height: 1.4;
+}
+.bo-login-submit {
+  height: 44px;
+  margin-top: 4px;
+  border: 0;
+  border-radius: var(--radius-lg, 8px);
+  background: var(--color-ink);
+  color: #fff;
+  font-size: 14.5px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.bo-login-submit:disabled { opacity: 0.65; cursor: wait; }
+.bo-login-submit:hover:not(:disabled) { opacity: 0.92; }
+.bo-login-store {
+  display: block;
+  margin-top: 18px;
+  text-align: center;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-secondary);
+  text-decoration: none;
+}
+.bo-login-store:hover { color: var(--color-ink); text-decoration: underline; }
+
+/* 네이티브 date 입력 — DS Input 안에서 달력 아이콘·값이 잘 보이도록 */
+.bo-body input[type="date"] {
+  color-scheme: light;
+  min-width: 0;
+  cursor: pointer;
+}
+.bo-body input[type="date"]::-webkit-calendar-picker-indicator {
+  cursor: pointer;
+  opacity: 0.55;
+}
 ::-webkit-scrollbar { width: 10px; height: 10px; }
 ::-webkit-scrollbar-thumb { background: #e0e0e0; border-radius: 9999px; border: 3px solid #fff; }

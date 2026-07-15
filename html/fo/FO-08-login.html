@@ -3,6 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="referrer" content="strict-origin-when-cross-origin">
 <title>CHODRUM — 로그인</title>
 <link rel="stylesheet" href="../_ds/drum-sheet-store-design-system-3a2462a0-2443-475e-a3b6-f7937913eb0b/tokens/colors.css">
 <link rel="stylesheet" href="../_ds/drum-sheet-store-design-system-3a2462a0-2443-475e-a3b6-f7937913eb0b/tokens/typography.css">
@@ -26,9 +27,9 @@
 <script src="../shared/supabase-client.js"></script>
 <script src="../shared/api.js"></script>
 <script src="../shared/auth.js"></script>
-<script type="text/babel" src="fo-shared.jsx"></script>
+<script type="text/babel" src="/fo/fo-shared.jsx"></script>
 <script type="text/babel">
-/* FO-08-01 로그인 — Supabase OAuth(구글/카카오) + 이메일 로그인 */
+/* FO-08-01 로그인 — Supabase OAuth(구글) + 카카오/네이버 bridge + 이메일 */
 const DS = window.DrumSheetStoreDesignSystem_3a2462;
 const { Button, Input, Divider, SocialButton, Checkbox, Icon } = DS;
 const F = window.FO;
@@ -127,8 +128,14 @@ function LoginPage() {
           <SocialButton provider="kakao" style={socialStyle('kakao')} onClick={() => socialLogin('kakao')} />
           <SocialButton provider="naver" style={socialStyle('naver')} onClick={() => socialLogin('naver')} />
           <SocialButton provider="google" style={socialStyle('google')} onClick={() => socialLogin('google')} />
-          {!Auth.isProviderEnabled('naver') ? (
-            <p className="fo-caption" style={{ textAlign: 'center' }}>네이버는 Client ID·Edge Function 설정 후 이용할 수 있어요. Google · 카카오를 이용해주세요.</p>
+          {(!Auth.isProviderEnabled('kakao') || !Auth.isProviderEnabled('naver')) ? (
+            <p className="fo-caption" style={{ textAlign: 'center' }}>
+              {!Auth.isProviderEnabled('kakao') && !Auth.isProviderEnabled('naver')
+                ? '카카오·네이버는 Client ID와 Edge Function 설정 후 이용할 수 있어요. Google로 계속해 주세요.'
+                : !Auth.isProviderEnabled('kakao')
+                  ? '카카오는 REST API 키·Edge Function(kakao-auth) 설정 후 이용할 수 있어요.'
+                  : '네이버는 Client ID·Edge Function(naver-auth) 설정 후 이용할 수 있어요.'}
+            </p>
           ) : null}
         </div>
 

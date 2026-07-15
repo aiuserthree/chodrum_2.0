@@ -226,7 +226,7 @@ function Footer() {
         </div>
 
         <div className="fo-footer-bottom">
-          <span className="fo-caption">Copyright © 조드럼닷컴. All Rights Reserved. Hosting by Cafe24 Corp.</span>
+          <span className="fo-caption">Copyright © 조드럼닷컴. All Rights Reserved.</span>
           <div className="fo-footer-links">
             <a href="https://instagram.com/cho.drum" target="_blank" rel="noreferrer">Instagram</a>
             <a href="https://youtube.com/@chodrum" target="_blank" rel="noreferrer">YouTube</a>

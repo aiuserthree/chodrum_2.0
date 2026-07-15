@@ -12,6 +12,10 @@
    - `supabase/migrations/002_member_consent.sql` (회원 약관 동의 컬럼)
    - `supabase/migrations/003_sheet_files.sql` (악보 `pdf_url`/`preview_url` + Storage 버킷 `sheets`)
    - `supabase/migrations/004_preview_urls.sql` (**필수** · 미리보기 최대 2장 `preview_urls text[]`)
+   - `supabase/migrations/005_youtube_url.sql` (유튜브 URL 컬럼)
+   - `supabase/migrations/006_banner_images.sql` (**필수** · 배너 `image_url` + Storage 버킷 `banners`)
+   - `supabase/migrations/007_banner_sheet_id.sql` (배너 ↔ 악보 연동 `sheet_id`)
+   - `supabase/migrations/008_banner_mobile_image.sql` (배너 모바일 이미지 `image_url_mobile`)
 3. **Project Settings → API**에서 복사:
    - Project URL
    - `anon` `public` key
@@ -24,6 +28,8 @@
 window.CHODRUM_CONFIG = {
   SUPABASE_URL: 'https://xxxx.supabase.co',
   SUPABASE_ANON_KEY: 'eyJhbGciOi...',
+  KAKAO_CLIENT_ID: '',           // 카카오 REST API 키 (공개)
+  KAKAO_OAUTH_MODE: 'bridge',    // 'bridge' | 'supabase'
   NAVER_CLIENT_ID: '',           // 네이버 Developers Client ID (공개)
   NAVER_OAUTH_MODE: 'bridge',    // 'bridge' | 'custom'
 };
@@ -39,9 +45,10 @@ window.CHODRUM_CONFIG = {
 |--------|----------------|----------------|
 | `sheets` | 악보 목록·등록·수정·삭제·상태 · PDF/미리보기 URL | 홈 / 목록 / 상세 (판매중만) |
 | Storage `sheets` | BO 악보 등록 시 PDF·미리보기 업로드 (데모 anon R/W) | 미리보기 이미지 public URL 읽기 |
+| Storage `banners` | BO 배너 이미지 업로드 (`img/` · PC/모바일 · 데모 anon R/W) | 배너 `image_url` / `image_url_mobile` public 읽기 |
 | `featured_sheets` | 추천 관리 저장 | 홈 「추천 악보」 |
 | `home_promo` | (시드) 홈 프로모 | 홈 상단 추천 배너 |
-| `banners` | 배너 관리 CRUD | (BO 저장; FO 홈은 home_promo 사용) |
+| `banners` | 배너 관리 CRUD + `image_url` + `image_url_mobile` + `sheet_id` | FO 홈 메인 배너 (`<picture>` · PC/모바일 이미지) |
 | `orders` + `order_items` | 주문 목록·환불 | 결제 완료 시 생성 |
 | `downloads` | 다운로드 관리 조회 | 결제 시 권한 생성 / 비회원 조회 |
 | `members` | 회원 목록 조회 | 이메일 가입 · **소셜 OAuth + 약관 동의 후** upsert (`terms_agreed_at` 등) |
@@ -98,12 +105,16 @@ window.CHODRUM_CONFIG = {
 
 **Authentication → URL Configuration**
 
-- **Site URL:** `http://127.0.0.1:8765`
+- **Site URL (로컬):** `http://localhost:8765`
+- **Site URL (운영):** `https://renewal.chodrum.com`
 - **Redirect URLs:**
-  - `http://127.0.0.1:8765/fo/FO-08-auth-callback.html`
-  - `http://127.0.0.1:8765/fo/**`
+  - `http://localhost:8765/fo/FO-08-auth-callback.html`
+  - `http://127.0.0.1:8765/fo/FO-08-auth-callback.html` (로컬 대체)
+  - `https://renewal.chodrum.com/fo/FO-08-auth-callback.html`
+  - `https://renewalchodrum.vercel.app/fo/FO-08-auth-callback.html`
+  - (선택) `http://localhost:8765/fo/**` · `https://renewal.chodrum.com/fo/**`
 
-운영 도메인이 있으면 동일 경로를 추가하세요.
+`config.js`는 `127.0.0.1`만 `localhost`로 바꿔 주며, 프로덕션 호스트에는 영향을 주지 않습니다.
 
 ### 4-3. SMTP (권장)
 
@@ -123,15 +134,22 @@ OAuth만으로는 앱 로그인되지 않습니다. **약관 동의(`FO-08-oauth
 
 | Provider | FO UI | 구현 |
 |----------|-------|------|
-| Google | 활성 | Supabase 기본 Provider |
-| Kakao | 활성 | Supabase 기본 Provider |
-| Naver | Client ID + Edge Function 설정 시 활성 | 기본 Provider 없음 → **bridge** 또는 **custom** |
+| Google | Dashboard에서 Enable 시 활성 | Supabase 기본 Provider |
+| Kakao | `KAKAO_CLIENT_ID` + Edge Function 설정 시 활성 | **bridge**(기본) 또는 Dashboard Provider |
+| Naver | `NAVER_CLIENT_ID` + Edge Function 설정 시 활성 | **bridge**(기본) 또는 Custom Provider |
 
 ### 5-1. Redirect URL (필수)
 
-코드 콜백: `html/shared/auth.js` → `/fo/FO-08-auth-callback.html`
+앱 콜백: `/fo/FO-08-auth-callback.html`  
+(`config.js`가 `127.0.0.1` → `localhost`로 리다이렉트하므로 로컬은 **localhost** 기준)
 
-Supabase Redirect URLs에 위 URL을 등록하세요 (§4-2).
+Supabase Redirect URLs에 등록:
+
+- `http://localhost:8765/fo/FO-08-auth-callback.html`
+- `https://renewal.chodrum.com/fo/FO-08-auth-callback.html`
+- `https://renewalchodrum.vercel.app/fo/FO-08-auth-callback.html`
+
+카카오·네이버 Developers Callback에도 **동일 URL**을 등록하세요.
 
 ### 5-2. Google
 
@@ -139,29 +157,64 @@ Supabase Redirect URLs에 위 URL을 등록하세요 (§4-2).
 2. 승인된 리디렉션 URI: `https://<YOUR_PROJECT_REF>.supabase.co/auth/v1/callback`
 3. **Supabase → Authentication → Providers → Google** → Enable → Client ID/Secret
 
-### 5-3. Kakao (실제 가입)
+### 5-3. Kakao (권장: bridge 모드)
+
+Supabase Dashboard Kakao Provider 없이도 동작합니다.  
+**Edge Function `kakao-auth`** 가 코드를 교환하고 Supabase 세션을 만듭니다.
+
+#### A. 카카오 Developers
 
 1. [Kakao Developers](https://developers.kakao.com/) 앱 등록
-2. **카카오 로그인** 활성화, Redirect URI:
-   - `https://<YOUR_PROJECT_REF>.supabase.co/auth/v1/callback`
-3. REST API 키 / Client Secret 확인
-4. **Supabase → Authentication → Providers → Kakao** → Enable → 키 입력 → Save
-5. FO에서 카카오 버튼 → Supabase `signInWithOAuth({ provider: 'kakao' })`
+2. **카카오 로그인** ON
+3. Redirect URI (콜백과 일치):
+   - 로컬: `http://localhost:8765/fo/FO-08-auth-callback.html`
+   - 운영: `https://renewal.chodrum.com/fo/FO-08-auth-callback.html`
+   - Vercel: `https://renewalchodrum.vercel.app/fo/FO-08-auth-callback.html`
+4. 동의 항목: `profile_nickname`, `profile_image`, **`account_email`(필수)**  
+   이메일은 비즈앱/개인사업자 등록이 필요할 수 있습니다.
+5. **REST API 키** / (사용 시) Client Secret 복사
 
-미설정 시 버튼 클릭 시 Provider 오류가 납니다.
+#### B. config.js
 
-### 5-4. Naver (실제 가입) — 권장: bridge 모드
+```js
+KAKAO_CLIENT_ID: '카카오_REST_API_키',
+KAKAO_OAUTH_MODE: 'bridge',
+```
+
+#### C. Edge Function 배포
+
+```bash
+supabase secrets set KAKAO_CLIENT_ID=... KAKAO_CLIENT_SECRET=...
+supabase functions deploy kakao-auth --no-verify-jwt
+```
+
+소스: `supabase/functions/kakao-auth/index.ts`
+
+흐름: FO → 카카오 동의 → 콜백 `?code=` → Function → `hashed_token` → `verifyOtp` → (신규면) 약관 → `members` upsert
+
+#### D. (선택) Supabase 기본 Kakao Provider
+
+1. Kakao Redirect URI에 `https://<REF>.supabase.co/auth/v1/callback` 추가
+2. **Supabase → Authentication → Providers → Kakao** → Enable → REST API 키 / Secret
+3. config:
+
+```js
+KAKAO_OAUTH_MODE: 'supabase',
+```
+
+### 5-4. Naver (권장: bridge 모드)
 
 Supabase에는 네이버 기본 Provider가 없습니다.  
-이 프로젝트는 **Edge Function `naver-auth`** 로 코드를 교환하고 Supabase 세션을 만듭니다.
+**Edge Function `naver-auth`** 로 코드를 교환하고 Supabase 세션을 만듭니다.
 
 #### A. 네이버 Developers
 
 1. [Naver Developers](https://developers.naver.com/) → 애플리케이션 등록
 2. 로그인 오픈 API 사용, **이메일**을 **필수 동의**로
 3. Callback URL (서비스 URL과 일치):
-   - 로컬: `http://127.0.0.1:8765/fo/FO-08-auth-callback.html`
-   - 운영: `https://your-domain/fo/FO-08-auth-callback.html`
+   - 로컬: `http://localhost:8765/fo/FO-08-auth-callback.html`
+   - 운영: `https://renewal.chodrum.com/fo/FO-08-auth-callback.html`
+   - Vercel: `https://renewalchodrum.vercel.app/fo/FO-08-auth-callback.html`
 4. **Client ID** / **Client Secret** 복사
 
 #### B. config.js
@@ -214,12 +267,14 @@ FO는 `signInWithOAuth({ provider: 'custom:naver' })` 를 호출합니다.
 cd html && python3 -m http.server 8765 --bind 127.0.0.1
 ```
 
-1. http://127.0.0.1:8765/fo/FO-08-signup.html — 이메일 OTP 가입
-2. http://127.0.0.1:8765/fo/FO-08-login.html — Google / 카카오 / 네이버
+1. http://localhost:8765/fo/FO-08-signup.html — 이메일 OTP 가입
+2. http://localhost:8765/fo/FO-08-login.html — Google / 카카오 / 네이버
 3. 신규 소셜 → `FO-08-oauth-terms.html` → 마이페이지
 4. 콘솔: `ChodrumAuth.live() === true`
 
-## 6. 악보 파일 업로드 (Storage)
+## 6. 파일 업로드 (Storage)
+
+### 6-1. 악보 (`sheets` 버킷)
 
 BO 악보 등록(`BO-02-sheet-register.html`)에서:
 
@@ -235,6 +290,21 @@ BO 악보 등록(`BO-02-sheet-register.html`)에서:
 2. **Storage**에 `sheets` 버킷이 보이고 **Public** 인지 확인
 3. 업로드 실패 시 Policies에 `sheets_storage_select` / `insert` / `update` / `delete` 가 있는지 확인
 
+### 6-2. 배너 (`banners` 버킷)
+
+BO 배너 관리(`BO-08-main-banners.html`)에서 이미지 업로드 시:
+
+- **PC 배너 이미지** (권장 **2240×440px** · 홈 표시 ~1088×220 @2x) → `banners` 버킷 `img/` 경로 → `banners.image_url` (원본 그대로 업로드, 리사이즈·압축 없음)
+- **모바일 배너 이미지** (권장 **1500×704px** · 표시 ~360×176 레티나) → 동일 버킷 `img/` → `banners.image_url_mobile` (선택 · 비우면 FO가 PC 이미지 사용)
+- **연동 악보** → `banners.sheet_id` (클릭 시 상세 이동)
+
+마이그레이션 `006_banner_images.sql`이 `image_url` 컬럼 + Public 버킷 `banners` + `banners_storage_*` 정책을 만듭니다 (`003`과 동일 패턴).  
+`007_banner_sheet_id.sql`이 `sheet_id` 컬럼을 추가합니다.  
+`008_banner_mobile_image.sql`이 `image_url_mobile` / `image_name_mobile` 컬럼을 추가합니다.
+
+**이미 프로젝트가 있는 경우:** SQL Editor에서 `006` → `007` → `008` 순으로 실행한 뒤, Dashboard → Storage에 `banners`(Public)가 보이는지 확인하세요.  
+미실행 시 콘솔에 `Bucket not found` / 400 과 함께 버킷 없음 안내가 납니다. `sheet_id` / `image_url_mobile` 미실행 시 배너 저장이 실패할 수 있어요.
+
 운영 전에는 Storage·테이블 RLS를 관리자 역할로 제한하세요. PDF는 구매자만 받게 하려면 private 버킷 + signed URL로 바꿔야 합니다.
 
 ## 7. 확인 방법 (데이터 FO↔BO)
@@ -249,6 +319,6 @@ BO 악보 등록(`BO-02-sheet-register.html`)에서:
 ## 8. 보안 (데모 한계)
 
 현재 RLS는 **프로토타입용 anon 전체 허용**입니다.
-Storage `sheets` 버킷도 데모용으로 anon 업로드가 가능합니다.
+Storage `sheets`·`banners` 버킷도 데모용으로 anon 업로드가 가능합니다.
 운영 전에는 BO 관리자 Auth + 역할 기반 정책으로 교체하세요.
 OAuth 세션은 브라우저 localStorage에 저장됩니다 (`persistSession: true`).

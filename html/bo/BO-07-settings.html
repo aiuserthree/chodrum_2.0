@@ -22,10 +22,11 @@
 <script src="../shared/data.js"></script>
 <script src="../shared/legal-docs.js"></script>
 <script src="../shared/config.js"></script>
+<script src="../shared/bo-auth.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="../shared/supabase-client.js"></script>
 <script src="../shared/api.js"></script>
-<script type="text/babel" src="bo-shared.jsx"></script>
+<script type="text/babel" src="/bo/bo-shared.jsx"></script>
 <script type="text/babel">
 /* BO-07 사이트 설정 — 약관(새 버전 등록) · PG · 이메일(미리보기/수정)
    ※ 배너/추천 설정은 「메인 관리」 메뉴로 이동 */
@@ -285,7 +286,7 @@ function SettingsPage() {
       <div data-screen-label="BO-07 사이트 설정" style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
           {tabs.map((t) => <Chip key={t} selected={tab === t} onClick={() => setTab(t)}>{t}</Chip>)}
-          <span style={{ fontSize: 12, color: 'var(--text-tertiary)', marginLeft: 'auto' }}>배너 · 추천 설정은 <a href="BO-08-main-banners.html" style={{ color: 'var(--text-secondary)', textDecoration: 'underline', textUnderlineOffset: 2 }}>메인 관리</a>로 이동했어요</span>
+          <span style={{ fontSize: 12, color: 'var(--text-tertiary)', marginLeft: 'auto' }}>배너 · 추천 설정은 <a href="/bo/banners" style={{ color: 'var(--text-secondary)', textDecoration: 'underline', textUnderlineOffset: 2 }}>메인 관리</a>로 이동했어요</span>
         </div>
         {tab === '약관 관리' ? <TermsTab /> : null}
         {tab === 'PG 설정' ? <PgTab /> : null}

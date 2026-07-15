@@ -3,6 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="referrer" content="strict-origin-when-cross-origin">
 <title>CHODRUM — 악보 상세</title>
 <link rel="stylesheet" href="../_ds/drum-sheet-store-design-system-3a2462a0-2443-475e-a3b6-f7937913eb0b/tokens/colors.css">
 <link rel="stylesheet" href="../_ds/drum-sheet-store-design-system-3a2462a0-2443-475e-a3b6-f7937913eb0b/tokens/typography.css">
@@ -25,18 +26,83 @@
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="../shared/supabase-client.js"></script>
 <script src="../shared/api.js"></script>
-<script type="text/babel" src="fo-shared.jsx"></script>
+<script type="text/babel" src="/fo/fo-shared.jsx"></script>
 <script type="text/babel">
-/* FO-03 악보 상세 — 워터마크 미리보기 · 곡 정보 · 찜/장바구니 (직접 결제 없음) */
+/* FO-03 악보 상세 — 워터마크 미리보기 · YouTube 연동 · 곡 정보 · 찜/장바구니 (직접 결제 없음) */
 const DS = window.DrumSheetStoreDesignSystem_3a2462;
 const { Button, IconButton, Card, Badge, Icon } = DS;
 const F = window.FO;
 const D = window.DrumData;
+const A = window.ChodrumAPI;
+
+/** YouTube iframe, or thumbnail + open-on-YouTube when embed is blocked. */
+function YouTubeFallback({ id, title }) {
+  const thumb = A.youtubeThumbUrl(id);
+  const watch = A.youtubeWatchUrl(id);
+  const label = title ? (title + ' — YouTube에서 보기') : 'YouTube에서 보기';
+  return (
+    <div className="fo-yt fo-yt-fallback" role="region" aria-label={label}>
+      {thumb ? <img className="fo-yt-fallback-img" src={thumb} alt="" decoding="async" /> : null}
+      <div className="fo-yt-fallback-scrim" aria-hidden="true" />
+      <a className="fo-yt-open" href={watch} target="_blank" rel="noopener noreferrer">
+        YouTube에서 보기
+      </a>
+    </div>
+  );
+}
+
+function YouTubePlayer({ url, title }) {
+  const id = A && A.parseYouTubeId ? A.parseYouTubeId(url) : '';
+  const [mode, setMode] = React.useState(() => {
+    if (!id) return 'none';
+    if (A.youtubeEmbedBlockedOnHost && A.youtubeEmbedBlockedOnHost()) return 'fallback';
+    return 'embed';
+  });
+
+  React.useEffect(() => {
+    if (!id || mode !== 'embed' || !A.youtubeCanEmbed) return undefined;
+    let cancelled = false;
+    A.youtubeCanEmbed(id).then((ok) => {
+      if (cancelled) return;
+      if (ok === false) setMode('fallback');
+    });
+    return () => { cancelled = true; };
+  }, [id, mode]);
+
+  if (!id || mode === 'none') return null;
+  if (mode === 'fallback') return <YouTubeFallback id={id} title={title} />;
+
+  const embed = A.youtubeEmbedUrl(id, false);
+  const label = title ? (title + ' 연동 영상') : '연동 영상';
+  return (
+    <div className="fo-yt" role="region" aria-label={label}>
+      <iframe
+        src={embed}
+        title={label}
+        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+        allowFullScreen
+        referrerPolicy="strict-origin-when-cross-origin"
+      />
+    </div>
+  );
+}
+
+function sheetYoutubeUrl(s) {
+  if (!s) return '';
+  return String(s.youtubeUrl || s.youtube_url || '').trim();
+}
 
 function DetailPage() {
   const id = F.qp('id') || 's1';
-  const s = D.byId(id);
+  const [, bump] = React.useState(0);
   F.useStoreTick();
+  /* Re-read DrumData after hydrate (belt-and-suspenders with whenReady). */
+  React.useEffect(() => {
+    const onReady = () => bump((n) => n + 1);
+    window.addEventListener('chodrum:ready', onReady);
+    return () => window.removeEventListener('chodrum:ready', onReady);
+  }, []);
+  const s = D.byId(id);
   const [cartAsk, setCartAsk] = React.useState(false);
   const [cartMsg, setCartMsg] = React.useState('장바구니에 담았어요');
 
@@ -63,6 +129,8 @@ function DetailPage() {
   const previewUrls = (s.previewUrls && s.previewUrls.length)
     ? s.previewUrls.slice(0, 2)
     : (s.previewUrl ? [s.previewUrl] : []);
+  const ytUrl = sheetYoutubeUrl(s);
+  const ytId = A && A.parseYouTubeId ? A.parseYouTubeId(ytUrl) : '';
   const add = () => {
     const ok = Store.cart.add(s.id, 1);
     setCartMsg(ok ? '장바구니에 담았어요' : '이미 장바구니에 있어요');
@@ -81,8 +149,18 @@ function DetailPage() {
   return (
     <F.Scaffold title="악보 상세" back={F.PAGES.list} cta={<CtaButtons />}>
       <div data-screen-label="FO-03 악보 상세" className="fo-two" style={{ paddingTop: 20 }}>
-        {/* 미리보기 (최대 2페이지) */}
+        {/* 왼쪽: YouTube(있을 때) → 미리보기 */}
         <div>
+          {ytId ? (
+            <div style={{ marginBottom: 16 }}>
+              <Card padding={0} style={{ overflow: 'hidden' }}>
+                <YouTubePlayer url={ytUrl} title={s.title} />
+              </Card>
+              <p className="fo-caption" style={{ marginTop: 10, display: 'flex', alignItems: 'center', gap: 6 }}>
+                <Icon name="play" size={13} style={{ color: 'var(--color-icon)' }} />페이지에서 바로 재생하거나, 안 되면 YouTube에서 열 수 있어요.
+              </p>
+            </div>
+          ) : null}
           <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
             {(previewUrls.length ? previewUrls : [null]).map((url, i) => (
               <Card key={i} padding={0} style={{ overflow: 'hidden' }}>
@@ -104,10 +182,8 @@ function DetailPage() {
             <Badge variant="neutral" size="sm">{s.genre}</Badge>
           </div>
           <h2 style={{ fontSize: 'clamp(22px, 3vw, 28px)', letterSpacing: '-0.9px', lineHeight: 1.25 }}>{s.title}</h2>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: 14, color: 'var(--text-secondary)', flexWrap: 'wrap' }}>
+          <div style={{ fontSize: 14, color: 'var(--text-secondary)' }}>
             <span>{s.artist}</span>
-            <F.Stars value={s.rating} />
-            <span className="ds-mono" style={{ fontSize: 12 }}>판매 {s.sold.toLocaleString('ko-KR')}</span>
           </div>
           <div style={{ display: 'flex', alignItems: 'baseline', gap: 8 }}>
             <F.Money value={s.price} size={28} />

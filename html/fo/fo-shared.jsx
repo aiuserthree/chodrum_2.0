@@ -3,15 +3,30 @@ const DS = window.DrumSheetStoreDesignSystem_3a2462;
 const { Button, IconButton, Card, Badge, Icon, Input, Checkbox } = DS;
 const DATA = window.DrumData;
 
+/* Pretty URLs (vercel.json rewrites). authCallback은 카카오/Supabase Redirect URI와 동일하게 유지. */
 const PAGES = {
-  home: 'FO-01-home.html', list: 'FO-02-sheet-list.html', detail: 'FO-03-sheet-detail.html',
-  wish: 'FO-04-wishlist.html', cart: 'FO-05-cart.html', checkout: 'FO-06-checkout.html',
-  complete: 'FO-07-order-complete.html', login: 'FO-08-login.html', signup: 'FO-08-signup.html',
-  authCallback: 'FO-08-auth-callback.html', oauthTerms: 'FO-08-oauth-terms.html',
-  reset: 'FO-08-password-reset.html', my: 'FO-09-mypage.html', downloads: 'FO-09-mypage-downloads.html',
-  edit: 'FO-09-mypage-edit.html', withdraw: 'FO-09-mypage-withdraw.html', guest: 'FO-10-guest-lookup.html',
-  terms: 'FO-11-terms.html', privacy: 'FO-11-privacy.html', marketing: 'FO-11-marketing.html',
-  guide: 'FO-11-guide.html', findId: 'FO-08-find-id.html',
+  home: '/home',
+  list: '/sheets',
+  detail: '/sheet',
+  wish: '/wishlist',
+  cart: '/cart',
+  checkout: '/checkout',
+  complete: '/order-complete',
+  login: '/login',
+  signup: '/signup',
+  authCallback: '/fo/FO-08-auth-callback.html',
+  oauthTerms: '/oauth-terms',
+  reset: '/password-reset',
+  my: '/mypage',
+  downloads: '/mypage/downloads',
+  edit: '/mypage/edit',
+  withdraw: '/mypage/withdraw',
+  guest: '/guest-lookup',
+  terms: '/terms',
+  privacy: '/privacy',
+  marketing: '/marketing',
+  guide: '/guide',
+  findId: '/find-id',
 };
 
 const won = (v) => '₩' + Number(v).toLocaleString('ko-KR');
@@ -35,6 +50,44 @@ function useStoreTick() {
     window.addEventListener('store:change', f);
     return () => window.removeEventListener('store:change', f);
   }, []);
+}
+
+/** 회원 구매내역 — live면 Supabase orders(BO와 동일), 아니면 localStorage */
+async function loadPurchases(email) {
+  const empty = [];
+  if (!email) return empty;
+  try {
+    if (window.ChodrumAPI && ChodrumAPI.ready) await ChodrumAPI.ready;
+  } catch (e) { /* ignore */ }
+  if (window.ChodrumAPI && ChodrumAPI.orders && typeof ChodrumAPI.orders.purchasesForEmail === 'function') {
+    try {
+      const list = await ChodrumAPI.orders.purchasesForEmail(email);
+      if (Array.isArray(list) && Store.purchases && typeof Store.purchases.replace === 'function') {
+        Store.purchases.replace(list.map((p) => ({
+          id: p.id || p.sheetId,
+          sheetId: p.sheetId || p.id,
+          title: p.title || '',
+          orderNo: p.orderNo,
+          paidAt: p.paidAt || Date.now(),
+        })));
+      }
+      return Array.isArray(list) ? list : empty;
+    } catch (e) {
+      console.warn('[CHODRUM] loadPurchases', e);
+    }
+  }
+  const raw = Store.purchases.list();
+  if (!Array.isArray(raw)) return empty;
+  const day = 86400000;
+  return raw.filter((p) => p && typeof p === 'object').map((p) => {
+    const id = (p.sheetId != null && p.sheetId !== '') ? p.sheetId : p.id;
+    const paidAt = Number(p.paidAt) || Date.now();
+    return {
+      id, sheetId: id, title: p.title || '', orderNo: p.orderNo, paidAt,
+      date: new Date(paidAt).toLocaleDateString('ko-KR', { year: 'numeric', month: '2-digit', day: '2-digit' }).replace(/\. /g, '.').replace(/\.$/, ''),
+      dday: 7 - Math.floor((Date.now() - paidAt) / day),
+    };
+  }).filter((p) => p.id != null && p.id !== '');
 }
 
 function Money({ value, size = 16, weight = 600, color = 'var(--text-primary)', strike = false }) {
@@ -289,7 +342,9 @@ function Header({ tab, title, back }) {
           <nav className="fo-nav">
             <a href={PAGES.home} className={tab === 'home' ? 'on' : ''}>홈</a>
             <a href={PAGES.list} className={tab === 'list' ? 'on' : ''}>악보</a>
-            <a href={PAGES.guest}>비회원 주문 조회</a>
+            {user
+              ? <a href={PAGES.my} className={tab === 'my' ? 'on' : ''}>마이페이지</a>
+              : <a href={PAGES.guest}>비회원 주문 조회</a>}
           </nav>
           <form className="fo-header-search" onSubmit={search}>
             <Input size="sm" name="q" iconLeft="search" placeholder="곡명, 아티스트 검색" />
@@ -400,14 +455,11 @@ function Footer() {
         </div>
 
         <div className="fo-footer-bottom">
-          <span className="fo-caption">Copyright © 조드럼닷컴. All Rights Reserved. Hosting by Cafe24 Corp.</span>
+          <span className="fo-caption">Copyright © 조드럼닷컴. All Rights Reserved.</span>
           <div className="fo-footer-links">
             <a href="https://instagram.com/cho.drum" target="_blank" rel="noreferrer">Instagram</a>
             <a href="https://youtube.com/@chodrum" target="_blank" rel="noreferrer">YouTube</a>
             <a href="https://pf.kakao.com/_hxdVWxj" target="_blank" rel="noreferrer">Kakao</a>
-            <a href="#">Facebook</a>
-            <a href="#">Twitter</a>
-            <a href="#">Blog</a>
           </div>
         </div>
       </div>
@@ -474,16 +526,18 @@ function SheetCard({ s }) {
 }
 
 function SheetRow({ s, right, sub, href }) {
-  const open = href === null ? undefined : () => location.href = href || (PAGES.detail + '?id=' + s.id);
-  const cover = sheetCoverUrl(s);
+  const sheet = s && typeof s === 'object' ? s : { id: '', title: '악보', artist: '—', genre: '' };
+  const title = sheet.title || '악보';
+  const open = href === null ? undefined : () => location.href = href || (PAGES.detail + '?id=' + sheet.id);
+  const cover = sheetCoverUrl(sheet);
   return (
     <div style={{ display: 'flex', gap: 12, padding: '14px 0', alignItems: 'center' }}>
       <div onClick={open} style={{ width: 56, flex: 'none', borderRadius: 8, overflow: 'hidden', border: '1px solid var(--border-default)', cursor: open ? 'pointer' : 'default' }}>
-        <StaffThumb ratio="1 / 1" size={20} src={cover || undefined} alt={s.title} watermark={cover ? 'light' : false} />
+        <StaffThumb ratio="1 / 1" size={20} src={cover || undefined} alt={title} watermark={cover ? 'light' : false} />
       </div>
       <div onClick={open} style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 3, cursor: open ? 'pointer' : 'default' }}>
-        <div style={{ fontSize: 14, fontWeight: 600, letterSpacing: '-0.3px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{s.title}</div>
-        {sub !== undefined ? sub : <div style={{ fontSize: 12, color: 'var(--text-secondary)' }}>{s.artist} · {s.genre}</div>}
+        <div style={{ fontSize: 14, fontWeight: 600, letterSpacing: '-0.3px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{title}</div>
+        {sub !== undefined ? sub : <div style={{ fontSize: 12, color: 'var(--text-secondary)' }}>{sheet.artist || '—'} · {sheet.genre || ''}</div>}
       </div>
       {right}
     </div>
@@ -575,13 +629,15 @@ function Dialog({ open, onClose, title, children, wide }) {
   );
 }
 
-/** cart/fav id → 시트 정보 (미존재 시 빈 화면 대신 폴백) */
+const MISSING_SHEET_TITLE = '삭제되었거나 찾을 수 없는 악보';
+
+/** cart/fav/purchase id → 시트 정보 (미존재·예외 시에도 항상 객체 반환) */
 function resolveSheet(id, extra) {
-  const s = DATA.byId(id);
-  if (s) return Object.assign({}, s, extra || {}, { missing: false });
-  return Object.assign({
+  const snap = extra && (extra.title || extra.name);
+  const snapTitle = (snap && String(snap).trim() && snap !== MISSING_SHEET_TITLE) ? String(snap).trim() : '';
+  const fallback = Object.assign({
     id: id,
-    title: '삭제되었거나 찾을 수 없는 악보',
+    title: snapTitle || MISSING_SHEET_TITLE,
     artist: '—',
     level: '—',
     genre: '',
@@ -590,6 +646,113 @@ function resolveSheet(id, extra) {
     previewUrls: [],
     missing: true,
   }, extra || {});
+  if (snapTitle) fallback.title = snapTitle;
+  try {
+    /* 항상 최신 DrumData.byId 사용 (hydrate 후 교체된 함수) */
+    const byId = (window.DrumData && typeof window.DrumData.byId === 'function')
+      ? window.DrumData.byId
+      : (DATA && typeof DATA.byId === 'function' ? DATA.byId : null);
+    const s = byId ? byId(id) : null;
+    if (s && typeof s === 'object') {
+      const liveTitle = s.title || snapTitle || fallback.title;
+      return Object.assign({}, s, extra || {}, {
+        missing: false,
+        title: liveTitle,
+      });
+    }
+  } catch (e) { /* ignore */ }
+  return fallback;
+}
+
+/** 주문/구매 라인 표시명 — 스냅샷 우선, placeholder 문구는 스냅샷·실데이터가 있을 때 쓰지 않음 */
+function lineTitle(item, resolved) {
+  const snap = item && (item.title || item.name);
+  if (snap && String(snap).trim() && snap !== MISSING_SHEET_TITLE) return String(snap).trim();
+  const t = resolved && resolved.title;
+  if (t && t !== MISSING_SHEET_TITLE) return t;
+  return snap ? String(snap) : '악보';
+}
+
+/** OS 저장용 PDF 파일명 */
+function pdfFileName(title) {
+  const base = String(title || '악보')
+    .replace(/\.pdf$/i, '')
+    .replace(/[\\/:*?"<>|]+/g, '_')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .slice(0, 80);
+  return (base || '악보') + '.pdf';
+}
+
+/**
+ * 구매한 악보 PDF를 로컬 PC에 저장.
+ * Supabase public URL은 cross-origin이라 download 속성만으로는 파일명이 안 먹을 수 있어
+ * fetch → blob → object URL 로 강제 다운로드한다.
+ * @param {string|object} sheetOrId
+ * @param {{ title?: string, expired?: boolean }} [opts]
+ */
+async function downloadSheetPdf(sheetOrId, opts) {
+  opts = opts || {};
+  if (opts.expired) {
+    toast('다운로드 기간이 만료되었어요');
+    return;
+  }
+
+  let sheet = null;
+  if (sheetOrId && typeof sheetOrId === 'object') {
+    const id = (sheetOrId.sheetId != null && sheetOrId.sheetId !== '')
+      ? sheetOrId.sheetId
+      : sheetOrId.id;
+    const urlHint = sheetOrId.pdfUrl || sheetOrId.pdf_url || '';
+    sheet = id != null && id !== ''
+      ? resolveSheet(id, sheetOrId)
+      : Object.assign({}, sheetOrId);
+    if (urlHint && !(sheet.pdfUrl || sheet.pdf_url)) {
+      sheet = Object.assign({}, sheet, { pdfUrl: urlHint });
+    }
+  } else if (sheetOrId != null && sheetOrId !== '') {
+    sheet = resolveSheet(sheetOrId);
+  }
+
+  const title = String(opts.title || (sheet && sheet.title) || '악보').trim() || '악보';
+  const url = (sheet && (sheet.pdfUrl || sheet.pdf_url)) || '';
+  if (!url) {
+    toast('「' + title + '」 PDF가 없어요');
+    return;
+  }
+
+  const filename = pdfFileName(title);
+  try {
+    toast('「' + title + '」 다운로드를 시작했어요');
+    const res = await fetch(url, { mode: 'cors', credentials: 'omit' });
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    const blob = await res.blob();
+    const objUrl = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = objUrl;
+    a.download = filename;
+    a.rel = 'noopener';
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(function () {
+      try { URL.revokeObjectURL(objUrl); } catch (_) {}
+    }, 2500);
+  } catch (e) {
+    console.warn('[CHODRUM] PDF blob download failed, opening URL', e);
+    try {
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = filename;
+      a.target = '_blank';
+      a.rel = 'noopener';
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+    } catch (e2) {
+      toast('PDF 다운로드에 실패했어요');
+    }
+  }
 }
 
 /* 장바구니 담기 성공 — 이동 / 계속 쇼핑 */
@@ -624,8 +787,7 @@ function legalVer(id) {
   return (d && d.ver) || 'v1.0';
 }
 function LegalDocBody({ kind }) {
-  const id = kind === 'privacy' ? 'privacy' : kind === 'marketing' ? 'marketing' : 'terms';
-  const doc = legalDoc(id);
+  const doc = legalDoc(kind);
   if (!doc) {
     return <p style={{ margin: 0, color: 'var(--text-secondary)' }}>약관 본문을 불러오지 못했어요. legal-docs.js 를 확인해주세요.</p>;
   }
@@ -667,4 +829,4 @@ function LegalTermRow({ checked, onChange, label, kind, onView }) {
   );
 }
 
-window.FO = { PAGES, won, qp, goBack, toast, useStoreTick, Money, Stars, StaffThumb, sheetCoverUrl, DdayBadge, Header, TabBar, Footer, Scaffold, FavButton, SheetCard, SheetRow, SectionHeader, Section, KV, Empty, PayOption, Dialog, CartAddedDialog, resolveSheet, PreviewToggle, legalDoc, legalVer, LegalDocBody, LegalTermRow };
+window.FO = { PAGES, won, qp, goBack, toast, useStoreTick, loadPurchases, Money, Stars, StaffThumb, sheetCoverUrl, DdayBadge, Header, TabBar, Footer, Scaffold, FavButton, SheetCard, SheetRow, SectionHeader, Section, KV, Empty, PayOption, Dialog, CartAddedDialog, resolveSheet, lineTitle, downloadSheetPdf, pdfFileName, MISSING_SHEET_TITLE, PreviewToggle, legalDoc, legalVer, LegalDocBody, LegalTermRow };

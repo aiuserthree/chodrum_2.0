@@ -3,6 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="referrer" content="strict-origin-when-cross-origin">
 <title>CHODRUM — 회원 탈퇴</title>
 <link rel="stylesheet" href="../_ds/drum-sheet-store-design-system-3a2462a0-2443-475e-a3b6-f7937913eb0b/tokens/colors.css">
 <link rel="stylesheet" href="../_ds/drum-sheet-store-design-system-3a2462a0-2443-475e-a3b6-f7937913eb0b/tokens/typography.css">
@@ -26,7 +27,7 @@
 <script src="../shared/supabase-client.js"></script>
 <script src="../shared/api.js"></script>
 <script src="../shared/auth.js"></script>
-<script type="text/babel" src="fo-shared.jsx"></script>
+<script type="text/babel" src="/fo/fo-shared.jsx"></script>
 <script type="text/babel">
 /* FO-09-04 회원 탈퇴 — 잔여 다운로드 권한 안내 + 본인 확인(비밀번호/소셜 재인증) */
 const DS = window.DrumSheetStoreDesignSystem_3a2462;
@@ -44,10 +45,21 @@ function WithdrawPage() {
   const [done, setDone] = React.useState(false);
 
   const canWithdraw = agree && (social ? reauthed : pw.length > 0);
+  const [busy, setBusy] = React.useState(false);
   const withdraw = async () => {
-    if (window.ChodrumAuth) await window.ChodrumAuth.signOut();
-    else Store.user.clear();
-    setDone(true);
+    if (busy) return;
+    setBusy(true);
+    try {
+      if (user && user.email && window.ChodrumAPI && ChodrumAPI.members) {
+        await ChodrumAPI.members.updateStatus(user.email, '탈퇴');
+      }
+      if (window.ChodrumAuth) await window.ChodrumAuth.signOut();
+      else Store.user.clear();
+      setDone(true);
+    } catch (e) {
+      F.toast((e && e.message) || '탈퇴 처리에 실패했어요');
+      setBusy(false);
+    }
   };
 
   if (done) {
@@ -108,7 +120,7 @@ function WithdrawPage() {
 
         <div style={{ marginTop: 18, display: 'flex', flexDirection: 'column', gap: 14 }}>
           <Checkbox checked={agree} onChange={setAgree} label="위 내용을 모두 확인했고, 탈퇴에 동의해요." />
-          <Button variant="primary" size="lg" fullWidth disabled={!canWithdraw} onClick={withdraw}>탈퇴하기</Button>
+          <Button variant="primary" size="lg" fullWidth disabled={!canWithdraw || busy} onClick={withdraw}>{busy ? '처리 중…' : '탈퇴하기'}</Button>
           <Button variant="secondary" size="lg" fullWidth onClick={() => location.href = F.PAGES.my}>계속 이용하기</Button>
         </div>
       </div>

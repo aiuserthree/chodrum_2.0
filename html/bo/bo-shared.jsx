@@ -6,24 +6,24 @@ const boWon = (v) => '₩' + Number(v).toLocaleString('ko-KR');
 const boMono = { fontFamily: 'var(--font-mono)', fontVariantNumeric: 'tabular-nums' };
 
 const BO_NAV_MAIN = [
-  { k: 'dashboard', ic: 'layout-dashboard', l: '대시보드', href: 'BO-01-dashboard.html' },
+  { k: 'dashboard', ic: 'layout-dashboard', l: '대시보드', href: '/bo/dashboard' },
   {
     k: 'main', ic: 'house', l: '메인 관리', children: [
-      { k: 'banners', l: '배너 관리', href: 'BO-08-main-banners.html' },
-      { k: 'featured', l: '추천 관리', href: 'BO-08-main-featured.html' },
+      { k: 'banners', l: '배너 관리', href: '/bo/banners' },
+      { k: 'featured', l: '추천 관리', href: '/bo/featured' },
     ],
   },
-  { k: 'sheets', ic: 'music', l: '악보 관리', href: 'BO-02-sheets.html' },
-  { k: 'register', ic: 'upload', l: '악보 등록', href: 'BO-02-sheet-register.html' },
-  { k: 'categories', ic: 'tag', l: '카테고리 / 장르', href: 'BO-02-categories.html' },
-  { k: 'pricing', ic: 'banknote', l: '가격 관리', href: 'BO-02-pricing.html' },
-  { k: 'orders', ic: 'receipt', l: '주문 / 결제', href: 'BO-03-orders.html' },
-  { k: 'members', ic: 'users', l: '회원 관리', href: 'BO-04-members.html' },
-  { k: 'downloads', ic: 'download', l: '다운로드 관리', href: 'BO-05-downloads.html' },
-  { k: 'reports', ic: 'trending-up', l: '통계 / 리포트', href: 'BO-06-reports.html' },
+  { k: 'sheets', ic: 'music', l: '악보 관리', href: '/bo/sheets' },
+  { k: 'register', ic: 'upload', l: '악보 등록', href: '/bo/sheets/register' },
+  { k: 'categories', ic: 'tag', l: '카테고리 / 장르', href: '/bo/categories' },
+  { k: 'pricing', ic: 'banknote', l: '가격 관리', href: '/bo/pricing' },
+  { k: 'orders', ic: 'receipt', l: '주문 / 결제', href: '/bo/orders' },
+  { k: 'members', ic: 'users', l: '회원 관리', href: '/bo/members' },
+  { k: 'downloads', ic: 'download', l: '다운로드 관리', href: '/bo/downloads' },
+  { k: 'reports', ic: 'trending-up', l: '통계 / 리포트', href: '/bo/reports' },
 ];
 const BO_NAV_SET = [
-  { k: 'settings', ic: 'settings-2', l: '사이트 설정', href: 'BO-07-settings.html' },
+  { k: 'settings', ic: 'settings-2', l: '사이트 설정', href: '/bo/settings' },
 ];
 
 const ORDER_TONE = { 결제완료: 'success', 환불: 'danger', 취소: 'danger', 대기: 'warning' };
@@ -37,6 +37,11 @@ function boToast(msg) {
   el.classList.add('show');
   clearTimeout(el._t);
   el._t = setTimeout(() => el.classList.remove('show'), 2000);
+}
+
+function boLogout() {
+  if (window.ChodrumBoAuth) window.ChodrumBoAuth.logout();
+  location.href = (window.ChodrumBoAuth && window.ChodrumBoAuth.LOGIN_PAGE) || '/bo/login';
 }
 
 function BOShell({ active, title, actions, children }) {
@@ -77,9 +82,16 @@ function BOShell({ active, title, actions, children }) {
         <div style={{ ...boMono, fontSize: 10, letterSpacing: '0.6px', textTransform: 'uppercase', color: 'var(--text-tertiary)', padding: '18px 12px 6px' }}>설정</div>
         {BO_NAV_SET.map((n) => <NavItem key={n.k} n={n} />)}
         <div style={{ marginTop: 'auto', paddingTop: 16, borderTop: '1px solid var(--border-default)' }}>
-          <a href="../fo/FO-01-home.html" style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '9px 12px', borderRadius: 'var(--radius-lg)', fontSize: 13.5, fontWeight: 500, color: 'var(--text-secondary)', textDecoration: 'none' }}>
+          <a href="/home" style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '9px 12px', borderRadius: 'var(--radius-lg)', fontSize: 13.5, fontWeight: 500, color: 'var(--text-secondary)', textDecoration: 'none' }}>
             <Icon name="external-link" size={16} style={{ color: 'var(--color-icon)' }} />스토어 화면 보기
           </a>
+          <button
+            type="button"
+            onClick={boLogout}
+            style={{ display: 'flex', alignItems: 'center', gap: 10, width: '100%', padding: '9px 12px', borderRadius: 'var(--radius-lg)', fontSize: 13.5, fontWeight: 500, color: 'var(--text-secondary)', background: 'transparent', border: 0, cursor: 'pointer', textAlign: 'left' }}
+          >
+            <Icon name="log-out" size={16} style={{ color: 'var(--color-icon)' }} />로그아웃
+          </button>
         </div>
       </aside>
       <div className={'bo-scrim' + (open ? ' open' : '')} onClick={() => setOpen(false)}></div>
@@ -90,7 +102,15 @@ function BOShell({ active, title, actions, children }) {
           <div className="bo-topsearch"><Input size="sm" iconLeft="search" placeholder="주문번호, 회원, 악보 검색" /></div>
           <div className="bo-top-right">
             {actions}
-            <span style={{ width: 34, height: 34, borderRadius: 9999, background: 'var(--surface-inverse)', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 13, fontWeight: 600, flex: 'none' }}>관</span>
+            <span style={{ width: 34, height: 34, borderRadius: 9999, background: 'var(--surface-inverse)', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 13, fontWeight: 600, flex: 'none' }} title="관리자">관</span>
+            <button
+              type="button"
+              className="bo-logout-btn"
+              onClick={boLogout}
+              style={{ display: 'inline-flex', alignItems: 'center', gap: 6, height: 34, padding: '0 12px', borderRadius: 'var(--radius-lg)', fontSize: 13, fontWeight: 500, color: 'var(--text-secondary)', background: 'transparent', border: '1px solid var(--border-default)', cursor: 'pointer', flex: 'none' }}
+            >
+              <Icon name="log-out" size={15} style={{ color: 'var(--color-icon)' }} />로그아웃
+            </button>
           </div>
         </div>
         <div className="bo-content">{children}</div>

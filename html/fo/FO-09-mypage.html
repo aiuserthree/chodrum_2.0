@@ -3,6 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="referrer" content="strict-origin-when-cross-origin">
 <title>CHODRUM — 마이페이지</title>
 <link rel="stylesheet" href="../_ds/drum-sheet-store-design-system-3a2462a0-2443-475e-a3b6-f7937913eb0b/tokens/colors.css">
 <link rel="stylesheet" href="../_ds/drum-sheet-store-design-system-3a2462a0-2443-475e-a3b6-f7937913eb0b/tokens/typography.css">
@@ -26,25 +27,14 @@
 <script src="../shared/supabase-client.js"></script>
 <script src="../shared/api.js"></script>
 <script src="../shared/auth.js"></script>
-<script type="text/babel" src="fo-shared.jsx"></script>
+<script type="text/babel" src="/fo/fo-shared.jsx"></script>
 <script type="text/babel">
 /* FO-09 마이페이지 — 프로필 · 구매/다운로드 요약 · 메뉴 (회원 전용, GUEST는 로그인 유도) */
 const DS = window.DrumSheetStoreDesignSystem_3a2462;
 const { Button, Icon, Card, Badge } = DS;
 const F = window.FO;
-const D = window.DrumData;
 
 const PROVIDER_LABEL = { email: '이메일', kakao: '카카오', naver: '네이버', google: '구글' };
-
-function allPurchases() {
-  const day = 86400000;
-  const mine = Store.purchases.list().map((p) => ({
-    id: p.id, orderNo: p.orderNo,
-    date: new Date(p.paidAt).toLocaleDateString('ko-KR', { year: 'numeric', month: '2-digit', day: '2-digit' }).replace(/\. /g, '.').replace(/\.$/, ''),
-    dday: 7 - Math.floor((Date.now() - p.paidAt) / day),
-  }));
-  return mine;
-}
 
 function MenuRow({ label, href, icon, muted, onClick }) {
   return (
@@ -59,6 +49,28 @@ function MenuRow({ label, href, icon, muted, onClick }) {
 function MyPage() {
   F.useStoreTick();
   const user = Store.user.get();
+  const [purchases, setPurchases] = React.useState([]);
+  const [purchasesReady, setPurchasesReady] = React.useState(false);
+
+  React.useEffect(() => {
+    let cancelled = false;
+    if (!user || !user.email) {
+      setPurchases([]);
+      setPurchasesReady(true);
+      return undefined;
+    }
+    setPurchasesReady(false);
+    F.loadPurchases(user.email).then((list) => {
+      if (cancelled) return;
+      setPurchases(Array.isArray(list) ? list : []);
+      setPurchasesReady(true);
+    }).catch(() => {
+      if (cancelled) return;
+      setPurchases([]);
+      setPurchasesReady(true);
+    });
+    return () => { cancelled = true; };
+  }, [user && user.email]);
 
   if (!user) {
     return (
@@ -74,7 +86,6 @@ function MyPage() {
     );
   }
 
-  const purchases = allPurchases();
   const active = purchases.filter((p) => p.dday >= 0).length;
   const favN = Store.fav.list().length;
 
@@ -96,7 +107,7 @@ function MyPage() {
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginTop: 12 }}>
             <Card interactive padding={14} onClick={() => location.href = F.PAGES.downloads}>
               <div style={{ fontSize: 12.5, color: 'var(--text-secondary)' }}>다운로드 가능</div>
-              <div className="ds-mono" style={{ fontSize: 22, fontWeight: 600, marginTop: 4 }}>{active}<span style={{ fontSize: 13, fontWeight: 500, color: 'var(--text-secondary)' }}> 건</span></div>
+              <div className="ds-mono" style={{ fontSize: 22, fontWeight: 600, marginTop: 4 }}>{purchasesReady ? active : '·'}<span style={{ fontSize: 13, fontWeight: 500, color: 'var(--text-secondary)' }}> 건</span></div>
             </Card>
             <Card interactive padding={14} onClick={() => location.href = F.PAGES.wish}>
               <div style={{ fontSize: 12.5, color: 'var(--text-secondary)' }}>찜한 악보</div>
@@ -115,16 +126,27 @@ function MyPage() {
         <div className="fo-desktop">
           <Card padding={18} style={{ marginTop: 0 }}>
             <F.SectionHeader title="최근 구매" action="전체보기" href={F.PAGES.downloads} style={{ marginBottom: 6 }} />
-            {purchases.slice(0, 3).map((p, i) => {
-              const s = D.byId(p.id);
+            {!purchasesReady ? (
+              <p className="fo-caption" style={{ marginTop: 8 }}>구매 내역을 불러오는 중…</p>
+            ) : purchases.length ? purchases.slice(0, 3).map((p, i) => {
+              const snap = (p && p.title) || '';
+              const s = (F && typeof F.resolveSheet === 'function')
+                ? F.resolveSheet(p.id, { title: snap || '악보' })
+                : { id: p.id, title: snap || '악보' };
+              const title = (F && typeof F.lineTitle === 'function')
+                ? F.lineTitle(p, s)
+                : (snap || (s && s.title) || '악보');
+              const row = Object.assign({}, s || {}, { title: title });
               return (
-                <div key={p.orderNo + p.id} style={{ borderTop: i ? '1px solid var(--border-default)' : 'none' }}>
-                  <F.SheetRow s={s} href={null}
+                <div key={String(p.orderNo) + String(p.id) + i} style={{ borderTop: i ? '1px solid var(--border-default)' : 'none' }}>
+                  <F.SheetRow s={row} href={null}
                     sub={<div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 2 }}><F.DdayBadge dday={p.dday} /><span className="ds-mono" style={{ fontSize: 11, color: 'var(--text-secondary)' }}>{p.date}</span></div>}
-                    right={<Button variant={p.dday < 0 ? 'secondary' : 'primary'} size="sm" iconLeft="download" disabled={p.dday < 0} onClick={() => F.toast('PDF 다운로드가 시작되었어요 (샘플)')}>{p.dday < 0 ? '만료' : 'PDF'}</Button>} />
+                    right={<Button variant={p.dday < 0 ? 'secondary' : 'primary'} size="sm" iconLeft="download" disabled={p.dday < 0} onClick={() => F.downloadSheetPdf(p.id, { title, expired: p.dday < 0 })}>{p.dday < 0 ? '만료' : 'PDF'}</Button>} />
                 </div>
               );
-            })}
+            }) : (
+              <p className="fo-caption" style={{ marginTop: 8 }}>최근 구매 내역이 없어요.</p>
+            )}
             <p className="fo-caption" style={{ marginTop: 8 }}>다운로드는 결제일로부터 7일간 가능해요.</p>
           </Card>
         </div>

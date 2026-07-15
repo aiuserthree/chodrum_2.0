@@ -21,10 +21,11 @@
 <script src="../_ds/drum-sheet-store-design-system-3a2462a0-2443-475e-a3b6-f7937913eb0b/_ds_bundle.js"></script>
 <script src="../shared/data.js"></script>
 <script src="../shared/config.js"></script>
+<script src="../shared/bo-auth.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="../shared/supabase-client.js"></script>
 <script src="../shared/api.js"></script>
-<script type="text/babel" src="bo-shared.jsx"></script>
+<script type="text/babel" src="/bo/bo-shared.jsx"></script>
 <script type="text/babel">
 /* BO-01 대시보드 — 매출(일/주/월) · 신규 가입 · 주문/결제 현황 · 인기 악보 통계 */
 const DS = window.DrumSheetStoreDesignSystem_3a2462;
@@ -56,7 +57,7 @@ function Dashboard() {
             <div style={{ padding: '4px 20px 20px' }}><B.BarChart data={rev} /></div>
           </Card>
           <Card padding={0}>
-            <B.CardHead title="인기 악보 TOP 5" right={<a href="BO-06-reports.html" style={{ fontSize: 13, color: 'var(--text-secondary)' }}>리포트</a>} />
+            <B.CardHead title="인기 악보 TOP 5" right={<a href="/bo/reports" style={{ fontSize: 13, color: 'var(--text-secondary)' }}>리포트</a>} />
             <div style={{ padding: '0 18px 16px', display: 'flex', flexDirection: 'column', gap: 12 }}>
               {top.map((s, i) => (
                 <div key={s.id} style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
@@ -75,7 +76,7 @@ function Dashboard() {
         </div>
 
         <Card padding={0}>
-          <B.CardHead title="최근 주문" right={<Button variant="ghost" size="sm" iconRight="chevron-right" onClick={() => location.href = 'BO-03-orders.html'}>전체보기</Button>} />
+          <B.CardHead title="최근 주문" right={<Button variant="ghost" size="sm" iconRight="chevron-right" onClick={() => location.href = '/bo/orders'}>전체보기</Button>} />
           <div style={{ padding: '0 6px 6px' }}>
             <B.Table head={['주문번호', '주문자', '상품', { l: '금액', r: true }, '상태', { l: '시간', r: true }]}>
               {A.orders.slice(0, 5).map((o) => {

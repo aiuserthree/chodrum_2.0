@@ -53,6 +53,7 @@
     purchases: {
       list: function () { return get('purchases', []); },
       add: function (items) { set('purchases', this.list().concat(items)); },
+      replace: function (items) { set('purchases', Array.isArray(items) ? items : []); },
     },
     guestOrders: {
       map: function () { return get('guestOrders', {}); },
