@@ -457,22 +457,19 @@ function Footer() {
         <div className="fo-footer-bottom">
           <span className="fo-caption">Copyright © 조드럼닷컴. All Rights Reserved.</span>
           <nav className="fo-footer-sns" aria-label="SNS">
-            <a className="fo-footer-sns-kakao" href="https://pf.kakao.com/_hxdVWxj" target="_blank" rel="noreferrer" aria-label="카카오톡 채널" title="카카오톡 채널">
-              <svg viewBox="0 0 24 24" fill="none" aria-hidden="true" focusable="false">
-                <path d="M12 5.2c-4.05 0-7.35 2.55-7.35 5.7 0 2.02 1.35 3.8 3.42 4.82-.14.52-.48 1.88-.55 2.18-.09.36.13.35.28.25.12-.08 1.86-1.26 2.6-1.76.52.07 1.06.1 1.6.1 4.05 0 7.35-2.55 7.35-5.7S16.05 5.2 12 5.2z" stroke="currentColor" strokeWidth="1.55" strokeLinejoin="round" />
+            <a href="https://instagram.com/cho.drum" target="_blank" rel="noreferrer" aria-label="Instagram" title="Instagram">
+              <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                <path fill="currentColor" d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zM12 0C8.741 0 8.333.014 7.053.072 2.695.272.273 2.69.073 7.052.014 8.333 0 8.741 0 12c0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98C8.333 23.986 8.741 24 12 24c3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98C15.668.014 15.259 0 12 0zm0 5.838a6.162 6.162 0 100 12.324 6.162 6.162 0 000-12.324zM12 16a4 4 0 110-8 4 4 0 010 8zm6.406-11.845a1.44 1.44 0 100 2.881 1.44 1.44 0 000-2.881z" />
               </svg>
             </a>
-            <a className="fo-footer-sns-instagram" href="https://instagram.com/cho.drum" target="_blank" rel="noreferrer" aria-label="Instagram" title="Instagram">
-              <svg viewBox="0 0 24 24" fill="none" aria-hidden="true" focusable="false">
-                <rect x="4.75" y="4.75" width="14.5" height="14.5" rx="4.2" stroke="currentColor" strokeWidth="1.55" />
-                <circle cx="12" cy="12" r="3.35" stroke="currentColor" strokeWidth="1.55" />
-                <circle cx="16.35" cy="7.65" r="0.95" fill="currentColor" />
+            <a href="https://youtube.com/@chodrum" target="_blank" rel="noreferrer" aria-label="YouTube" title="YouTube">
+              <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                <path fill="currentColor" d="M23.498 6.186a3.016 3.016 0 00-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 00.502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 002.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 002.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z" />
               </svg>
             </a>
-            <a className="fo-footer-sns-youtube" href="https://youtube.com/@chodrum" target="_blank" rel="noreferrer" aria-label="YouTube" title="YouTube">
-              <svg viewBox="0 0 24 24" fill="none" aria-hidden="true" focusable="false">
-                <rect x="3.75" y="6.25" width="16.5" height="11.5" rx="3.2" stroke="currentColor" strokeWidth="1.55" />
-                <path d="M10.4 9.55v4.9L14.85 12 10.4 9.55z" stroke="currentColor" strokeWidth="1.45" strokeLinejoin="round" />
+            <a href="https://pf.kakao.com/_hxdVWxj" target="_blank" rel="noreferrer" aria-label="카카오톡 채널" title="카카오톡 채널">
+              <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                <path fill="currentColor" d="M12 3c-5.522 0-10 3.537-10 7.9 0 2.812 1.87 5.29 4.686 6.695-.194.726-.667 2.632-.765 3.045-.12.51.187.489.394.356.163-.104 2.597-1.766 3.62-2.464.67.094 1.36.143 2.065.143 5.522 0 10-3.537 10-7.9S17.522 3 12 3zm-4.218 9.427c-.496 0-.898-.402-.898-.897s.402-.898.898-.898.898.402.898.898-.402.897-.898.897zm4.218 0c-.496 0-.898-.402-.898-.897s.402-.898.898-.898.898.402.898.898-.402.897-.898.897zm4.218 0c-.496 0-.898-.402-.898-.897s.402-.898.898-.898.898.402.898.898-.402.897-.898.897z" />
               </svg>
             </a>
           </nav>
