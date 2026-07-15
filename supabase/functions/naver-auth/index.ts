@@ -4,8 +4,11 @@
  * Supabase has no built-in Naver provider. This function:
  * 1) exchanges authorization code with Naver
  * 2) loads profile (/v1/nid/me)
- * 3) creates/updates Auth user (service_role)
+ * 3) creates/updates Auth user scoped by naver_id (NOT by contact email)
  * 4) returns hashed_token for client verifyOtp
+ *
+ * Same contact email as Kakao/email must NOT reuse another Auth user —
+ * Naver identity is always separate (provider-scoped auth email + naver_id).
  *
  * Deploy:
  *   supabase functions deploy naver-auth --no-verify-jwt
@@ -16,6 +19,7 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.49.1';
 
 const NAVER_TOKEN_URL = 'https://nid.naver.com/oauth2.0/token';
 const NAVER_ME_URL = 'https://openapi.naver.com/v1/nid/me';
+const AUTH_EMAIL_DOMAIN = 'oauth.chodrum.local';
 
 const cors = {
   'Access-Control-Allow-Origin': '*',
@@ -29,7 +33,32 @@ function json(body: unknown, status = 200) {
   });
 }
 
-async function findUserByEmail(
+function oauthAuthEmail(provider: string, providerId: string) {
+  const id = String(providerId || '').replace(/[^a-zA-Z0-9_-]/g, '');
+  return `${provider}_${id}@${AUTH_EMAIL_DOMAIN}`;
+}
+
+async function findUserByMeta(
+  admin: ReturnType<typeof createClient>,
+  key: string,
+  value: string,
+) {
+  const target = String(value);
+  for (let page = 1; page <= 20; page++) {
+    const { data, error } = await admin.auth.admin.listUsers({ page, perPage: 200 });
+    if (error) throw error;
+    const users = (data && data.users) || [];
+    const found = users.find((u) => {
+      const meta = u.user_metadata || {};
+      return String(meta[key] || '') === target;
+    });
+    if (found) return found;
+    if (users.length < 200) break;
+  }
+  return null;
+}
+
+async function findUserByAuthEmail(
   admin: ReturnType<typeof createClient>,
   email: string,
 ) {
@@ -103,31 +132,42 @@ Deno.serve(async (req) => {
     }
 
     const profile = meJson.response;
-    const email = String(profile.email || '').trim();
-    if (!email) {
+    const contactEmail = String(profile.email || '').trim();
+    if (!contactEmail) {
       return json({
         error: '네이버 앱에서 이메일을 필수 동의로 설정하고, 사용자 동의를 받아주세요.',
       }, 400);
     }
 
+    const naverId = String(profile.id || '');
+    if (!naverId) {
+      return json({ error: '네이버 사용자 ID를 받지 못했어요.' }, 502);
+    }
+
     const name =
       profile.name ||
       profile.nickname ||
-      String(email).split('@')[0] ||
+      String(contactEmail).split('@')[0] ||
       '네이버 회원';
     const avatar = profile.profile_image || '';
-    const naverId = String(profile.id || '');
+    const authEmail = oauthAuthEmail('naver', naverId);
 
     const admin = createClient(supabaseUrl, serviceKey, {
       auth: { autoRefreshToken: false, persistSession: false },
     });
 
-    let user = await findUserByEmail(admin, email);
+    /* Provider-scoped identity only — never match Auth users by contact email */
+    let user =
+      (await findUserByMeta(admin, 'naver_id', naverId)) ||
+      (await findUserByAuthEmail(admin, authEmail));
+
     const meta = {
       full_name: name,
       name,
       avatar_url: avatar,
       picture: avatar,
+      email: contactEmail,
+      contact_email: contactEmail,
       auth_provider: 'naver',
       provider: 'naver',
       naver_id: naverId,
@@ -135,13 +175,15 @@ Deno.serve(async (req) => {
 
     if (!user) {
       const created = await admin.auth.admin.createUser({
-        email,
+        email: authEmail,
         email_confirm: true,
         user_metadata: meta,
         app_metadata: { provider: 'naver', providers: ['naver'] },
       });
       if (created.error) {
-        user = await findUserByEmail(admin, email);
+        user =
+          (await findUserByMeta(admin, 'naver_id', naverId)) ||
+          (await findUserByAuthEmail(admin, authEmail));
         if (!user) {
           return json({ error: created.error.message || '회원 생성 실패' }, 500);
         }
@@ -151,21 +193,20 @@ Deno.serve(async (req) => {
     }
 
     if (user) {
-      const prevProviders =
-        (user.app_metadata && user.app_metadata.providers) || [];
       await admin.auth.admin.updateUserById(user.id, {
         user_metadata: Object.assign({}, user.user_metadata || {}, meta),
         app_metadata: {
           ...(user.app_metadata || {}),
           provider: 'naver',
-          providers: Array.from(new Set([].concat(prevProviders, ['naver']))),
+          providers: ['naver'],
         },
       });
     }
 
+    const linkEmail = (user && user.email) || authEmail;
     const link = await admin.auth.admin.generateLink({
       type: 'magiclink',
-      email,
+      email: linkEmail,
     });
     if (link.error) {
       return json({ error: link.error.message || '세션 토큰 생성 실패' }, 500);
@@ -180,8 +221,8 @@ Deno.serve(async (req) => {
     return json({
       ok: true,
       token_hash: hashed,
-      email,
-      profile: { name, email, avatar, provider: 'naver' },
+      email: contactEmail,
+      profile: { name, email: contactEmail, avatar, provider: 'naver' },
     });
   } catch (e) {
     return json({ error: (e && (e as Error).message) || '네이버 인증 처리 오류' }, 500);

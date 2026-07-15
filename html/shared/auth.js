@@ -151,6 +151,20 @@
     return '영문+숫자+특수문자 조합 8자 이상';
   }
 
+  function isSyntheticOAuthEmail(email) {
+    return /@oauth\.chodrum\.local$/i.test(String(email || ''));
+  }
+
+  function contactEmailFromUser(user) {
+    if (!user) return '';
+    var meta = user.user_metadata || {};
+    var contact = String(meta.contact_email || meta.email || '').trim();
+    var authEmail = String(user.email || '').trim();
+    if (contact && !isSyntheticOAuthEmail(contact)) return contact;
+    if (authEmail && !isSyntheticOAuthEmail(authEmail)) return authEmail;
+    return contact || authEmail || '';
+  }
+
   function profileFromUser(user) {
     if (!user) return null;
     var meta = user.user_metadata || {};
@@ -166,6 +180,7 @@
       return {
         type: 'email',
         provider: 'email',
+        auth_provider: 'email',
         name: meta.full_name || meta.name || (user.email || '').split('@')[0] || '회원',
         email: user.email || '',
         birth: meta.birth || '',
@@ -173,20 +188,22 @@
         authId: user.id,
       };
     }
+    var contactEmail = contactEmailFromUser(user);
     var name =
       meta.full_name ||
       meta.name ||
       meta.user_name ||
       meta.preferred_username ||
       meta.nickname ||
-      (user.email || '').split('@')[0] ||
+      (contactEmail || '').split('@')[0] ||
       (PROVIDER_META[provider] && PROVIDER_META[provider].label + ' 회원') ||
       '소셜 회원';
     return {
       type: 'social',
       provider: provider,
+      auth_provider: provider,
       name: name,
-      email: user.email || meta.email || '',
+      email: contactEmail,
       fromOAuth: true,
       authId: user.id,
       avatar: meta.avatar_url || meta.picture || '',
@@ -194,15 +211,19 @@
   }
 
   function memberPayload(profile) {
+    var provider = normalizeProvider(profile.provider || profile.auth_provider || 'email');
     var authType =
-      (PROVIDER_META[profile.provider] && PROVIDER_META[profile.provider].authType) ||
+      (PROVIDER_META[provider] && PROVIDER_META[provider].authType) ||
       (profile.type === 'social' ? '소셜' : '이메일');
     var out = {
       name: profile.name,
       email: profile.email,
       type: authType,
       auth_type: authType,
+      provider: provider,
+      auth_provider: provider,
     };
+    if (profile.authId) out.authId = profile.authId;
     if (profile.terms_agreed_at) out.terms_agreed_at = profile.terms_agreed_at;
     if (profile.privacy_agreed_at) out.privacy_agreed_at = profile.privacy_agreed_at;
     if (Object.prototype.hasOwnProperty.call(profile, 'marketing_agreed_at')) {
@@ -224,7 +245,7 @@
       var meta = user.user_metadata || {};
       if (!metaHasConsent(meta)) return false;
       if (!email) return true;
-      var userEmail = String(user.email || meta.email || '').toLowerCase();
+      var userEmail = String(contactEmailFromUser(user) || user.email || '').toLowerCase();
       return userEmail === String(email).toLowerCase();
     } catch (e) {
       return false;
@@ -232,14 +253,37 @@
   }
 
   /**
-   * App membership consent = members row with terms+privacy.
-   * Ghost row (exists, consent null) must NOT fall through to Auth metadata,
-   * or a leftover session meta can skip FO-08-oauth-terms.
+   * App membership consent = members row with terms+privacy for THIS identity.
+   * OAuth: keyed by auth_user_id (and provider) — same email across Kakao/Naver
+   * must NOT share consent. Ghost row must NOT fall through to Auth metadata.
    */
+  async function fetchMemberConsentForProfile(profile) {
+    if (!profile || !window.ChodrumAPI || !ChodrumAPI.members) return null;
+    try {
+      var row = null;
+      if (ChodrumAPI.members.getForProfile) {
+        row = await ChodrumAPI.members.getForProfile(profile);
+      } else if (profile.authId && ChodrumAPI.members.getByAuthUserId) {
+        row = await ChodrumAPI.members.getByAuthUserId(profile.authId);
+      } else if (profile.email) {
+        row = await ChodrumAPI.members.getByEmail(
+          profile.email,
+          profile.provider || profile.auth_provider || 'email'
+        );
+      }
+      if (!row) return null;
+      return ChodrumAPI.members.hasConsent(row);
+    } catch (e) {
+      console.warn('[CHODRUM] consent check', e);
+      return null;
+    }
+  }
+
+  /** Email/password only — never use for OAuth skip-terms. */
   async function fetchMemberConsentForEmail(email) {
     if (!email || !window.ChodrumAPI || !ChodrumAPI.members) return null;
     try {
-      var row = await ChodrumAPI.members.getByEmail(email);
+      var row = await ChodrumAPI.members.getByEmail(email, 'email');
       if (!row) return null;
       return ChodrumAPI.members.hasConsent(row);
     } catch (e) {
@@ -254,10 +298,36 @@
     return fetchConsentFromSession(email);
   }
 
-  /** OAuth onboarding: only members consent skips terms (never Auth meta alone). */
-  async function fetchOAuthConsentForEmail(email) {
-    var memberConsent = await fetchMemberConsentForEmail(email);
+  async function fetchConsentForProfile(profile) {
+    if (!profile) return false;
+    if (profile.fromOAuth || (profile.provider && profile.provider !== 'email')) {
+      var oauthConsent = await fetchMemberConsentForProfile(profile);
+      return oauthConsent === true;
+    }
+    return fetchConsentForEmail(profile.email);
+  }
+
+  /** OAuth onboarding: only THIS provider's members consent skips terms. */
+  async function fetchOAuthConsentForProfile(profile) {
+    var memberConsent = await fetchMemberConsentForProfile(profile);
     return memberConsent === true;
+  }
+
+  /** @deprecated Use hasOAuthConsentForProfile — email-only skips Kakao/Naver separation. */
+  async function fetchOAuthConsentForEmail(email) {
+    if (!email) return false;
+    try {
+      var sessionRes = await client().auth.getSession();
+      var user = sessionRes.data && sessionRes.data.session && sessionRes.data.session.user;
+      if (user) {
+        var profile = profileFromUser(user);
+        if (profile && profile.fromOAuth) {
+          return fetchOAuthConsentForProfile(profile);
+        }
+      }
+    } catch (e) { /* fall through */ }
+    /* No session identity — do not treat another provider's email row as consent */
+    return false;
   }
 
   async function persistConsentMetadata(consent) {
@@ -283,9 +353,12 @@
      * BO members 테이블이 이름·상태의 소스 오브 트루스.
      * Auth 메타데이터만 쓰면 FO/BO 이름이 어긋날 수 있어 DB 값을 머지한다.
      */
-    if (profile.email && window.ChodrumAPI && ChodrumAPI.members) {
+    if (window.ChodrumAPI && ChodrumAPI.members) {
       try {
-        var row = await ChodrumAPI.members.getByEmail(profile.email);
+        var row =
+          (ChodrumAPI.members.getForProfile &&
+            (await ChodrumAPI.members.getForProfile(profile))) ||
+          null;
         if (row) {
           if (row.name) profile.name = row.name;
           if (row.status) profile.status = row.status;
@@ -310,7 +383,7 @@
         !!(profile.terms_agreed_at && profile.privacy_agreed_at);
       if (!canUpsert) {
         try {
-          canUpsert = await fetchConsentForEmail(profile.email);
+          canUpsert = await fetchConsentForProfile(profile);
         } catch (e) {
           canUpsert = false;
         }
@@ -339,7 +412,7 @@
        * Store.user.set / members.upsert until consent exists.
        * OAuth: same gate; park profile as pending for FO-08-oauth-terms.
        */
-      var consented = await fetchConsentForEmail(profile && profile.email);
+      var consented = await fetchConsentForProfile(profile);
       if (!consented) {
         if (profile && profile.fromOAuth) {
           setPendingProfile(profile);
@@ -363,7 +436,8 @@
     var addr = String(email || '').trim();
     if (!addr || !window.ChodrumAPI || !ChodrumAPI.members) return null;
     try {
-      var row = (await ChodrumAPI.members.getByEmail(addr)) || null;
+      /* Email signup only conflicts with email-password members — not Kakao/Naver */
+      var row = (await ChodrumAPI.members.getByEmail(addr, 'email')) || null;
       /* 약관 동의 전 고스트 행은 완료 회원이 아님 — 재가입 허용 */
       if (row && !ChodrumAPI.members.hasConsent(row)) return null;
       return row;
@@ -776,10 +850,14 @@
     }
 
     try {
+      var bridgeEmail =
+        (payload.profile && payload.profile.email) || payload.email || '';
       await client().auth.updateUser({
         data: {
           auth_provider: provider,
           provider: provider,
+          email: bridgeEmail || undefined,
+          contact_email: bridgeEmail || undefined,
           full_name: (payload.profile && payload.profile.name) || undefined,
           avatar_url: (payload.profile && payload.profile.avatar) || undefined,
         },
@@ -796,11 +874,13 @@
 
     var profile = profileFromUser(session.user);
     if (payload.profile && payload.profile.name) profile.name = payload.profile.name;
+    if (payload.profile && payload.profile.email) profile.email = payload.profile.email;
     profile.provider = provider;
+    profile.auth_provider = provider;
     profile.type = 'social';
     profile.fromOAuth = true;
 
-    var consented = await fetchOAuthConsentForEmail(profile.email);
+    var consented = await fetchOAuthConsentForProfile(profile);
     if (!consented) {
       setPendingProfile(profile);
       var cur = window.Store && Store.user && Store.user.get();
@@ -927,7 +1007,7 @@
 
     var profile = profileFromUser(session.user);
     if (profile && profile.fromOAuth) {
-      var consented = await fetchOAuthConsentForEmail(profile.email);
+      var consented = await fetchOAuthConsentForProfile(profile);
       if (!consented) {
         setPendingProfile(profile);
         var cur = window.Store && Store.user && Store.user.get();
@@ -1028,6 +1108,7 @@
     getPendingProfile: getPendingProfile,
     hasConsentForEmail: fetchConsentForEmail,
     hasOAuthConsentForEmail: fetchOAuthConsentForEmail,
+    hasOAuthConsentForProfile: fetchOAuthConsentForProfile,
     restoreSession: restoreSession,
     signOut: signOut,
     live: live,

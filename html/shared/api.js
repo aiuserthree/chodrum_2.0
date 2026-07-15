@@ -842,12 +842,15 @@
 
     if (order.member && order.email) {
       try {
-        var mem = await getMemberByEmail(order.email);
+        var mem = await getMemberByEmail(order.email, order.auth_provider || order.provider || null);
+        if (!mem) mem = await getMemberByEmail(order.email, 'email');
         if (mem) {
-          await client
+          var countQ = client
             .from('members')
-            .update({ orders_count: (mem.orders_count || 0) + 1 })
-            .eq('email', mem.email);
+            .update({ orders_count: (mem.orders_count || 0) + 1 });
+          if (mem.id) countQ = countQ.eq('id', mem.id);
+          else countQ = countQ.eq('email', mem.email);
+          await countQ;
         }
       } catch (e) {
         console.warn('[CHODRUM] members orders_count', e);
@@ -952,19 +955,117 @@
     return out;
   }
 
-  /* -------- members (simple upsert on FO signup) -------- */
-  async function getMemberByEmail(email) {
-    if (!live() || !email) return null;
+  /* -------- members (provider-scoped; Kakao ≠ Naver by email) -------- */
+
+  function normalizeMemberProvider(raw) {
+    if (!raw) return 'email';
+    var p = String(raw).toLowerCase();
+    if (p === 'custom:naver' || p.indexOf('naver') !== -1) return 'naver';
+    if (p.indexOf('kakao') !== -1) return 'kakao';
+    if (p.indexOf('google') !== -1) return 'google';
+    if (p === 'email' || p === 'email_password' || p === '이메일') return 'email';
+    if (p === 'social' || p === '소셜') return 'social';
+    return p;
+  }
+
+  async function getMemberByAuthUserId(authUserId) {
+    if (!live() || !authUserId) return null;
     var res = await sb()
       .from('members')
       .select('*')
-      .eq('email', email)
+      .eq('auth_user_id', authUserId)
       .maybeSingle();
     if (res.error) {
-      console.warn('[CHODRUM] member getByEmail', res.error);
+      /* migration 009 미적용 시 컬럼 없음 */
+      if (res.error.code === 'PGRST204' || /auth_user_id/.test(res.error.message || '')) {
+        return null;
+      }
+      console.warn('[CHODRUM] member getByAuthUserId', res.error);
       return null;
     }
     return res.data || null;
+  }
+
+  /**
+   * Lookup by contact email + provider.
+   * Without provider, prefers email-password members (never treat Kakao as Naver).
+   */
+  async function getMemberByEmail(email, provider) {
+    if (!live() || !email) return null;
+    var q = sb().from('members').select('*').eq('email', email);
+    var prov = provider != null ? normalizeMemberProvider(provider) : null;
+    if (prov) {
+      q = q.eq('auth_provider', prov);
+    } else {
+      q = q.eq('auth_provider', 'email');
+    }
+    var res = await q.maybeSingle();
+    if (res.error) {
+      /* auth_provider 컬럼 없음 → legacy email-only unique */
+      if (res.error.code === 'PGRST204' || /auth_provider/.test(res.error.message || '')) {
+        var legacy = await sb()
+          .from('members')
+          .select('*')
+          .eq('email', email)
+          .limit(1)
+          .maybeSingle();
+        if (legacy.error) {
+          console.warn('[CHODRUM] member getByEmail', legacy.error);
+          return null;
+        }
+        return legacy.data || null;
+      }
+      /* multiple rows without provider filter */
+      if (res.error.code === 'PGRST116') {
+        var any = await sb()
+          .from('members')
+          .select('*')
+          .eq('email', email)
+          .limit(1);
+        if (any.error) {
+          console.warn('[CHODRUM] member getByEmail', any.error);
+          return null;
+        }
+        return (any.data && any.data[0]) || null;
+      }
+      console.warn('[CHODRUM] member getByEmail', res.error);
+      return null;
+    }
+    if (res.data) return res.data;
+    /* Legacy rows may lack auth_provider; only when provider omitted / email */
+    if (!prov || prov === 'email') {
+      var loose = await sb()
+        .from('members')
+        .select('*')
+        .eq('email', email)
+        .is('auth_provider', null)
+        .limit(1);
+      if (!loose.error && loose.data && loose.data[0]) return loose.data[0];
+    }
+    return null;
+  }
+
+  async function getMemberForProfile(profile) {
+    if (!profile) return null;
+    if (profile.authId) {
+      var byId = await getMemberByAuthUserId(profile.authId);
+      if (byId) return byId;
+    }
+    var provider = normalizeMemberProvider(profile.provider || profile.auth_provider || 'email');
+    if (profile.email) {
+      var byProv = await getMemberByEmail(profile.email, provider);
+      if (byProv) return byProv;
+      /*
+       * Legacy FO rows used auth_type='소셜' without kakao/naver split.
+       * Claim only unscoped orphans (auth_provider=social, no auth_user_id)
+       * so the first returning provider keeps consent; the other must re-agree.
+       */
+      if (provider === 'kakao' || provider === 'naver' || provider === 'google') {
+        var orphan = await getMemberByEmail(profile.email, 'social');
+        if (orphan && !orphan.auth_user_id) return orphan;
+      }
+    }
+    return null;
   }
 
   function memberHasConsent(row) {
@@ -986,9 +1087,17 @@
     var authType = profile.auth_type || profile.type || '이메일';
     if (authType === 'social') authType = '소셜';
     if (authType === 'email') authType = '이메일';
+    var provider = normalizeMemberProvider(
+      profile.auth_provider || profile.provider || (authType === '이메일' ? 'email' : 'social')
+    );
+    if (provider === 'kakao') authType = '카카오';
+    else if (provider === 'naver') authType = '네이버';
+    else if (provider === 'google') authType = '구글';
+    else if (provider === 'email') authType = '이메일';
+
     var existing = null;
     try {
-      existing = await getMemberByEmail(profile.email);
+      existing = await getMemberForProfile(profile);
     } catch (e) {
       existing = null;
     }
@@ -998,23 +1107,56 @@
     else if (existing && existing.status && existing.status !== '탈퇴') nextStatus = existing.status;
     var row = {
       name: profile.name,
-      email: profile.email,
+      email: String(profile.email || '').trim().toLowerCase(),
       auth_type: authType,
+      auth_provider: provider,
       status: nextStatus,
     };
+    if (profile.authId) row.auth_user_id = profile.authId;
     if (profile.terms_agreed_at) row.terms_agreed_at = profile.terms_agreed_at;
     if (profile.privacy_agreed_at) row.privacy_agreed_at = profile.privacy_agreed_at;
     if (Object.prototype.hasOwnProperty.call(profile, 'marketing_agreed_at')) {
       row.marketing_agreed_at = profile.marketing_agreed_at || null;
     }
-    var res = await sb().from('members').upsert(row, { onConflict: 'email' });
+
+    var res;
+    /* Claim legacy 소셜 orphan onto this provider instead of inserting a duplicate */
+    if (
+      existing &&
+      existing.id &&
+      profile.authId &&
+      (!existing.auth_user_id || existing.auth_provider === 'social')
+    ) {
+      res = await sb().from('members').update(row).eq('id', existing.id);
+    } else if (profile.authId) {
+      res = await sb().from('members').upsert(row, { onConflict: 'auth_user_id' });
+      /* Same provider+email legacy row without auth_user_id → attach this Auth user */
+      if (res.error && /provider_email|unique|duplicate/i.test(res.error.message || '')) {
+        res = await sb().from('members').upsert(row, { onConflict: 'auth_provider,email' });
+      }
+    } else {
+      res = await sb().from('members').upsert(row, { onConflict: 'email' });
+    }
+    /* migration 009 미적용: auth_user_id / auth_provider 컬럼 없음 → email upsert */
+    if (
+      res.error &&
+      (res.error.code === 'PGRST204' ||
+        /auth_user_id|auth_provider/.test(res.error.message || ''))
+    ) {
+      console.warn('[CHODRUM] members identity columns missing — upsert by email', res.error.message);
+      delete row.auth_user_id;
+      delete row.auth_provider;
+      res = await sb().from('members').upsert(row, { onConflict: 'email' });
+    }
     /* migration 002 미적용 시 동의 컬럼이 없어 PGRST204 → 기본 컬럼만 재시도 */
     if (res.error && res.error.code === 'PGRST204' && /agreed_at/.test(res.error.message || '')) {
       console.warn('[CHODRUM] members consent columns missing — upsert without them', res.error.message);
       delete row.terms_agreed_at;
       delete row.privacy_agreed_at;
       delete row.marketing_agreed_at;
-      res = await sb().from('members').upsert(row, { onConflict: 'email' });
+      res = await sb().from('members').upsert(row, {
+        onConflict: row.auth_user_id ? 'auth_user_id' : 'email',
+      });
     }
     if (res.error) {
       console.warn('[CHODRUM] member upsert', res.error);
@@ -1106,6 +1248,8 @@
     members: {
       upsert: upsertMember,
       getByEmail: getMemberByEmail,
+      getByAuthUserId: getMemberByAuthUserId,
+      getForProfile: getMemberForProfile,
       hasConsent: memberHasConsent,
       updateStatus: updateMemberStatus,
       updateProfile: updateMemberProfile,

@@ -66,10 +66,12 @@ function OAuthTermsPage() {
         location.replace(F.PAGES.login);
         return;
       }
-      if (Auth.hasOAuthConsentForEmail || Auth.hasConsentForEmail) {
+      /* Provider-scoped: Kakao/Naver with same email must each accept terms */
+      if (Auth.hasOAuthConsentForProfile || Auth.hasOAuthConsentForEmail) {
         try {
-          const check = Auth.hasOAuthConsentForEmail || Auth.hasConsentForEmail;
-          const ok = await check(p.email);
+          const ok = Auth.hasOAuthConsentForProfile
+            ? await Auth.hasOAuthConsentForProfile(p)
+            : await Auth.hasOAuthConsentForEmail(p.email);
           if (ok) {
             await Auth.restoreSession();
             location.replace(F.PAGES.my);

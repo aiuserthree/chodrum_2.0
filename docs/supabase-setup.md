@@ -16,6 +16,7 @@
    - `supabase/migrations/006_banner_images.sql` (**필수** · 배너 `image_url` + Storage 버킷 `banners`)
    - `supabase/migrations/007_banner_sheet_id.sql` (배너 ↔ 악보 연동 `sheet_id`)
    - `supabase/migrations/008_banner_mobile_image.sql` (배너 모바일 이미지 `image_url_mobile`)
+   - `supabase/migrations/009_member_provider_identity.sql` (**필수** · 카카오/네이버 동일 이메일이어도 회원·약관 분리)
 3. **Project Settings → API**에서 복사:
    - Project URL
    - `anon` `public` key
@@ -192,6 +193,10 @@ supabase functions deploy kakao-auth --no-verify-jwt
 
 흐름: FO → 카카오 동의 → 콜백 `?code=` → Function → `hashed_token` → `verifyOtp` → (신규면) 약관 → `members` upsert
 
+**카카오 ≠ 네이버 (동일 이메일):** bridge는 연락처 이메일이 같아도 Auth 사용자를 합치지 않습니다.
+카카오/네이버 각각 `kakao_id` / `naver_id` 기준이며, 약관 동의도 provider·`auth_user_id` 단위입니다.
+`009_member_provider_identity.sql` 적용 후 Edge Function을 재배포하세요.
+
 #### D. (선택) Supabase 기본 Kakao Provider
 
 1. Kakao Redirect URI에 `https://<REF>.supabase.co/auth/v1/callback` 추가
@@ -236,6 +241,8 @@ supabase functions deploy naver-auth --no-verify-jwt
 (이미 배포된 경우에도 Client ID/Secret을 바꾼 뒤에는 secrets만 다시 set 하면 됩니다.)
 
 흐름: FO → 네이버 동의 → 콜백 `?code=` → Function이 토큰·프로필 처리 → `hashed_token` → 브라우저 `verifyOtp` → (신규면) 약관 → `members` upsert
+
+카카오와 연락처 이메일이 같아도 **별도 Auth 사용자 + 별도 약관 동의**입니다 (위 카카오 절 참고).
 
 **버튼이 회색이면:** `html/shared/config.js`의 `NAVER_CLIENT_ID`가 비어 있거나, 배포된 `config.js`에 아직 반영되지 않은 상태입니다.
 

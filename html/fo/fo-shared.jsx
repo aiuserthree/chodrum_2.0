@@ -33,13 +33,13 @@ const won = (v) => '₩' + Number(v).toLocaleString('ko-KR');
 const qp = (name) => new URLSearchParams(location.search).get(name);
 const goBack = (fallback) => { if (history.length > 1 && document.referrer) history.back(); else location.href = fallback || PAGES.home; };
 
-function toast(msg) {
+function toast(msg, ms) {
   let el = document.getElementById('fo-toast');
   if (!el) { el = document.createElement('div'); el.id = 'fo-toast'; el.className = 'fo-toast'; document.body.appendChild(el); }
   el.textContent = msg;
   el.classList.add('show');
   clearTimeout(el._t);
-  el._t = setTimeout(() => el.classList.remove('show'), 2000);
+  el._t = setTimeout(() => el.classList.remove('show'), ms || 2000);
 }
 
 /* store:change 구독 → 리렌더 */
@@ -741,10 +741,44 @@ function pdfFileName(title) {
   return (base || '악보') + '.pdf';
 }
 
+/** 모바일(또는 iPadOS) — 브라우저 미리보기 대신 저장/공유 흐름을 우선 */
+function isLikelyMobile() {
+  try {
+    if (navigator.userAgentData && typeof navigator.userAgentData.mobile === 'boolean') {
+      return navigator.userAgentData.mobile;
+    }
+  } catch (_) { /* ignore */ }
+  const ua = navigator.userAgent || '';
+  if (/Android|iPhone|iPod|Mobile/i.test(ua)) return true;
+  /* iPadOS 13+ 는 MacIntel + touch */
+  if (/iPad/i.test(ua)) return true;
+  if (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1) return true;
+  return false;
+}
+
+function clickDownloadAnchor(href, filename) {
+  const a = document.createElement('a');
+  a.href = href;
+  a.download = filename;
+  a.rel = 'noopener';
+  a.style.display = 'none';
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+}
+
+function asPdfBlob(blob) {
+  if (blob && blob.type === 'application/pdf') return blob;
+  return new Blob([blob], { type: 'application/pdf' });
+}
+
+let pdfDownloadBusy = false;
+
 /**
- * 구매한 악보 PDF를 로컬 PC에 저장.
- * Supabase public URL은 cross-origin이라 download 속성만으로는 파일명이 안 먹을 수 있어
- * fetch → blob → object URL 로 강제 다운로드한다.
+ * 구매한 악보 PDF를 기기에 저장.
+ * Supabase public URL은 cross-origin이라 download 속성만으로는 미리보기로 열릴 수 있어
+ * fetch → blob 후, 모바일은 Web Share(파일 저장), 그 외는 object URL + download 로 받는다.
+ * 브라우저 탭에서 PDF를 열지 않는다.
  * @param {string|object} sheetOrId
  * @param {{ title?: string, expired?: boolean }} [opts]
  */
@@ -752,6 +786,10 @@ async function downloadSheetPdf(sheetOrId, opts) {
   opts = opts || {};
   if (opts.expired) {
     toast('다운로드 기간이 만료되었어요');
+    return;
+  }
+  if (pdfDownloadBusy) {
+    toast('다운로드를 준비 중이에요');
     return;
   }
 
@@ -779,36 +817,62 @@ async function downloadSheetPdf(sheetOrId, opts) {
   }
 
   const filename = pdfFileName(title);
+  const mobile = isLikelyMobile();
+  pdfDownloadBusy = true;
+  toast('「' + title + '」 다운로드 준비 중…', 4000);
+
   try {
-    toast('「' + title + '」 다운로드를 시작했어요');
     const res = await fetch(url, { mode: 'cors', credentials: 'omit' });
     if (!res.ok) throw new Error('HTTP ' + res.status);
-    const blob = await res.blob();
+    const blob = asPdfBlob(await res.blob());
+
+    /* iOS/Android: 공유 시트 →「파일에 저장」이 미리보기보다 안정적 */
+    if (mobile && typeof navigator.canShare === 'function' && typeof navigator.share === 'function') {
+      const file = new File([blob], filename, { type: 'application/pdf' });
+      if (navigator.canShare({ files: [file] })) {
+        try {
+          await navigator.share({ files: [file], title: filename });
+          toast('「' + title + '」 저장했어요', 2500);
+          return;
+        } catch (shareErr) {
+          if (shareErr && shareErr.name === 'AbortError') return; /* 사용자가 공유 취소 */
+          /* fetch 이후 user gesture 소실(NotAllowedError) → 한 번 더 탭해 공유 */
+          if (shareErr && shareErr.name === 'NotAllowedError') {
+            const ok = window.confirm('「' + title + '」 PDF를 기기에 저장할까요?');
+            if (!ok) return;
+            try {
+              await navigator.share({ files: [file], title: filename });
+              toast('「' + title + '」 저장했어요', 2500);
+              return;
+            } catch (shareErr2) {
+              if (shareErr2 && shareErr2.name === 'AbortError') return;
+              console.warn('[CHODRUM] PDF share retry failed', shareErr2);
+            }
+          } else {
+            console.warn('[CHODRUM] PDF share failed, trying anchor download', shareErr);
+          }
+        }
+      }
+    }
+
+    /* Android Chrome·데스크톱: blob URL + download 속성 */
+    if (typeof navigator !== 'undefined' && navigator.msSaveOrOpenBlob) {
+      navigator.msSaveOrOpenBlob(blob, filename);
+      toast('「' + title + '」 다운로드를 시작했어요', 2500);
+      return;
+    }
+
     const objUrl = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = objUrl;
-    a.download = filename;
-    a.rel = 'noopener';
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
+    clickDownloadAnchor(objUrl, filename);
     setTimeout(function () {
       try { URL.revokeObjectURL(objUrl); } catch (_) {}
-    }, 2500);
+    }, 4000);
+    toast('「' + title + '」 다운로드를 시작했어요', 2500);
   } catch (e) {
-    console.warn('[CHODRUM] PDF blob download failed, opening URL', e);
-    try {
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = filename;
-      a.target = '_blank';
-      a.rel = 'noopener';
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
-    } catch (e2) {
-      toast('PDF 다운로드에 실패했어요');
-    }
+    console.warn('[CHODRUM] PDF download failed', e);
+    toast('PDF 다운로드에 실패했어요. 네트워크를 확인해 주세요.', 3000);
+  } finally {
+    pdfDownloadBusy = false;
   }
 }
 
