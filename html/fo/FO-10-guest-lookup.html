@@ -26,25 +26,33 @@
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="../shared/supabase-client.js"></script>
 <script src="../shared/api.js"></script>
+<script src="../shared/auth.js"></script>
 <script type="text/babel" src="/fo/fo-shared.jsx"></script>
 <script type="text/babel">
-/* FO-10 비회원 주문 조회 — 이메일 입력 → 인증코드 → 구매 악보 조회/다운로드 */
+/* FO-10 비회원 주문 조회 — 이메일 입력 → 6자리 이메일 OTP → 구매 악보 조회/다운로드 */
 const DS = window.DrumSheetStoreDesignSystem_3a2462;
 const { Button, Input, Icon, Card, Badge } = DS;
 const F = window.FO;
+const Auth = window.ChodrumAuth;
 
 function GuestLookupPage() {
   const [step, setStep] = React.useState(1); /* 1 이메일 → 2 인증코드 → 3 결과 */
   const [email, setEmail] = React.useState(F.qp('email') || '');
   const [code, setCode] = React.useState('');
   const [codeErr, setCodeErr] = React.useState('');
+  const [busy, setBusy] = React.useState(false);
+  const [sent, setSent] = React.useState(false);
   const emailOk = /.+@.+\..+/.test(email);
+  const codeOk = /^\d{6}$/.test(code.trim());
 
   const [remoteOrders, setRemoteOrders] = React.useState(null);
+  const [ordersLoading, setOrdersLoading] = React.useState(false);
 
   React.useEffect(() => {
     if (step !== 3) return;
     let cancelled = false;
+    setOrdersLoading(true);
+    setRemoteOrders(null);
     (async () => {
       try {
         const list = await window.ChodrumAPI.orders.forEmail(email);
@@ -52,6 +60,8 @@ function GuestLookupPage() {
       } catch (e) {
         console.warn(e);
         if (!cancelled) setRemoteOrders([]);
+      } finally {
+        if (!cancelled) setOrdersLoading(false);
       }
     })();
     return () => { cancelled = true; };
@@ -65,9 +75,66 @@ function GuestLookupPage() {
     return remoteOrders || [];
   }, [step, email, remoteOrders]);
 
-  const verify = () => {
-    if (code.trim().length !== 6) { setCodeErr('6자리 인증코드를 입력해주세요.'); return; }
-    setCodeErr(''); setStep(3);
+  const sendCode = async () => {
+    if (!emailOk || busy) return;
+    setBusy(true);
+    setCodeErr('');
+    try {
+      if (!Auth.live()) {
+        setSent(true);
+        setStep(2);
+        setCode('');
+        F.toast('인증코드를 보냈어요. (오프라인 데모 — 아무 6자리)');
+        setBusy(false);
+        return;
+      }
+      const r = await Auth.sendGuestLookupOtp(email.trim());
+      if (!r.ok) {
+        F.toast(r.error || '인증코드를 보내지 못했어요');
+        setBusy(false);
+        return;
+      }
+      setSent(true);
+      setStep(2);
+      setCode('');
+      F.toast('인증코드를 보냈어요. 메일함·스팸함을 확인해주세요.');
+    } catch (e) {
+      F.toast((e && e.message) || '인증코드 발송 오류');
+    }
+    setBusy(false);
+  };
+
+  const verify = async () => {
+    if (busy) return;
+    if (!sent) { setCodeErr('먼저 인증코드를 받아주세요.'); return; }
+    if (!codeOk) { setCodeErr('6자리 인증코드를 입력해주세요.'); return; }
+    setBusy(true);
+    setCodeErr('');
+    try {
+      if (!Auth.live()) {
+        setStep(3);
+        setBusy(false);
+        return;
+      }
+      const r = await Auth.verifyGuestLookupOtp(email.trim(), code.trim());
+      if (!r.ok) {
+        setCodeErr(r.error || '인증코드가 올바르지 않아요.');
+        setBusy(false);
+        return;
+      }
+      setStep(3);
+    } catch (e) {
+      setCodeErr((e && e.message) || '인증 오류');
+    }
+    setBusy(false);
+  };
+
+  const resetLookup = () => {
+    setStep(1);
+    setCode('');
+    setCodeErr('');
+    setSent(false);
+    setRemoteOrders(null);
   };
 
   return (
@@ -81,21 +148,23 @@ function GuestLookupPage() {
         {step === 1 ? (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
             <Input label="주문 이메일" type="email" placeholder="you@example.com" value={email} onChange={(e) => setEmail(e.target.value)} hint="주문 시 입력한 이메일만 조회할 수 있어요." />
-            <Button variant="primary" size="lg" fullWidth disabled={!emailOk} onClick={() => { setStep(2); F.toast('인증코드를 보냈어요'); }}>인증코드 받기</Button>
+            <Button variant="primary" size="lg" fullWidth disabled={!emailOk || busy} onClick={sendCode}>{busy ? '발송 중…' : '인증코드 받기'}</Button>
             <p className="fo-caption" style={{ textAlign: 'center' }}>비회원 결제 시 입력한 이메일로 조회할 수 있어요.</p>
           </div>
         ) : null}
 
         {step === 2 ? (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-            <Input label="인증코드" placeholder="6자리 코드" value={code} onChange={(e) => { setCode(e.target.value); setCodeErr(''); }} error={codeErr || undefined} hint={email + ' 로 코드를 보냈어요. 스팸함도 확인해보세요.'} />
-            <Button variant="primary" size="lg" fullWidth onClick={verify}>인증하고 조회하기</Button>
-            <Button variant="ghost" size="md" fullWidth onClick={() => F.toast('인증코드를 다시 보냈어요')}>코드 재발송</Button>
+            <Input label="인증코드" placeholder="6자리 코드" value={code} onChange={(e) => { setCode(e.target.value.replace(/\D/g, '').slice(0, 6)); setCodeErr(''); }} error={codeErr || undefined} hint={email + ' 로 코드를 보냈어요. 스팸함도 확인해보세요.'} />
+            <Button variant="primary" size="lg" fullWidth disabled={!codeOk || busy} onClick={verify}>{busy ? '확인 중…' : '인증하고 조회하기'}</Button>
+            <Button variant="ghost" size="md" fullWidth disabled={busy} onClick={sendCode}>코드 재발송</Button>
           </div>
         ) : null}
 
         {step === 3 ? (
-          orders.length ? (
+          ordersLoading && !orders.length ? (
+            <p className="fo-caption" style={{ textAlign: 'center', padding: '40px 0' }}>주문 내역을 불러오는 중…</p>
+          ) : orders.length ? (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                 <Icon name="check" size={14} style={{ color: 'var(--status-success)' }} />
@@ -140,7 +209,7 @@ function GuestLookupPage() {
             </div>
           ) : (
             <div>
-              <F.Empty icon="mail" title="해당 이메일로 주문 내역이 없습니다" sub="주문 시 입력한 이메일이 맞는지 다시 확인해주세요. 이메일이 다르면 조회할 수 없어요." action="다른 이메일로 조회" onAction={() => { setStep(1); setCode(''); }} />
+              <F.Empty icon="mail" title="해당 이메일로 주문 내역이 없습니다" sub="주문 시 입력한 이메일이 맞는지 다시 확인해주세요. 이메일이 다르면 조회할 수 없어요." action="다른 이메일로 조회" onAction={resetLookup} />
             </div>
           )
         ) : null}

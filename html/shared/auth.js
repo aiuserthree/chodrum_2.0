@@ -655,6 +655,35 @@
     return { ok: true };
   }
 
+  /**
+   * Guest order lookup (FO-10) — same 6-digit email OTP as signup
+   * (Confirm sign up / Magic Link templates with {{ .Token }}).
+   * Always sends; does not reveal whether orders exist for the email.
+   */
+  async function sendGuestLookupOtp(email) {
+    return sendEmailOtp(email, { forSignup: false });
+  }
+
+  async function verifyGuestLookupOtp(email, token) {
+    var r = await verifyEmailOtp(email, token, { forSignup: false });
+    if (!r.ok) return r;
+    /*
+     * Email ownership only for download lookup.
+     * Incomplete auth users must not stay signed in; consented members keep session.
+     */
+    try {
+      var consented = await fetchConsentForEmail(String(email || '').trim());
+      if (consented) {
+        await restoreSession();
+      } else {
+        await signOut();
+      }
+    } catch (e) {
+      try { await signOut(); } catch (e2) { /* ignore */ }
+    }
+    return { ok: true };
+  }
+
   async function updatePassword(newPassword) {
     if (!live()) {
       return { ok: false, error: 'Supabase가 설정되지 않았습니다.' };
@@ -1095,6 +1124,8 @@
     passwordHint: passwordHint,
     sendEmailOtp: sendEmailOtp,
     verifyEmailOtp: verifyEmailOtp,
+    sendGuestLookupOtp: sendGuestLookupOtp,
+    verifyGuestLookupOtp: verifyGuestLookupOtp,
     completeEmailSignup: completeEmailSignup,
     signInWithPassword: signInWithPassword,
     sendPasswordRecovery: sendPasswordRecovery,
