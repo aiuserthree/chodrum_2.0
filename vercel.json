@@ -51,6 +51,24 @@
           "value": "public, max-age=3600, stale-while-revalidate=86400"
         }
       ]
+    },
+    {
+      "source": "/sheets/:slug",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=3600, stale-while-revalidate=86400"
+        }
+      ]
+    },
+    {
+      "source": "/sitemap.xml",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=3600"
+        }
+      ]
     }
   ],
   "redirects": [
@@ -83,7 +101,11 @@
   "rewrites": [
     {
       "source": "/sheets/:slug",
-      "destination": "/fo/FO-03-sheet-detail.html"
+      "destination": "/sheets/:slug/index.html"
+    },
+    {
+      "source": "/sheets/:slug/",
+      "destination": "/sheets/:slug/index.html"
     },
     {
       "source": "/sheets",

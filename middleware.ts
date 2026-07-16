@@ -1,6 +1,6 @@
 /**
  * Vercel Edge Middleware — legacy /sheet?id= → 301 /sheets/{slug}
- * Phase 1: slug pages are CSR shells; prerender HTML is Phase 2.
+ * Phase 2: prerendered html/sheets/{slug}/index.html served via vercel rewrite.
  */
 export const config = {
   matcher: '/sheet',
