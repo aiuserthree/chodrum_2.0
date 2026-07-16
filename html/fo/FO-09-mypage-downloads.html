@@ -153,7 +153,7 @@ function DownloadsPage() {
                     {expired ? <div className="fo-caption" style={{ marginTop: 4 }}>다운로드 기간이 만료되었어요. 고객센터에서 재발급을 요청할 수 있어요.</div> : null}
                   </div>
                   <Button variant={expired ? 'secondary' : 'primary'} size="sm" iconLeft="download" disabled={expired}
-                    onClick={() => F.downloadSheetPdf(disp.id || p.id, { title, expired })}>{expired ? '만료' : 'PDF'}</Button>
+                    onClick={() => F.downloadSheetPdf(disp.id || p.id, { title, expired, orderNo: p.orderNo })}>{expired ? '만료' : 'PDF'}</Button>
                 </div>
               );
             })}

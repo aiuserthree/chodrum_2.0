@@ -141,7 +141,7 @@ function MyPage() {
                 <div key={String(p.orderNo) + String(p.id) + i} style={{ borderTop: i ? '1px solid var(--border-default)' : 'none' }}>
                   <F.SheetRow s={row} href={null}
                     sub={<div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 2 }}><F.DdayBadge dday={p.dday} /><span className="ds-mono" style={{ fontSize: 11, color: 'var(--text-secondary)' }}>{p.date}</span></div>}
-                    right={<Button variant={p.dday < 0 ? 'secondary' : 'primary'} size="sm" iconLeft="download" disabled={p.dday < 0} onClick={() => F.downloadSheetPdf(p.id, { title, expired: p.dday < 0 })}>{p.dday < 0 ? '만료' : 'PDF'}</Button>} />
+                    right={<Button variant={p.dday < 0 ? 'secondary' : 'primary'} size="sm" iconLeft="download" disabled={p.dday < 0} onClick={() => F.downloadSheetPdf(p.id, { title, expired: p.dday < 0, orderNo: p.orderNo })}>{p.dday < 0 ? '만료' : 'PDF'}</Button>} />
                 </div>
               );
             }) : (

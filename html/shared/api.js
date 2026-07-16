@@ -3,6 +3,40 @@
   var sb = function () { return window.ChodrumSB && window.ChodrumSB.client; };
   var live = function () { return !!(window.ChodrumSB && window.ChodrumSB.configured && sb()); };
 
+  function isBoPage() {
+    try {
+      var p = location.pathname || '';
+      return /\/bo(\/|$)/i.test(p) || /BO-\d+/i.test(p);
+    } catch (_) {
+      return false;
+    }
+  }
+
+  function edgeFnUrl(configKey, fnName) {
+    var c = window.CHODRUM_CONFIG || {};
+    var explicit = String(c[configKey] || '').trim();
+    if (explicit && explicit.indexOf('YOUR_') !== 0) return explicit;
+    var base = String(c.SUPABASE_URL || '').replace(/\/$/, '');
+    if (!base || /YOUR_/i.test(base)) return '';
+    return base + '/functions/v1/' + fnName;
+  }
+
+  /** Extract storage object path from path or legacy public/sign URL. */
+  function sheetsStoragePath(urlOrPath, folderHint) {
+    if (!urlOrPath) return '';
+    var raw = String(urlOrPath).trim();
+    if (!raw) return '';
+    if (/^(pdf|preview)\//.test(raw)) return raw.split('?')[0];
+    var m = raw.match(/\/storage\/v1\/object\/(?:public|sign)\/sheets\/([^?]+)/);
+    if (m && m[1]) return decodeURIComponent(m[1]);
+    var idx = raw.indexOf('pdf/');
+    if (idx >= 0) return raw.slice(idx).split('?')[0];
+    idx = raw.indexOf('preview/');
+    if (idx >= 0) return raw.slice(idx).split('?')[0];
+    if (folderHint && raw.indexOf('/') === -1) return folderHint + '/' + raw;
+    return '';
+  }
+
   /** NEW badge window: sheets created within this many days. */
   var NEW_SHEET_DAYS = 14;
   var NEW_SHEET_MS = NEW_SHEET_DAYS * 24 * 60 * 60 * 1000;
@@ -160,11 +194,41 @@
       rating: Number(row.rating) || 0,
       sold: row.sold || 0,
       status: row.status || '판매중',
-      pdfUrl: row.pdf_url || '',
+      /* FO never gets a usable PDF URL — download via sheet-download Edge */
+      pdfUrl: isBoPage() ? (row.pdf_url || '') : '',
       previewUrl: previewUrls[0] || '',
       previewUrls: previewUrls,
       youtubeUrl: row.youtube_url || row.youtubeUrl || '',
     };
+  }
+
+  /** Sign preview/* paths so private sheets bucket still works in <img src>. */
+  async function signPreviewUrlsForSheets(sheets) {
+    if (!live() || !sheets || !sheets.length) return sheets;
+    var client = sb();
+    var out = [];
+    for (var i = 0; i < sheets.length; i++) {
+      var s = Object.assign({}, sheets[i]);
+      var urls = (s.previewUrls || []).slice();
+      var signed = [];
+      for (var j = 0; j < urls.length; j++) {
+        var path = sheetsStoragePath(urls[j], 'preview');
+        if (path && path.indexOf('preview/') === 0) {
+          try {
+            var r = await client.storage.from('sheets').createSignedUrl(path, 3600);
+            signed.push((r.data && r.data.signedUrl) || urls[j]);
+          } catch (_) {
+            signed.push(urls[j]);
+          }
+        } else {
+          signed.push(urls[j]);
+        }
+      }
+      s.previewUrls = signed;
+      s.previewUrl = signed[0] || '';
+      out.push(s);
+    }
+    return out;
   }
 
   function sheetToRow(s) {
@@ -360,13 +424,18 @@
           ? 'PDF 파일만 업로드할 수 있어요.'
           : '이미지 파일(PNG, JPG, WEBP)만 업로드할 수 있어요.');
       }
+      if (/row-level security|violates|policy|unauthorized|permission|403/i.test(msg)
+          || String(up.error.statusCode || '') === '403') {
+        throw new Error('Storage 업로드 권한이 없어요. BO 관리자(app_metadata.role=admin)로 로그인했는지, migration 013·014를 적용했는지 확인하세요.');
+      }
       throw new Error('파일 업로드에 실패했어요. Storage 정책·용량을 확인해 주세요.');
     }
 
-    var pub = client.storage.from('sheets').getPublicUrl(path);
-    var url = pub && pub.data && pub.data.publicUrl;
-    if (!url) throw new Error('업로드 URL을 만들지 못했어요.');
-    return { url: url, path: path, name: file.name };
+    /*
+     * Store storage path (pdf/… · preview/…) — bucket is private after 013.
+     * FO signs preview on hydrate; PDF download uses sheet-download Edge.
+     */
+    return { url: path, path: path, name: file.name };
   }
 
   /** True when Storage reports the target bucket is missing (not RLS/MIME). */
@@ -492,7 +561,7 @@
     var sheetsRes = await client.from('sheets').select('*').order('sold', { ascending: false });
     if (sheetsRes.error) throw sheetsRes.error;
 
-    var sheets = (sheetsRes.data || []).map(mapSheet);
+    var sheets = await signPreviewUrlsForSheets((sheetsRes.data || []).map(mapSheet));
     D.sheets = sheets;
     D.byId = function (id) {
       var key = id == null ? '' : String(id);
@@ -551,11 +620,21 @@
       });
     }
 
-    var ordRes = await client
-      .from('orders')
-      .select('*, order_items(sheet_id, qty, price)')
-      .order('created_at', { ascending: false });
-    if (!ordRes.error) {
+    var ordRes = { error: null, data: [] };
+    var memRes = { error: null, data: [] };
+    var dlRes = { error: null, data: [] };
+
+    /* Sensitive tables: BO admin only (014 RLS). FO must not pull all rows. */
+    if (isBoPage()) {
+      ordRes = await client
+        .from('orders')
+        .select('*, order_items(sheet_id, qty, price)')
+        .order('created_at', { ascending: false });
+      memRes = await client.from('members').select('*').order('joined_at', { ascending: false });
+      dlRes = await client.from('downloads').select('*').order('created_at', { ascending: false });
+    }
+
+    if (!ordRes.error && isBoPage()) {
       A.orders = (ordRes.data || []).map(function (o) {
         return {
           no: o.order_no,
@@ -576,8 +655,7 @@
       });
     }
 
-    var memRes = await client.from('members').select('*').order('joined_at', { ascending: false });
-    if (!memRes.error) {
+    if (!memRes.error && isBoPage()) {
       var orderCountByIdentity = {};
       (A.orders || []).forEach(function (o) {
         if (!o || !o.email || !o.member) return;
@@ -602,8 +680,7 @@
       });
     }
 
-    var dlRes = await client.from('downloads').select('*').order('created_at', { ascending: false });
-    if (!dlRes.error) {
+    if (!dlRes.error && isBoPage()) {
       A.downloads = (dlRes.data || []).map(function (d) {
         return {
           at: fmtOrderDate(d.created_at),
@@ -639,7 +716,7 @@
     if (!live()) return (window.DrumData.sheets || []).slice();
     var res = await sb().from('sheets').select('*').order('sold', { ascending: false });
     if (res.error) throw res.error;
-    return (res.data || []).map(mapSheet);
+    return signPreviewUrlsForSheets((res.data || []).map(mapSheet));
   }
 
   async function upsertSheet(sheet) {
@@ -684,7 +761,8 @@
       res = await sb().from('sheets').upsert(row).select().single();
     }
     if (res.error) throw res.error;
-    var mapped = mapSheet(res.data);
+    var mappedList = await signPreviewUrlsForSheets([mapSheet(res.data)]);
+    var mapped = mappedList[0];
     /* Keep local multi-URL view even if DB only stored preview_url (until 004 runs) */
     if (droppedPreviewUrls && wantedMulti) {
       mapped.previewUrls = normalizePreviewUrls(sheet);
@@ -693,6 +771,7 @@
         '미리보기 2장이 업로드됐지만 DB에 preview_urls 컬럼이 없어 1장만 저장됐어요. ' +
         'Supabase SQL Editor에서 supabase/migrations/004_preview_urls.sql 을 실행한 뒤 다시 등록해 주세요.';
     }
+    if (isBoPage()) mapped.pdfUrl = res.data.pdf_url || mapped.pdfUrl || '';
     var D = window.DrumData;
     var i = D.sheets.findIndex(function (s) { return s.id === mapped.id; });
     if (i >= 0) D.sheets[i] = mapped; else D.sheets.unshift(mapped);
@@ -830,6 +909,8 @@
     var authProvider = order.member
       ? normalizeMemberProvider(order.auth_provider || order.provider || 'email')
       : null;
+    var status = order.status || '결제완료';
+    var grantDownloads = status === '결제완료' && order.skipDownloads !== true;
 
     if (!live()) {
       window.AdminData.orders = [{
@@ -841,7 +922,7 @@
         provider: authProvider,
         items: order.items.map(function (it) { return { id: it.id, qty: it.qty, price: it.price }; }),
         method: order.method,
-        status: order.status || '결제완료',
+        status: status,
         date: fmtOrderDate(new Date().toISOString()),
         total: order.total,
       }].concat(window.AdminData.orders || []);
@@ -855,7 +936,7 @@
       email: order.email,
       is_member: !!order.member,
       method: order.method,
-      status: order.status || '결제완료',
+      status: status,
       total: order.total || 0,
     };
     if (order.member && authUserId) orderRow.auth_user_id = authUserId;
@@ -882,55 +963,109 @@
       if (itemIns.error) throw itemIns.error;
     }
 
-    var expires = new Date(Date.now() + 7 * 86400000).toISOString();
-    var dls = (order.items || []).map(function (it) {
-      var row = {
-        email: order.email,
-        is_member: !!order.member,
-        sheet_id: it.id,
-        order_no: order.no,
-        status: 'ACTIVE',
-        expires_at: expires,
-      };
-      if (order.member && authUserId) row.auth_user_id = authUserId;
-      if (order.member && authProvider) row.auth_provider = authProvider;
-      return row;
-    });
-    if (dls.length) {
-      var dlIns = await client.from('downloads').insert(dls);
-      if (dlIns.error && isMissingOrderIdentityColumn(dlIns.error)) {
-        dls.forEach(function (row) {
-          delete row.auth_user_id;
-          delete row.auth_provider;
-        });
-        dlIns = await client.from('downloads').insert(dls);
+    if (grantDownloads) {
+      var expires = new Date(Date.now() + 7 * 86400000).toISOString();
+      var dls = (order.items || []).map(function (it) {
+        var row = {
+          email: order.email,
+          is_member: !!order.member,
+          sheet_id: it.id,
+          order_no: order.no,
+          status: 'ACTIVE',
+          expires_at: expires,
+        };
+        if (order.member && authUserId) row.auth_user_id = authUserId;
+        if (order.member && authProvider) row.auth_provider = authProvider;
+        return row;
+      });
+      if (dls.length) {
+        var dlIns = await client.from('downloads').insert(dls);
+        if (dlIns.error && isMissingOrderIdentityColumn(dlIns.error)) {
+          dls.forEach(function (row) {
+            delete row.auth_user_id;
+            delete row.auth_provider;
+          });
+          dlIns = await client.from('downloads').insert(dls);
+        }
+        if (dlIns.error) console.warn('[CHODRUM] downloads insert', dlIns.error);
       }
-      if (dlIns.error) console.warn('[CHODRUM] downloads insert', dlIns.error);
-    }
 
-    if (order.member && order.email) {
-      try {
-        var mem = null;
-        if (authUserId) mem = await getMemberByAuthUserId(authUserId);
-        if (!mem) {
-          mem = await getMemberByEmail(order.email, authProvider || order.auth_provider || order.provider || null);
+      if (order.member && order.email) {
+        try {
+          var mem = null;
+          if (authUserId) mem = await getMemberByAuthUserId(authUserId);
+          if (!mem) {
+            mem = await getMemberByEmail(order.email, authProvider || order.auth_provider || order.provider || null);
+          }
+          if (mem) {
+            var countQ = client
+              .from('members')
+              .update({ orders_count: (mem.orders_count || 0) + 1 });
+            if (mem.id) countQ = countQ.eq('id', mem.id);
+            else if (mem.auth_user_id) countQ = countQ.eq('auth_user_id', mem.auth_user_id);
+            else countQ = countQ.eq('email', mem.email).eq('auth_provider', mem.auth_provider || authProvider || 'email');
+            await countQ;
+          }
+        } catch (e) {
+          console.warn('[CHODRUM] members orders_count', e);
         }
-        /* Do not fall back to another provider's member row (email ≠ Kakao ≠ Naver) */
-        if (mem) {
-          var countQ = client
-            .from('members')
-            .update({ orders_count: (mem.orders_count || 0) + 1 });
-          if (mem.id) countQ = countQ.eq('id', mem.id);
-          else if (mem.auth_user_id) countQ = countQ.eq('auth_user_id', mem.auth_user_id);
-          else countQ = countQ.eq('email', mem.email).eq('auth_provider', mem.auth_provider || authProvider || 'email');
-          await countQ;
-        }
-      } catch (e) {
-        console.warn('[CHODRUM] members orders_count', e);
       }
     }
 
     return Object.assign({}, order, { _id: ordIns.data.id });
+  }
+
+  /** Checkout: insert status=대기 (+ items). Paid + downloads via toss-confirm Edge. */
+  async function createPendingOrder(order) {
+    return createOrder(Object.assign({}, order, {
+      status: '대기',
+      skipDownloads: true,
+    }));
+  }
+
+  /**
+   * Entitlement-checked PDF signed URL (Edge sheet-download).
+   * @param {{ sheetId: string, email?: string, orderNo?: string }} opts
+   */
+  async function requestSignedPdfUrl(opts) {
+    opts = opts || {};
+    var sheetId = String(opts.sheetId || opts.id || '').trim();
+    if (!sheetId) throw new Error('sheetId가 없어요');
+
+    if (!live()) {
+      var local = (window.DrumData && typeof window.DrumData.byId === 'function')
+        ? window.DrumData.byId(sheetId)
+        : null;
+      var localUrl = local && (local.pdfUrl || local.pdf_url);
+      if (localUrl) return { ok: true, url: localUrl, demo: true };
+      throw new Error('데모 모드에서 PDF가 없어요');
+    }
+
+    var url = edgeFnUrl('SHEET_DOWNLOAD_URL', 'sheet-download');
+    if (!url) throw new Error('SHEET_DOWNLOAD_URL / SUPABASE_URL 이 없어요');
+
+    var headers = { 'Content-Type': 'application/json' };
+    var anon = (window.CHODRUM_CONFIG && window.CHODRUM_CONFIG.SUPABASE_ANON_KEY) || '';
+    if (anon) headers.apikey = anon;
+
+    var body = { sheetId: sheetId };
+    var client = sb();
+    if (client) {
+      try {
+        var sess = await client.auth.getSession();
+        var token = sess.data && sess.data.session && sess.data.session.access_token;
+        if (token) headers.Authorization = 'Bearer ' + token;
+      } catch (_) { /* guest path */ }
+    }
+    if (opts.email) body.email = opts.email;
+    if (opts.orderNo) body.orderNo = opts.orderNo;
+
+    var res = await fetch(url, { method: 'POST', headers: headers, body: JSON.stringify(body) });
+    var data = await res.json().catch(function () { return {}; });
+    if (!res.ok || !data.ok || !data.url) {
+      throw new Error((data && data.error) || '다운로드 권한 확인에 실패했어요 (' + res.status + ')');
+    }
+    return data;
   }
 
   async function updateOrderStatus(orderNo, status, opts) {
@@ -949,13 +1084,41 @@
     }
   }
 
-  /** Guest lookup (FO-10) — email only; guests have no auth identity */
+  /** Guest lookup (FO-10) — RPC lookup_guest_orders (014); fallback open select if RPC missing */
   async function ordersForEmail(email) {
     email = (email || '').toLowerCase();
     if (!live()) {
       return (window.Store && Store.guestOrders.forEmail(email)) || [];
     }
     var client = sb();
+    var rpc = await client.rpc('lookup_guest_orders', { p_email: email });
+    if (!rpc.error) {
+      var rows = rpc.data;
+      if (typeof rows === 'string') {
+        try { rows = JSON.parse(rows); } catch (_) { rows = []; }
+      }
+      if (Array.isArray(rows)) {
+        return rows.map(function (o) {
+          return {
+            orderNo: o.order_no,
+            date: fmtOrderDate(o.created_at),
+            createdAt: o.created_at ? new Date(o.created_at).getTime() : Date.now(),
+            items: (o.items || []).map(function (it) {
+              var sheet = (window.DrumData && typeof window.DrumData.byId === 'function')
+                ? window.DrumData.byId(it.sheet_id)
+                : null;
+              return {
+                id: it.sheet_id,
+                sheetId: it.sheet_id,
+                title: (sheet && sheet.title) || '',
+                dday: ddayFromExpires(it.expires_at, it.status),
+              };
+            }),
+          };
+        });
+      }
+    }
+    /* Pre-014 fallback */
     var o2 = await client
       .from('orders')
       .select('order_no, created_at, order_items(sheet_id, qty)')
@@ -1586,11 +1749,16 @@
     banners: { save: saveBanners, uploadImage: uploadBannerImage },
     orders: {
       create: createOrder,
+      createPending: createPendingOrder,
       updateStatus: updateOrderStatus,
       forEmail: ordersForEmail,
       forMember: ordersForMember,
       purchasesForEmail: purchasesForEmail,
     },
+    downloads: {
+      signedPdfUrl: requestSignedPdfUrl,
+    },
+    edgeFnUrl: edgeFnUrl,
     members: {
       upsert: upsertMember,
       getByEmail: getMemberByEmail,

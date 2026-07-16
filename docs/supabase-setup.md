@@ -16,10 +16,12 @@
    - `supabase/migrations/006_banner_images.sql` (**필수** · 배너 `image_url` + Storage 버킷 `banners`)
    - `supabase/migrations/007_banner_sheet_id.sql` (배너 ↔ 악보 연동 `sheet_id`)
    - `supabase/migrations/008_banner_mobile_image.sql` (배너 모바일 이미지 `image_url_mobile`)
-   - `supabase/migrations/009_member_provider_identity.sql` (**필수** · 카카오/네이버 동일 이메일이어도 회원·약관 분리)
+   - `supabase/migrations/009_member_provider_identity.sql` (**필수** · 카카오/네이버 동일 이메일 회원·약관 분리)
    - `supabase/migrations/010_member_birth.sql` (회원 생년월일 `birth` · 내정보수정/아이디찾기)
-   - `supabase/migrations/011_order_provider_identity.sql` (**필수** · 주문/다운로드도 auth_user_id·auth_provider로 분리 — 동일 이메일이어도 구매내역 공유 안 함)
+   - `supabase/migrations/011_order_provider_identity.sql` (**필수** · 주문/다운로드 `auth_user_id`·`auth_provider` 분리)
    - `supabase/migrations/012_order_multi_provider_email_fix.sql` (**필수 if 동일 이메일로 이메일+카카오+네이버 병행** · null/잘못된 주문을 이메일 회원에만 귀속)
+   - `supabase/migrations/013_storage_pdf_private.sql` (**런칭 필수** · PDF private + Storage 쓰기 admin 전용)
+   - `supabase/migrations/014_rls_hardening.sql` (**런칭 필수** · anon 오픈 쓰기 제거 · `is_admin()` · guest lookup RPC)
 3. **Project Settings → API**에서 복사:
    - Project URL
    - `anon` `public` key
@@ -32,13 +34,17 @@
 window.CHODRUM_CONFIG = {
   SUPABASE_URL: 'https://xxxx.supabase.co',
   SUPABASE_ANON_KEY: 'eyJhbGciOi...',
-  KAKAO_CLIENT_ID: '',           // 카카오 REST API 키 (공개)
-  KAKAO_OAUTH_MODE: 'bridge',    // 'bridge' | 'supabase'
-  NAVER_CLIENT_ID: '',           // 네이버 Developers Client ID (공개)
-  NAVER_OAUTH_MODE: 'bridge',    // 'bridge' | 'custom'
-  TOSS_CLIENT_KEY: '',           // 토스페이먼츠 Client Key (공개 · 테스트키 가능)
-  TOSS_MODE: 'auto',             // 'auto' | 'demo' | 'live'
-  TOSS_CONFIRM_URL: '',          // Edge Function toss-confirm URL (선택)
+  KAKAO_CLIENT_ID: '',
+  KAKAO_OAUTH_MODE: 'bridge',
+  NAVER_CLIENT_ID: '',
+  NAVER_OAUTH_MODE: 'bridge',
+  ADMIN_ID: 'admin',
+  ADMIN_EMAIL: 'admin@yourdomain.com', // Supabase Auth 관리자 이메일
+  ADMIN_PASSWORD: '',                 // Auth 비밀번호 (운영 전 변경)
+  TOSS_CLIENT_KEY: '',                // 토스 가입 후 설정 (비우면 데모 결제)
+  TOSS_MODE: 'auto',
+  TOSS_CONFIRM_URL: '',               // 비우면 SUPABASE_URL/functions/v1/toss-confirm 자동
+  SHEET_DOWNLOAD_URL: '',             // 비우면 .../functions/v1/sheet-download 자동
 };
 ```
 
@@ -51,8 +57,8 @@ window.CHODRUM_CONFIG = {
 | 테이블 | BO (쓰기/관리) | FO (읽기/생성) |
 |--------|----------------|----------------|
 | `sheets` | 악보 목록·등록·수정·삭제·상태 · PDF/미리보기 URL | 홈 / 목록 / 상세 (판매중만) |
-| Storage `sheets` | BO 악보 등록 시 PDF·미리보기 업로드 (데모 anon R/W) | 미리보기 이미지 public URL 읽기 |
-| Storage `banners` | BO 배너 이미지 업로드 (`img/` · PC/모바일 · 데모 anon R/W) | 배너 `image_url` / `image_url_mobile` public 읽기 |
+| Storage `sheets` | BO 관리자 JWT로 PDF·미리보기 업로드 (013 · private) | 미리보기: signed URL · PDF: `sheet-download` Edge |
+| Storage `banners` | BO 관리자 JWT 업로드 | 배너 public URL 읽기 |
 | `featured_sheets` | 추천 관리 저장 | 홈 「추천 악보」 |
 | `home_promo` | (시드) 홈 프로모 | 홈 상단 추천 배너 |
 | `banners` | 배너 관리 CRUD + `image_url` + `image_url_mobile` + `sheet_id` | FO 홈 메인 배너 (`<picture>` · PC/모바일 이미지) |
@@ -291,7 +297,9 @@ python3 scripts/serve-local.py
 
 1. http://localhost:8765/login — FO 로그인 (또는 `/fo/FO-08-login.html`)
 2. http://localhost:8765/signup — 이메일 OTP 가입
-3. http://localhost:8765/bo/login — BO 관리자 (config.js `ADMIN_ID` / `ADMIN_PASSWORD`, Supabase와 무관)
+3. http://localhost:8765/bo/login — BO 관리자  
+   - **Live:** `ADMIN_EMAIL` / `ADMIN_PASSWORD` 로 Supabase Auth 로그인 + `app_metadata.role=admin` (014)  
+   - **로컬 데모(키 없음):** `ADMIN_ID` / `ADMIN_PASSWORD` 세션만  
 4. 신규 소셜 → `/oauth-terms` → 마이페이지
 5. 콘솔: `ChodrumAuth.live() === true`
 
@@ -301,62 +309,93 @@ python3 scripts/serve-local.py
 
 BO 악보 등록(`BO-02-sheet-register.html`)에서:
 
-- **PDF 원본** → `sheets` 버킷 `pdf/` 경로 → `sheets.pdf_url`
-- **미리보기 이미지** → `sheets` 버킷 `preview/` 경로 → 업로드 시 canvas 워터마크 적용 → `sheets.preview_url` + `sheets.preview_urls` (최대 2장)
+- **PDF 원본** → `sheets` 버킷 `pdf/` 경로 → DB에는 **path** (`pdf/...`) 저장
+- **미리보기 이미지** → `preview/` 경로 → 업로드 시 canvas 워터마크 → path 저장 → FO hydrate 시 **signed URL**
 
-마이그레이션 `003_sheet_files.sql`이 버킷·MIME 제한( PDF / PNG·JPG·WEBP·GIF )·anon 읽기·쓰기 정책을 만듭니다.
-`004_preview_urls.sql`이 `preview_urls text[]` 컬럼을 추가합니다. **미실행 시 미리보기는 1장(`preview_url`)만 저장**됩니다.
+마이그레이션 `003`이 버킷을 만들고, **`013_storage_pdf_private.sql`이 버킷을 private로 바꾸며** `pdf/*` 공개 다운로드를 막습니다.  
+미리보기(`preview/*`)만 SELECT 허용 · 쓰기는 `is_admin()` JWT만.
 
-**Dashboard에서 확인할 항목**
+**런칭 체크리스트**
 
-1. **SQL Editor**에서 `003_sheet_files.sql` → `004_preview_urls.sql` 실행 (이미 프로젝트가 있으면 이것만 추가 실행)
-2. **Storage**에 `sheets` 버킷이 보이고 **Public** 인지 확인
-3. 업로드 실패 시 Policies에 `sheets_storage_select` / `insert` / `update` / `delete` 가 있는지 확인
+1. SQL Editor: `003` → `004` → **`013`** 실행
+2. Dashboard → Storage → `sheets` 가 **Private** 인지 확인
+3. Edge Function 배포:
+   ```bash
+   supabase functions deploy sheet-download --no-verify-jwt
+   ```
+4. FO 다운로드는 `sheet-download`가 ACTIVE 권한을 확인한 뒤 단기 signed URL을 발급합니다.  
+   `pdf_url`을 브라우저에서 직접 열면 더 이상 받을 수 없습니다.
 
 ### 6-2. 배너 (`banners` 버킷)
 
-BO 배너 관리(`BO-08-main-banners.html`)에서 이미지 업로드 시:
-
-- **PC 배너 이미지** (권장 **2240×440px** · 홈 표시 ~1088×220 @2x) → `banners` 버킷 `img/` 경로 → `banners.image_url` (원본 그대로 업로드, 리사이즈·압축 없음)
-- **모바일 배너 이미지** (권장 **1500×704px** · 표시 ~360×176 레티나) → 동일 버킷 `img/` → `banners.image_url_mobile` (선택 · 비우면 FO가 PC 이미지 사용)
-- **연동 악보** → `banners.sheet_id` (클릭 시 상세 이동)
-
-마이그레이션 `006_banner_images.sql`이 `image_url` 컬럼 + Public 버킷 `banners` + `banners_storage_*` 정책을 만듭니다 (`003`과 동일 패턴).  
-`007_banner_sheet_id.sql`이 `sheet_id` 컬럼을 추가합니다.  
-`008_banner_mobile_image.sql`이 `image_url_mobile` / `image_name_mobile` 컬럼을 추가합니다.
-
-**이미 프로젝트가 있는 경우:** SQL Editor에서 `006` → `007` → `008` 순으로 실행한 뒤, Dashboard → Storage에 `banners`(Public)가 보이는지 확인하세요.  
-미실행 시 콘솔에 `Bucket not found` / 400 과 함께 버킷 없음 안내가 납니다. `sheet_id` / `image_url_mobile` 미실행 시 배너 저장이 실패할 수 있어요.
-
-운영 전에는 Storage·테이블 RLS를 관리자 역할로 제한하세요. PDF는 구매자만 받게 하려면 private 버킷 + signed URL로 바꿔야 합니다.
+(기존과 동일 · Public 버킷 유지)  
+`006` → `007` → `008` 실행. **쓰기 정책은 013에서 admin JWT만 허용**으로 바뀝니다.
 
 ## 7. 확인 방법 (데이터 FO↔BO)
 
-1. http://127.0.0.1:8765/bo/BO-02-sheet-register.html — PDF·미리보기(1–2장) 업로드 후 악보 등록
-2. Supabase **Table Editor → sheets** 에서 `pdf_url` / `preview_url` / `preview_urls` 확인
-3. http://127.0.0.1:8765/fo/FO-01-home.html — 홈·목록 썸네일 노출
-4. FO 상세 — 미리보기 1–2장 + 워터마크 확인
-5. FO 결제 → BO 주문 반영
-6. `ChodrumAPI.mode === 'live'` 이면 Supabase 연결됨
+1. http://127.0.0.1:8765/bo/login — 관리자 Auth 로그인 후 악보 등록 (PDF·미리보기)
+2. Table Editor → `sheets` 의 `pdf_url` 이 `pdf/...` path 인지 확인
+3. FO 상세 — 미리보기(워터마크) 노출 · PDF 직접 URL 없음
+4. 결제(데모) → 마이페이지/비회원 조회에서 PDF 다운로드 (Edge 권한 확인)
+5. `ChodrumAPI.mode === 'live'` 이면 Supabase 연결됨
 
 ## 7-b. 토스페이먼츠(PG) 결제
 
 FO 체크아웃(`/checkout`)은 **토스페이먼츠** 결제창을 사용합니다.
 
-1. [토스페이먼츠 개발자센터](https://developers.tosspayments.com)에서 Client Key / Secret Key 발급
-2. `html/shared/config.js`에 `TOSS_CLIENT_KEY` 설정 (비우면 로컬 **데모 결제창**)
-3. (권장) 승인용 Edge Function 배포:
+1. [토스페이먼츠 개발자센터](https://developers.tosspayments.com)에서 Client Key / Secret Key 발급  
+   (아직 미가입이면 `TOSS_CLIENT_KEY`를 비워 두면 **데모 결제창**으로 동작)
+2. `html/shared/config.js`에 `TOSS_CLIENT_KEY` 설정
+3. Edge Function 배포 (**Live 결제 시 필수** — confirm 없이 결제완료 처리하지 않음):
    ```bash
    supabase secrets set TOSS_SECRET_KEY=test_sk_...
    supabase functions deploy toss-confirm --no-verify-jwt
    ```
-4. `TOSS_CONFIRM_URL`에 `https://<REF>.supabase.co/functions/v1/toss-confirm` 설정
+4. `TOSS_CONFIRM_URL`은 비워도 됩니다 → `SUPABASE_URL/functions/v1/toss-confirm` 자동 유도  
+   명시하려면: `https://<REF>.supabase.co/functions/v1/toss-confirm`
+
+**흐름**
+
+1. 결제 직전: `orders`에 `status=대기` + 금액/라인아이템 저장 (금액 위변조 대비)
+2. 성공 콜백 → `toss-confirm`: DB 금액 대조 → Toss confirm API → `결제완료` + `downloads` 발급
+3. 데모(`demo=1`): Toss API 생략, 같은 Edge가 주문·다운로드 생성 (RLS 환경에서도 동작)
 
 성공/실패 콜백: `/payment/success`, `/payment/fail` → 완료 시 `/order-complete`
 
-## 8. 보안 (데모 한계)
+## 8. 보안 (런칭 전)
 
-현재 RLS는 **프로토타입용 anon 전체 허용**입니다.
-Storage `sheets`·`banners` 버킷도 데모용으로 anon 업로드가 가능합니다.
-운영 전에는 BO 관리자 Auth + 역할 기반 정책으로 교체하세요.
+### 8-1. RLS (`014_rls_hardening.sql`)
+
+| 대상 | 정책 요약 |
+|------|-----------|
+| sheets / banners / featured / settings | 공개 읽기 · **쓰기 `is_admin()`만** |
+| orders / order_items | 회원은 본인(`auth_user_id`) 읽기 · FO는 `대기` INSERT만 · 결제완료/다운로드는 **service_role(Edge)** |
+| downloads | 본인 읽기 · INSERT는 Edge만 |
+| members | 본인 읽기/쓰기 · admin 전체 |
+| 비회원 조회 | `lookup_guest_orders(email)` RPC (security definer) |
+
+### 8-2. BO 관리자
+
+1. Dashboard → Authentication → Users 에서 관리자 이메일 계정 생성
+2. SQL Editor:
+   ```sql
+   update auth.users
+   set raw_app_meta_data =
+     coalesce(raw_app_meta_data, '{}'::jsonb) || '{"role":"admin"}'::jsonb
+   where email = 'YOUR_ADMIN_EMAIL';
+   ```
+3. `config.js`에 `ADMIN_EMAIL` / `ADMIN_PASSWORD` 설정 후 `/bo/login`
+4. anon 키만으로는 더 이상 sheets/banners/orders 쓰기가 되지 않습니다.  
+   (비밀번호가 config에 남아 있으면 JS를 읽은 공격자는 로그인 가능 — 운영 전 비밀번호 강화·별도 배포 권장)
+
+### 8-3. Edge Functions 배포 요약
+
+```bash
+supabase functions deploy sheet-download --no-verify-jwt
+supabase functions deploy toss-confirm --no-verify-jwt
+# (+ 기존 kakao-auth / naver-auth)
+supabase secrets set TOSS_SECRET_KEY=...
+```
+
 OAuth 세션은 브라우저 localStorage에 저장됩니다 (`persistSession: true`).
+FO와 BO를 같은 브라우저에서 동시에 쓰면 Auth 세션이 겹칠 수 있습니다 — 관리자는 별도 프로필/시크릿 창을 권장합니다.

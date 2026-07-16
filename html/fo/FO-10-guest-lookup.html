@@ -198,7 +198,7 @@ function GuestLookupPage() {
                             <div style={{ marginTop: 4 }}><F.DdayBadge dday={it.dday} /></div>
                           </div>
                           <Button variant={expired ? 'secondary' : 'primary'} size="sm" iconLeft="download" disabled={expired}
-                            onClick={() => F.downloadSheetPdf(id, { title, expired })}>{expired ? '만료' : 'PDF'}</Button>
+                            onClick={() => F.downloadSheetPdf(id, { title, expired, email, orderNo: o.orderNo })}>{expired ? '만료' : 'PDF'}</Button>
                         </div>
                       );
                     })}

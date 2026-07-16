@@ -159,11 +159,12 @@ function PgTab() {
     <Card padding={18} style={{ maxWidth: 560, display: 'flex', flexDirection: 'column', gap: 14 }}>
       <span style={{ fontSize: 15, fontWeight: 600 }}>PG 연동</span>
       <p style={{ fontSize: 12.5, lineHeight: 1.55, color: 'var(--text-secondary)', margin: 0 }}>
-        FO 결제는 <b style={{ color: 'var(--text-primary)' }}>토스페이먼츠</b> SDK로 연동돼 있어요. Client Key는 <span className="ds-mono" style={{ fontSize: 11.5 }}>html/shared/config.js</span>의 <span className="ds-mono" style={{ fontSize: 11.5 }}>TOSS_CLIENT_KEY</span>에 설정합니다. Secret Key는 Edge Function(<span className="ds-mono" style={{ fontSize: 11.5 }}>toss-confirm</span>)에만 넣으세요.
+        FO 결제는 <b style={{ color: 'var(--text-primary)' }}>토스페이먼츠</b> SDK로 연동돼 있어요. Client Key는 <span className="ds-mono" style={{ fontSize: 11.5 }}>config.js TOSS_CLIENT_KEY</span>(비우면 데모). Secret Key는 Edge <span className="ds-mono" style={{ fontSize: 11.5 }}>TOSS_SECRET_KEY</span>만. Live 결제는 <span className="ds-mono" style={{ fontSize: 11.5 }}>toss-confirm</span> 배포가 필수예요(승인 없이 결제완료 불가).
       </p>
       <B.Labeled label="PG사"><Select value="토스페이먼츠" onChange={() => {}} options={['토스페이먼츠', 'KG이니시스', '나이스페이먼츠']} /></B.Labeled>
-      <Input label="Client Key (config.js)" value={ck} onChange={() => {}} hint="이 화면은 안내용이에요. 실제 키는 config.js를 수정하세요." />
-      <Input label="Secret Key" type="password" value="****************************" onChange={() => {}} hint="브라우저에 두지 마세요. supabase secrets / Edge Function만." />
+      <Input label="Client Key (config.js)" value={ck} onChange={() => {}} hint="비어 있으면 데모 결제창. 토스 가입 후 테스트/라이브 키를 넣으세요." />
+      <Input label="Confirm URL" value={(window.CHODRUM_CONFIG && CHODRUM_CONFIG.TOSS_CONFIRM_URL) || '(SUPABASE_URL/functions/v1/toss-confirm 자동)'} onChange={() => {}} hint="비우면 SUPABASE_URL 기준으로 자동 유도. Edge 미배포 시 Live 결제는 실패합니다." />
+      <Input label="Secret Key" type="password" value="****************************" onChange={() => {}} hint="브라우저에 두지 마세요. supabase secrets set TOSS_SECRET_KEY=..." />
       <B.Labeled label="사용할 결제 수단">
         <div style={{ display: 'flex', flexDirection: 'column', gap: 10, paddingTop: 2 }}>
           <Checkbox checked onChange={() => {}} label="신용 / 체크카드" />

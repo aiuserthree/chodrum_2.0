@@ -233,6 +233,32 @@
     order.pendingAt = Date.now();
     setPending(order);
 
+    /* Live Supabase: persist pending order so toss-confirm can verify amount */
+    if (window.ChodrumAPI && ChodrumAPI.isLive && ChodrumAPI.isLive()
+        && ChodrumAPI.orders && ChodrumAPI.orders.createPending) {
+      try {
+        await ChodrumAPI.orders.createPending({
+          no: order.no,
+          buyer: order.buyer,
+          email: order.email,
+          member: !order.guest,
+          method: order.method,
+          total: order.total,
+          items: order.items,
+          authUserId: order.authUserId || order.auth_user_id || null,
+          provider: order.provider || order.auth_provider || null,
+          auth_provider: order.auth_provider || order.provider || null,
+        });
+      } catch (e) {
+        console.warn('[CHODRUM PG] createPending', e);
+        clearPending();
+        throw new Error(
+          (e && e.message) ||
+            '대기 주문을 만들지 못했어요. migration 014(RLS)와 로그인을 확인해 주세요.'
+        );
+      }
+    }
+
     if (isDemoMode()) {
       var act = await openDemoCheckout(order, payId);
       if (act === 'success') {
@@ -288,8 +314,8 @@
 
   /**
    * 성공 콜백 처리 — 금액 검증 후 주문 확정
-   * 데모/프로토타입: Secret Key 없으므로 confirm API 생략하고 로컬·Supabase 주문만 생성
-   * 프로덕션: 여기서 Edge Function 호출 → confirm 성공 시에만 finalize
+   * Live Toss: confirm Edge 필수 (스킵 금지)
+   * Demo: Edge 있으면 demo finalize, 없으면 로컬/클라이언트 생성
    */
   async function handleSuccess(params) {
     var paymentKey = params.paymentKey;
@@ -309,8 +335,13 @@
       };
     }
 
-    /* TODO(production): await confirmOnServer({ paymentKey, orderId, amount }) */
-    var confirmed = await confirmPayment({ paymentKey: paymentKey, orderId: orderId, amount: amount, demo: isDemo });
+    var confirmed = await confirmPayment({
+      paymentKey: paymentKey,
+      orderId: orderId,
+      amount: amount,
+      demo: isDemo,
+      order: pending,
+    });
     if (!confirmed.ok) {
       return { ok: false, error: confirmed.error || '결제 승인에 실패했어요' };
     }
@@ -319,56 +350,101 @@
       paymentKey: paymentKey,
       paymentType: params.paymentType || 'NORMAL',
       demo: isDemo,
+      serverCreated: !!confirmed.serverCreated,
     });
     clearPending();
     return { ok: true, order: pending };
   }
 
+  function confirmUrl() {
+    var explicit = (cfg().TOSS_CONFIRM_URL || '').trim();
+    if (explicit && explicit.indexOf('YOUR_') !== 0) return explicit;
+    if (window.ChodrumAPI && typeof window.ChodrumAPI.edgeFnUrl === 'function') {
+      return window.ChodrumAPI.edgeFnUrl('TOSS_CONFIRM_URL', 'toss-confirm');
+    }
+    var base = String(cfg().SUPABASE_URL || '').replace(/\/$/, '');
+    if (!base || /YOUR_/i.test(base)) return '';
+    return base + '/functions/v1/toss-confirm';
+  }
+
   /**
-   * 결제 승인 — 프로토타입은 클라이언트에서 스킵/모의 처리
-   * Secret Key는 브라우저에 두면 안 되므로, 실서비스는 Edge Function 필수
+   * 결제 승인
+   * - demo: Edge demo finalize 우선 (RLS 환경), 없으면 클라이언트 생성 허용
+   * - live Toss 키: confirm URL 필수, 실패 시 결제완료 처리 금지
    */
   async function confirmPayment(opts) {
+    var url = confirmUrl();
+    var anon = (cfg().SUPABASE_ANON_KEY || '').trim();
+
     if (opts.demo) {
-      return { ok: true, demo: true };
-    }
-
-    var confirmUrl = (cfg().TOSS_CONFIRM_URL || '').trim();
-    if (confirmUrl) {
-      try {
-        var res = await fetch(confirmUrl, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            paymentKey: opts.paymentKey,
-            orderId: opts.orderId,
-            amount: opts.amount,
-          }),
-        });
-        var body = await res.json().catch(function () {
-          return {};
-        });
-        if (!res.ok) {
-          return {
-            ok: false,
-            error: (body && (body.message || body.error)) || '결제 승인 API 오류 (' + res.status + ')',
-          };
+      if (url && window.ChodrumAPI && ChodrumAPI.isLive && ChodrumAPI.isLive()) {
+        try {
+          var demoRes = await fetch(url, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              apikey: anon || '',
+            },
+            body: JSON.stringify({
+              demo: true,
+              paymentKey: opts.paymentKey,
+              orderId: opts.orderId,
+              amount: opts.amount,
+              order: opts.order || null,
+            }),
+          });
+          var demoBody = await demoRes.json().catch(function () { return {}; });
+          if (!demoRes.ok) {
+            return {
+              ok: false,
+              error: (demoBody && (demoBody.message || demoBody.error)) ||
+                '데모 주문 확정 API 오류 (' + demoRes.status + ')',
+            };
+          }
+          return { ok: true, demo: true, serverCreated: true, data: demoBody };
+        } catch (e) {
+          console.warn('[CHODRUM PG] demo confirm edge failed, client fallback', e);
         }
-        return { ok: true, data: body };
-      } catch (e) {
-        return { ok: false, error: (e && e.message) || '결제 승인 요청 실패' };
       }
+      return { ok: true, demo: true, serverCreated: false };
     }
 
-    /*
-     * 정적 프로토타입: Secret Key 없이 인증(auth)까지만 완료된 상태.
-     * 테스트 키로 결제창을 열었다면 실제 승인이 되지 않아 정산/입금은 없습니다.
-     * 주문·다운로드는 UX 확인을 위해 로컬/Supabase에 기록합니다.
-     */
-    console.warn(
-      '[CHODRUM PG] confirm API 미연동 — TOSS_CONFIRM_URL 또는 Edge Function toss-confirm 을 배포하세요. 지금은 인증 성공만으로 주문을 확정합니다.'
-    );
-    return { ok: true, skippedConfirm: true };
+    /* Live Toss path — confirm is mandatory */
+    if (!url) {
+      return {
+        ok: false,
+        error:
+          '토스 결제 승인 URL이 없어요. Edge Function toss-confirm 을 배포하고 TOSS_CONFIRM_URL(또는 SUPABASE_URL)을 설정하세요.',
+      };
+    }
+
+    try {
+      var res = await fetch(url, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          apikey: anon || '',
+        },
+        body: JSON.stringify({
+          paymentKey: opts.paymentKey,
+          orderId: opts.orderId,
+          amount: opts.amount,
+          order: opts.order || null,
+        }),
+      });
+      var body = await res.json().catch(function () {
+        return {};
+      });
+      if (!res.ok) {
+        return {
+          ok: false,
+          error: (body && (body.message || body.error)) || '결제 승인 API 오류 (' + res.status + ')',
+        };
+      }
+      return { ok: true, serverCreated: true, data: body };
+    } catch (e) {
+      return { ok: false, error: (e && e.message) || '결제 승인 요청 실패' };
+    }
   }
 
   async function finalizeOrder(order, meta) {
@@ -390,25 +466,28 @@
         minute: '2-digit',
       });
 
-    try {
-      if (window.ChodrumAPI && ChodrumAPI.orders && ChodrumAPI.orders.create) {
-        await ChodrumAPI.orders.create({
-          no: order.no,
-          buyer: order.buyer,
-          email: order.email,
-          member: member,
-          method: order.method,
-          status: '결제완료',
-          total: order.total,
-          items: order.items,
-          authUserId: order.authUserId || order.auth_user_id || null,
-          provider: order.provider || order.auth_provider || null,
-          auth_provider: order.auth_provider || order.provider || null,
-        });
+    /* Edge already wrote paid order + downloads — only sync local Store */
+    if (!(meta && meta.serverCreated)) {
+      try {
+        if (window.ChodrumAPI && ChodrumAPI.orders && ChodrumAPI.orders.create) {
+          await ChodrumAPI.orders.create({
+            no: order.no,
+            buyer: order.buyer,
+            email: order.email,
+            member: member,
+            method: order.method,
+            status: '결제완료',
+            total: order.total,
+            items: order.items,
+            authUserId: order.authUserId || order.auth_user_id || null,
+            provider: order.provider || order.auth_provider || null,
+            auth_provider: order.auth_provider || order.provider || null,
+          });
+        }
+      } catch (e) {
+        console.warn('[CHODRUM PG] orders.create', e);
+        toast('주문 동기화에 실패했지만 로컬로 계속 진행해요');
       }
-    } catch (e) {
-      console.warn('[CHODRUM PG] orders.create', e);
-      toast('주문 동기화에 실패했지만 로컬로 계속 진행해요');
     }
 
     Store.lastOrder.set(order);

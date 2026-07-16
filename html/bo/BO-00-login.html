@@ -41,6 +41,8 @@
     </div>
   </main>
   <script src="../shared/config.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="../shared/supabase-client.js"></script>
   <script src="../shared/bo-auth.js"></script>
   <script>
     (function () {
@@ -51,6 +53,10 @@
       var form = document.getElementById('bo-login-form');
       var errEl = document.getElementById('bo-login-err');
       var btn = document.getElementById('bo-login-submit');
+      var idInput = document.getElementById('bo-login-id');
+      if (idInput && window.CHODRUM_CONFIG && CHODRUM_CONFIG.ADMIN_EMAIL) {
+        idInput.placeholder = '관리자 이메일 또는 아이디';
+      }
 
       form.addEventListener('submit', function (e) {
         e.preventDefault();
@@ -59,14 +65,19 @@
         errEl.hidden = true;
         errEl.textContent = '';
         btn.disabled = true;
-        var r = Auth.login(id, pw);
-        if (!r.ok) {
-          errEl.textContent = r.error || '로그인에 실패했습니다.';
+        Promise.resolve(Auth.login(id, pw)).then(function (r) {
+          if (!r || !r.ok) {
+            errEl.textContent = (r && r.error) || '로그인에 실패했습니다.';
+            errEl.hidden = false;
+            btn.disabled = false;
+            return;
+          }
+          location.replace(Auth.HOME_PAGE);
+        }).catch(function (err) {
+          errEl.textContent = (err && err.message) || '로그인에 실패했습니다.';
           errEl.hidden = false;
           btn.disabled = false;
-          return;
-        }
-        location.replace(Auth.HOME_PAGE);
+        });
       });
     })();
   </script>

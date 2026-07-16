@@ -40,12 +40,23 @@ function boToast(msg) {
 }
 
 function boLogout() {
-  if (window.ChodrumBoAuth) window.ChodrumBoAuth.logout();
-  location.href = (window.ChodrumBoAuth && window.ChodrumBoAuth.LOGIN_PAGE) || '/bo/login';
+  var go = function () {
+    location.href = (window.ChodrumBoAuth && window.ChodrumBoAuth.LOGIN_PAGE) || '/bo/login';
+  };
+  if (window.ChodrumBoAuth && typeof window.ChodrumBoAuth.logout === 'function') {
+    Promise.resolve(window.ChodrumBoAuth.logout()).then(go).catch(go);
+  } else {
+    go();
+  }
 }
 
 function BOShell({ active, title, actions, children }) {
   const [open, setOpen] = React.useState(false);
+  React.useEffect(function () {
+    if (window.ChodrumBoAuth && typeof window.ChodrumBoAuth.verifyAdminSession === 'function') {
+      window.ChodrumBoAuth.verifyAdminSession();
+    }
+  }, []);
   const NavItem = ({ n }) => {
     if (n.children) {
       const childOn = n.children.some((c) => active === c.k);

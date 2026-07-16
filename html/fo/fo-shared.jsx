@@ -872,11 +872,10 @@ let pdfDownloadBusy = false;
 
 /**
  * 구매한 악보 PDF를 기기에 저장.
- * Supabase public URL은 cross-origin이라 download 속성만으로는 미리보기로 열릴 수 있어
- * fetch → blob 후, 모바일은 Web Share(파일 저장), 그 외는 object URL + download 로 받는다.
- * 브라우저 탭에서 PDF를 열지 않는다.
+ * Live: Edge sheet-download 가 ACTIVE 권한 확인 후 단기 signed URL 발급.
+ * (public pdf_url 직접 fetch 금지 — Storage private)
  * @param {string|object} sheetOrId
- * @param {{ title?: string, expired?: boolean }} [opts]
+ * @param {{ title?: string, expired?: boolean, email?: string, orderNo?: string }} [opts]
  */
 async function downloadSheetPdf(sheetOrId, opts) {
   opts = opts || {};
@@ -890,34 +889,48 @@ async function downloadSheetPdf(sheetOrId, opts) {
   }
 
   let sheet = null;
+  let sheetId = null;
   if (sheetOrId && typeof sheetOrId === 'object') {
-    const id = (sheetOrId.sheetId != null && sheetOrId.sheetId !== '')
+    sheetId = (sheetOrId.sheetId != null && sheetOrId.sheetId !== '')
       ? sheetOrId.sheetId
       : sheetOrId.id;
     const urlHint = sheetOrId.pdfUrl || sheetOrId.pdf_url || '';
-    sheet = id != null && id !== ''
-      ? resolveSheet(id, sheetOrId)
+    sheet = sheetId != null && sheetId !== ''
+      ? resolveSheet(sheetId, sheetOrId)
       : Object.assign({}, sheetOrId);
     if (urlHint && !(sheet.pdfUrl || sheet.pdf_url)) {
       sheet = Object.assign({}, sheet, { pdfUrl: urlHint });
     }
   } else if (sheetOrId != null && sheetOrId !== '') {
+    sheetId = sheetOrId;
     sheet = resolveSheet(sheetOrId);
   }
+  if (sheetId == null && sheet) sheetId = sheet.id;
 
   const title = String(opts.title || (sheet && sheet.title) || '악보').trim() || '악보';
-  const url = (sheet && (sheet.pdfUrl || sheet.pdf_url)) || '';
-  if (!url) {
-    toast('「' + title + '」 PDF가 없어요');
-    return;
-  }
-
   const filename = pdfFileName(title);
   const mobile = isLikelyMobile();
   pdfDownloadBusy = true;
   toast('「' + title + '」 다운로드 준비 중…', 4000);
 
   try {
+    let url = '';
+    const live = window.ChodrumAPI && ChodrumAPI.isLive && ChodrumAPI.isLive();
+    if (live && ChodrumAPI.downloads && typeof ChodrumAPI.downloads.signedPdfUrl === 'function') {
+      const signed = await ChodrumAPI.downloads.signedPdfUrl({
+        sheetId: sheetId,
+        email: opts.email || null,
+        orderNo: opts.orderNo || null,
+      });
+      url = signed && signed.url;
+    } else {
+      url = (sheet && (sheet.pdfUrl || sheet.pdf_url)) || '';
+    }
+    if (!url) {
+      toast('「' + title + '」 PDF가 없어요');
+      return;
+    }
+
     const res = await fetch(url, { mode: 'cors', credentials: 'omit' });
     if (!res.ok) throw new Error('HTTP ' + res.status);
     const blob = asPdfBlob(await res.blob());
@@ -966,7 +979,7 @@ async function downloadSheetPdf(sheetOrId, opts) {
     toast('「' + title + '」 다운로드를 시작했어요', 2500);
   } catch (e) {
     console.warn('[CHODRUM] PDF download failed', e);
-    toast('PDF 다운로드에 실패했어요. 네트워크를 확인해 주세요.', 3000);
+    toast((e && e.message) || 'PDF 다운로드에 실패했어요. 네트워크를 확인해 주세요.', 3500);
   } finally {
     pdfDownloadBusy = false;
   }
