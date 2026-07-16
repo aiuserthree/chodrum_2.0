@@ -14,9 +14,18 @@ function resolveBannerHref(link) {
     const q = s.indexOf('?');
     return F.PAGES.list + (q >= 0 ? s.slice(q) : '');
   }
+  if (/^\/?sheets\//i.test(s)) {
+    return s.replace(/^\//, '');
+  }
   if (/^\/?detail/i.test(s)) {
     const q = s.indexOf('?');
-    return F.PAGES.detail + (q >= 0 ? s.slice(q) : '');
+    const query = q >= 0 ? s.slice(q) : '';
+    const idMatch = query.match(/[?&]id=([^&]+)/);
+    if (idMatch && idMatch[1] && D.byId) {
+      const sheet = D.byId(decodeURIComponent(idMatch[1]));
+      if (sheet) return F.sheetUrl(sheet);
+    }
+    return F.PAGES.detailLegacy + query;
   }
   if (/\.html/i.test(s)) return s.replace(/^\//, '');
   return s.replace(/^\//, '');
@@ -30,7 +39,7 @@ function bannerHref(b) {
   if (!b) return null;
   const sheet = b.sheetId ? D.byId(b.sheetId) : null;
   return sheet
-    ? (F.PAGES.detail + '?id=' + encodeURIComponent(sheet.id))
+    ? F.sheetUrl(sheet)
     : resolveBannerHref(b.link);
 }
 
@@ -385,7 +394,7 @@ function HomePage() {
       {/* 추천 배너 (BO 설정 큐레이션 · home_promo) */}
       {bannerSheet ? (
       <section style={{ marginTop: 24 }}>
-        <Card interactive padding={0} onClick={() => location.href = F.PAGES.detail + '?id=' + bannerSheet.id} style={{ overflow: 'hidden' }}>
+        <Card interactive padding={0} onClick={() => location.href = F.sheetUrl(bannerSheet)} style={{ overflow: 'hidden' }}>
           <div style={{ display: 'flex', alignItems: 'stretch' }}>
             <div style={{ flex: 1, padding: '22px 20px', display: 'flex', flexDirection: 'column', gap: 8, justifyContent: 'center' }}>
               <span className="ds-mono" style={{ fontSize: 11, letterSpacing: '1.2px', textTransform: 'uppercase', color: 'var(--text-tertiary)' }}>{D.banner.label}</span>

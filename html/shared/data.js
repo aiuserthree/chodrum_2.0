@@ -41,6 +41,10 @@ window.DrumData.byId = function (id) {
   var key = id == null ? '' : String(id);
   return window.DrumData.sheets.find(function (s) { return String(s.id) === key; });
 };
+window.DrumData.bySlug = function (slug) {
+  var key = slug == null ? '' : String(slug);
+  return window.DrumData.sheets.find(function (s) { return String(s.slug) === key; });
+};
 window.DrumData.visibleSheets = function () {
   return window.DrumData.sheets.filter(function (s) {
     var st = s.status || (window.AdminData && window.AdminData.sheetStatus && window.AdminData.sheetStatus[s.id]) || '판매중';

@@ -42,6 +42,15 @@
           "value": "public, max-age=604800, stale-while-revalidate=2592000"
         }
       ]
+    },
+    {
+      "source": "/_seo/:path*",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=3600, stale-while-revalidate=86400"
+        }
+      ]
     }
   ],
   "redirects": [
@@ -72,6 +81,10 @@
     }
   ],
   "rewrites": [
+    {
+      "source": "/sheets/:slug",
+      "destination": "/fo/FO-03-sheet-detail.html"
+    },
     {
       "source": "/sheets",
       "destination": "/fo/FO-02-sheet-list.html"

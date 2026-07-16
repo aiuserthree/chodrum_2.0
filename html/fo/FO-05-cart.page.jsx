@@ -60,14 +60,14 @@ function CartPage() {
               return (
                 <div key={it.id} style={{ display: 'flex', gap: 10, padding: '16px 0', borderTop: i ? '1px solid var(--border-default)' : 'none', alignItems: 'flex-start', opacity: it.missing ? 0.7 : 1 }}>
                   <div style={{ paddingTop: 22 }}><Checkbox checked={sel.includes(it.id)} onChange={(on) => setSel(on ? [...sel, it.id] : sel.filter((x) => x !== it.id))} /></div>
-                  <a href={it.missing ? undefined : (F.PAGES.detail + '?id=' + it.id)} style={{ width: 56, flex: 'none', borderRadius: 8, overflow: 'hidden', border: '1px solid var(--border-default)', pointerEvents: it.missing ? 'none' : undefined }}>
+                  <a href={it.missing ? undefined : F.sheetUrl(it)} style={{ width: 56, flex: 'none', borderRadius: 8, overflow: 'hidden', border: '1px solid var(--border-default)', pointerEvents: it.missing ? 'none' : undefined }}>
                     <F.StaffThumb ratio="1 / 1" size={18} src={cover || undefined} alt={it.title} watermark={cover ? 'light' : false} />
                   </a>
                   <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 6 }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8 }}>
                       {it.missing
                         ? <span style={{ fontSize: 14, fontWeight: 600, letterSpacing: '-0.3px', color: 'var(--text-secondary)' }}>{it.title}</span>
-                        : <a href={F.PAGES.detail + '?id=' + it.id} style={{ fontSize: 14, fontWeight: 600, letterSpacing: '-0.3px' }}>{it.title}</a>}
+                        : <a href={F.sheetUrl(it)} style={{ fontSize: 14, fontWeight: 600, letterSpacing: '-0.3px' }}>{it.title}</a>}
                       <IconButton name="x" variant="ghost" size="sm" label="삭제" onClick={() => { Store.cart.remove(it.id); F.toast('장바구니에서 삭제했어요'); }} />
                     </div>
                     <span style={{ fontSize: 12, color: 'var(--text-secondary)' }}>{it.artist} · {it.level} · PDF</span>

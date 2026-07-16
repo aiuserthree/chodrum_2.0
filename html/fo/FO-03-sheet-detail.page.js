@@ -47,8 +47,13 @@
     if (!s) return "";
     return String(s.youtubeUrl || s.youtube_url || "").trim();
   }
+  function sheetSlugFromPath() {
+    const m = location.pathname.match(/^\/sheets\/([^/]+)\/?$/);
+    return m ? decodeURIComponent(m[1]) : null;
+  }
   function DetailPage() {
-    const id = F.qp("id") || "s1";
+    const slugPath = sheetSlugFromPath();
+    const idFromQuery = F.qp("id");
     const [, bump] = React.useState(0);
     F.useStoreTick();
     React.useEffect(() => {
@@ -56,7 +61,20 @@
       window.addEventListener("chodrum:ready", onReady);
       return () => window.removeEventListener("chodrum:ready", onReady);
     }, []);
-    const s = D.byId(id);
+    let s = null;
+    if (slugPath && typeof D.bySlug === "function") {
+      s = D.bySlug(slugPath);
+    } else if (idFromQuery) {
+      s = D.byId(idFromQuery);
+    }
+    React.useEffect(() => {
+      if (!idFromQuery || slugPath || !s || !s.slug) return;
+      const next = F.sheetUrl(s);
+      const cur = location.pathname + location.search;
+      if (next && cur !== next) {
+        history.replaceState(null, "", next);
+      }
+    }, [idFromQuery, slugPath, s && s.slug, s && s.id]);
     const [cartAsk, setCartAsk] = React.useState(false);
     const [cartMsg, setCartMsg] = React.useState("\uC7A5\uBC14\uAD6C\uB2C8\uC5D0 \uB2F4\uC558\uC5B4\uC694");
     if (!s) {

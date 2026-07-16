@@ -7,7 +7,8 @@ const DATA = window.DrumData;
 const PAGES = {
   home: '/home',
   list: '/sheets',
-  detail: '/sheet',
+  detail: '/sheets',
+  detailLegacy: '/sheet',
   wish: '/wishlist',
   cart: '/cart',
   checkout: '/checkout',
@@ -33,6 +34,13 @@ const PAGES = {
 
 const won = (v) => '₩' + Number(v).toLocaleString('ko-KR');
 const qp = (name) => new URLSearchParams(location.search).get(name);
+/** Canonical sheet detail URL: /sheets/{slug} */
+function sheetUrl(s) {
+  if (!s) return PAGES.list;
+  const slug = String((s.slug || s.id || '')).trim();
+  if (!slug) return PAGES.detailLegacy + '?id=' + encodeURIComponent(s.id || '');
+  return PAGES.detail + '/' + encodeURIComponent(slug);
+}
 const goBack = (fallback) => { if (history.length > 1 && document.referrer) history.back(); else location.href = fallback || PAGES.home; };
 
 function toast(msg, ms) {
@@ -653,7 +661,7 @@ function FavButton({ id, size = 'sm' }) {
 function SheetCard({ s }) {
   const cover = sheetCoverUrl(s);
   return (
-    <Card interactive padding={0} onClick={() => location.href = PAGES.detail + '?id=' + s.id} style={{ overflow: 'hidden' }}>
+    <Card interactive padding={0} onClick={() => location.href = sheetUrl(s)} style={{ overflow: 'hidden' }}>
       <div style={{ position: 'relative' }}>
         <StaffThumb src={cover || undefined} alt={s.title} watermark={cover ? 'light' : false} />
         <div style={{ position: 'absolute', top: 8, left: 8, display: 'flex', gap: 4, zIndex: 4 }}>
@@ -681,7 +689,7 @@ function SheetCard({ s }) {
 function SheetRow({ s, right, sub, href }) {
   const sheet = s && typeof s === 'object' ? s : { id: '', title: '악보', artist: '—', genre: '' };
   const title = sheet.title || '악보';
-  const open = href === null ? undefined : () => location.href = href || (PAGES.detail + '?id=' + sheet.id);
+  const open = href === null ? undefined : () => location.href = href || sheetUrl(sheet);
   const cover = sheetCoverUrl(sheet);
   return (
     <div style={{ display: 'flex', gap: 12, padding: '14px 0', alignItems: 'center' }}>
@@ -1048,4 +1056,4 @@ function LegalTermRow({ checked, onChange, label, kind, onView }) {
   );
 }
 
-window.FO = { PAGES, won, qp, goBack, toast, useStoreTick, loadPurchases, Money, Stars, StaffThumb, sheetCoverUrl, DdayBadge, Header, TabBar, Footer, Scaffold, isSocialUser, MyPageNav, MyPageLayout, FavButton, SheetCard, SheetRow, SectionHeader, Section, KV, Empty, PayOption, Dialog, CartAddedDialog, resolveSheet, lineTitle, downloadSheetPdf, pdfFileName, MISSING_SHEET_TITLE, legalDoc, legalVer, LegalDocBody, LegalTermRow };
+window.FO = { PAGES, won, qp, sheetUrl, goBack, toast, useStoreTick, loadPurchases, Money, Stars, StaffThumb, sheetCoverUrl, DdayBadge, Header, TabBar, Footer, Scaffold, isSocialUser, MyPageNav, MyPageLayout, FavButton, SheetCard, SheetRow, SectionHeader, Section, KV, Empty, PayOption, Dialog, CartAddedDialog, resolveSheet, lineTitle, downloadSheetPdf, pdfFileName, MISSING_SHEET_TITLE, legalDoc, legalVer, LegalDocBody, LegalTermRow };

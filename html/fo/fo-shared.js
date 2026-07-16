@@ -5,7 +5,8 @@
   const PAGES = {
     home: "/home",
     list: "/sheets",
-    detail: "/sheet",
+    detail: "/sheets",
+    detailLegacy: "/sheet",
     wish: "/wishlist",
     cart: "/cart",
     checkout: "/checkout",
@@ -30,6 +31,12 @@
   };
   const won = (v) => "\u20A9" + Number(v).toLocaleString("ko-KR");
   const qp = (name) => new URLSearchParams(location.search).get(name);
+  function sheetUrl(s) {
+    if (!s) return PAGES.list;
+    const slug = String(s.slug || s.id || "").trim();
+    if (!slug) return PAGES.detailLegacy + "?id=" + encodeURIComponent(s.id || "");
+    return PAGES.detail + "/" + encodeURIComponent(slug);
+  }
   const goBack = (fallback) => {
     if (history.length > 1 && document.referrer) history.back();
     else location.href = fallback || PAGES.home;
@@ -460,12 +467,12 @@
   }
   function SheetCard({ s }) {
     const cover = sheetCoverUrl(s);
-    return /* @__PURE__ */ React.createElement(Card, { interactive: true, padding: 0, onClick: () => location.href = PAGES.detail + "?id=" + s.id, style: { overflow: "hidden" } }, /* @__PURE__ */ React.createElement("div", { style: { position: "relative" } }, /* @__PURE__ */ React.createElement(StaffThumb, { src: cover || void 0, alt: s.title, watermark: cover ? "light" : false }), /* @__PURE__ */ React.createElement("div", { style: { position: "absolute", top: 8, left: 8, display: "flex", gap: 4, zIndex: 4 } }, s.popular ? /* @__PURE__ */ React.createElement(Badge, { variant: "solid", size: "sm" }, "\uC778\uAE30") : null, s.isNew ? /* @__PURE__ */ React.createElement(Badge, { variant: "solid", size: "sm" }, "NEW") : null), /* @__PURE__ */ React.createElement("span", { style: { position: "absolute", top: 6, right: 6, zIndex: 4 }, onClick: (e) => e.stopPropagation() }, /* @__PURE__ */ React.createElement(FavButton, { id: s.id }))), /* @__PURE__ */ React.createElement("div", { style: { padding: "10px 12px 12px", display: "flex", flexDirection: "column", gap: 5 } }, /* @__PURE__ */ React.createElement("div", { style: { fontSize: 14, fontWeight: 600, letterSpacing: "-0.3px", lineHeight: 1.3, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, s.title), /* @__PURE__ */ React.createElement("div", { style: { fontSize: 12, color: "var(--text-secondary)" } }, s.artist), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 4, marginTop: 1 } }, /* @__PURE__ */ React.createElement(Badge, { variant: "outline", size: "sm" }, s.level), /* @__PURE__ */ React.createElement(Badge, { variant: "neutral", size: "sm" }, s.genre)), /* @__PURE__ */ React.createElement("div", { style: { marginTop: 3, display: "flex", alignItems: "baseline", gap: 6 } }, /* @__PURE__ */ React.createElement(Money, { value: s.price, size: 16 }), s.orig ? /* @__PURE__ */ React.createElement(Money, { value: s.orig, size: 12, strike: true }) : null)));
+    return /* @__PURE__ */ React.createElement(Card, { interactive: true, padding: 0, onClick: () => location.href = sheetUrl(s), style: { overflow: "hidden" } }, /* @__PURE__ */ React.createElement("div", { style: { position: "relative" } }, /* @__PURE__ */ React.createElement(StaffThumb, { src: cover || void 0, alt: s.title, watermark: cover ? "light" : false }), /* @__PURE__ */ React.createElement("div", { style: { position: "absolute", top: 8, left: 8, display: "flex", gap: 4, zIndex: 4 } }, s.popular ? /* @__PURE__ */ React.createElement(Badge, { variant: "solid", size: "sm" }, "\uC778\uAE30") : null, s.isNew ? /* @__PURE__ */ React.createElement(Badge, { variant: "solid", size: "sm" }, "NEW") : null), /* @__PURE__ */ React.createElement("span", { style: { position: "absolute", top: 6, right: 6, zIndex: 4 }, onClick: (e) => e.stopPropagation() }, /* @__PURE__ */ React.createElement(FavButton, { id: s.id }))), /* @__PURE__ */ React.createElement("div", { style: { padding: "10px 12px 12px", display: "flex", flexDirection: "column", gap: 5 } }, /* @__PURE__ */ React.createElement("div", { style: { fontSize: 14, fontWeight: 600, letterSpacing: "-0.3px", lineHeight: 1.3, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, s.title), /* @__PURE__ */ React.createElement("div", { style: { fontSize: 12, color: "var(--text-secondary)" } }, s.artist), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 4, marginTop: 1 } }, /* @__PURE__ */ React.createElement(Badge, { variant: "outline", size: "sm" }, s.level), /* @__PURE__ */ React.createElement(Badge, { variant: "neutral", size: "sm" }, s.genre)), /* @__PURE__ */ React.createElement("div", { style: { marginTop: 3, display: "flex", alignItems: "baseline", gap: 6 } }, /* @__PURE__ */ React.createElement(Money, { value: s.price, size: 16 }), s.orig ? /* @__PURE__ */ React.createElement(Money, { value: s.orig, size: 12, strike: true }) : null)));
   }
   function SheetRow({ s, right, sub, href }) {
     const sheet = s && typeof s === "object" ? s : { id: "", title: "\uC545\uBCF4", artist: "\u2014", genre: "" };
     const title = sheet.title || "\uC545\uBCF4";
-    const open = href === null ? void 0 : () => location.href = href || PAGES.detail + "?id=" + sheet.id;
+    const open = href === null ? void 0 : () => location.href = href || sheetUrl(sheet);
     const cover = sheetCoverUrl(sheet);
     return /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 12, padding: "14px 0", alignItems: "center" } }, /* @__PURE__ */ React.createElement("div", { onClick: open, style: { width: 56, flex: "none", borderRadius: 8, overflow: "hidden", border: "1px solid var(--border-default)", cursor: open ? "pointer" : "default" } }, /* @__PURE__ */ React.createElement(StaffThumb, { ratio: "1 / 1", size: 20, src: cover || void 0, alt: title, watermark: cover ? "light" : false })), /* @__PURE__ */ React.createElement("div", { onClick: open, style: { flex: 1, minWidth: 0, display: "flex", flexDirection: "column", gap: 3, cursor: open ? "pointer" : "default" } }, /* @__PURE__ */ React.createElement("div", { style: { fontSize: 14, fontWeight: 600, letterSpacing: "-0.3px", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" } }, title), sub !== void 0 ? sub : /* @__PURE__ */ React.createElement("div", { style: { fontSize: 12, color: "var(--text-secondary)" } }, sheet.artist || "\u2014", " \xB7 ", sheet.genre || "")), right);
   }
@@ -716,5 +723,5 @@
       "\uBCF4\uAE30"
     ) : null);
   }
-  window.FO = { PAGES, won, qp, goBack, toast, useStoreTick, loadPurchases, Money, Stars, StaffThumb, sheetCoverUrl, DdayBadge, Header, TabBar, Footer, Scaffold, isSocialUser, MyPageNav, MyPageLayout, FavButton, SheetCard, SheetRow, SectionHeader, Section, KV, Empty, PayOption, Dialog, CartAddedDialog, resolveSheet, lineTitle, downloadSheetPdf, pdfFileName, MISSING_SHEET_TITLE, legalDoc, legalVer, LegalDocBody, LegalTermRow };
+  window.FO = { PAGES, won, qp, sheetUrl, goBack, toast, useStoreTick, loadPurchases, Money, Stars, StaffThumb, sheetCoverUrl, DdayBadge, Header, TabBar, Footer, Scaffold, isSocialUser, MyPageNav, MyPageLayout, FavButton, SheetCard, SheetRow, SectionHeader, Section, KV, Empty, PayOption, Dialog, CartAddedDialog, resolveSheet, lineTitle, downloadSheetPdf, pdfFileName, MISSING_SHEET_TITLE, legalDoc, legalVer, LegalDocBody, LegalTermRow };
 })();

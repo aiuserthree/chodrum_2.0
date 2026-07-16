@@ -199,6 +199,10 @@
       previewUrl: previewUrls[0] || '',
       previewUrls: previewUrls,
       youtubeUrl: row.youtube_url || row.youtubeUrl || '',
+      slug: row.slug || '',
+      seoTitle: row.seo_title || row.seoTitle || '',
+      seoDescription: row.seo_description || row.seoDescription || '',
+      ogImagePath: row.og_image_path || row.ogImagePath || '',
     };
   }
 
@@ -585,6 +589,10 @@
         var key = id == null ? '' : String(id);
         return D.sheets.find(function (s) { return String(s.id) === key; });
       };
+      D.bySlug = function (slug) {
+        var key = slug == null ? '' : String(slug);
+        return D.sheets.find(function (s) { return String(s.slug) === key; });
+      };
       D.visibleSheets = function () {
         return D.sheets.filter(function (s) { return s.status === '판매중'; });
       };
@@ -641,6 +649,10 @@
     D.byId = function (id) {
       var key = id == null ? '' : String(id);
       return D.sheets.find(function (s) { return String(s.id) === key; });
+    };
+    D.bySlug = function (slug) {
+      var key = slug == null ? '' : String(slug);
+      return D.sheets.find(function (s) { return String(s.slug) === key; });
     };
     D.visibleSheets = function () {
       return D.sheets.filter(function (s) { return s.status === '판매중'; });

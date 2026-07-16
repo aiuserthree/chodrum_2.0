@@ -2,7 +2,8 @@
   "name": "chodrum-2",
   "private": true,
   "scripts": {
-    "build": "node scripts/build-jsx.mjs",
+    "build": "node scripts/build-jsx.mjs && node scripts/generate-id-slug-map.mjs",
+    "build:seo-map": "node scripts/generate-id-slug-map.mjs",
     "build:watch": "node scripts/build-jsx.mjs --watch"
   },
   "devDependencies": {
