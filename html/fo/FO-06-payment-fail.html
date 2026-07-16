@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="referrer" content="strict-origin-when-cross-origin">
+<title>CHODRUM — 결제 실패</title>
+<link rel="stylesheet" href="../_ds/drum-sheet-store-design-system-3a2462a0-2443-475e-a3b6-f7937913eb0b/tokens/colors.css">
+<link rel="stylesheet" href="../_ds/drum-sheet-store-design-system-3a2462a0-2443-475e-a3b6-f7937913eb0b/tokens/typography.css">
+<link rel="stylesheet" href="../_ds/drum-sheet-store-design-system-3a2462a0-2443-475e-a3b6-f7937913eb0b/tokens/spacing.css">
+<link rel="stylesheet" href="../_ds/drum-sheet-store-design-system-3a2462a0-2443-475e-a3b6-f7937913eb0b/tokens/radius.css">
+<link rel="stylesheet" href="../_ds/drum-sheet-store-design-system-3a2462a0-2443-475e-a3b6-f7937913eb0b/tokens/elevation.css">
+<link rel="stylesheet" href="../_ds/drum-sheet-store-design-system-3a2462a0-2443-475e-a3b6-f7937913eb0b/tokens/base.css">
+<link rel="stylesheet" href="../_ds/drum-sheet-store-design-system-3a2462a0-2443-475e-a3b6-f7937913eb0b/styles.css">
+<link rel="stylesheet" href="../shared/fo.css">
+</head>
+<body class="fo-body">
+<div id="app" style="min-height:60vh;display:flex;align-items:center;justify-content:center;padding:40px 20px;text-align:center;"></div>
+<script src="../shared/store.js"></script>
+<script src="../shared/config.js"></script>
+<script src="../shared/toss-payments.js"></script>
+<script>
+(function () {
+  var q = new URLSearchParams(location.search);
+  var info = window.ChodrumPayments.handleFail({
+    code: q.get('code') || '',
+    message: q.get('message') || '',
+    orderId: q.get('orderId') || '',
+  });
+
+  var canceled = /CANCEL|USER_CANCEL|PAY_PROCESS_CANCELED/i.test(info.code);
+  var title = canceled ? '결제를 취소했어요' : '결제에 실패했어요';
+  var sub = canceled
+    ? '장바구니는 그대로 유지돼요. 다시 결제를 진행할 수 있어요.'
+    : (info.message || '잠시 후 다시 시도해주세요. 장바구니는 그대로 유지돼요.');
+
+  var app = document.getElementById('app');
+  app.innerHTML =
+    '<div style="max-width:400px">' +
+    '<div style="width:56px;height:56px;border-radius:9999px;background:var(--status-warning-bg,#fff7e6);color:var(--status-warning,#b45309);display:inline-flex;align-items:center;justify-content:center;font-size:22px;font-weight:600;margin-bottom:14px">!</div>' +
+    '<div style="font-size:18px;font-weight:600;letter-spacing:-0.4px">' + title + '</div>' +
+    '<p class="fo-caption" style="margin-top:10px;line-height:1.55">' + sub + '</p>' +
+    (info.code
+      ? '<p class="ds-mono" style="margin-top:12px;font-size:11.5px;color:var(--text-secondary)">' +
+        info.code +
+        (info.orderId ? ' · ' + info.orderId : '') +
+        '</p>'
+      : '') +
+    '<div style="margin-top:28px;display:flex;flex-direction:column;gap:10px">' +
+    '<a href="/checkout" style="display:flex;align-items:center;justify-content:center;height:48px;border-radius:10px;background:var(--color-ink,#171717);color:#fff;font-size:15px;font-weight:600;text-decoration:none">다시 결제하기</a>' +
+    '<a href="/cart" style="display:flex;align-items:center;justify-content:center;height:44px;border-radius:10px;border:1px solid var(--border-default,#eaeaea);color:var(--text-primary);font-size:14px;font-weight:500;text-decoration:none">장바구니로</a>' +
+    '</div></div>';
+})();
+</script>
+</body>
+</html>

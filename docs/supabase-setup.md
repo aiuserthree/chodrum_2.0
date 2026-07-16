@@ -18,6 +18,8 @@
    - `supabase/migrations/008_banner_mobile_image.sql` (배너 모바일 이미지 `image_url_mobile`)
    - `supabase/migrations/009_member_provider_identity.sql` (**필수** · 카카오/네이버 동일 이메일이어도 회원·약관 분리)
    - `supabase/migrations/010_member_birth.sql` (회원 생년월일 `birth` · 내정보수정/아이디찾기)
+   - `supabase/migrations/011_order_provider_identity.sql` (**필수** · 주문/다운로드도 auth_user_id·auth_provider로 분리 — 동일 이메일이어도 구매내역 공유 안 함)
+   - `supabase/migrations/012_order_multi_provider_email_fix.sql` (**필수 if 동일 이메일로 이메일+카카오+네이버 병행** · null/잘못된 주문을 이메일 회원에만 귀속)
 3. **Project Settings → API**에서 복사:
    - Project URL
    - `anon` `public` key
@@ -34,12 +36,15 @@ window.CHODRUM_CONFIG = {
   KAKAO_OAUTH_MODE: 'bridge',    // 'bridge' | 'supabase'
   NAVER_CLIENT_ID: '',           // 네이버 Developers Client ID (공개)
   NAVER_OAUTH_MODE: 'bridge',    // 'bridge' | 'custom'
+  TOSS_CLIENT_KEY: '',           // 토스페이먼츠 Client Key (공개 · 테스트키 가능)
+  TOSS_MODE: 'auto',             // 'auto' | 'demo' | 'live'
+  TOSS_CONFIRM_URL: '',          // Edge Function toss-confirm URL (선택)
 };
 ```
 
 참고용 템플릿: 루트 `.env.example`
 
-**주의:** `service_role` 키는 HTML에 넣지 마세요.
+**주의:** `service_role` 키와 토스 **Secret Key** 는 HTML에 넣지 마세요.
 
 ## 3. 연결된 데이터 흐름
 
@@ -198,6 +203,10 @@ supabase functions deploy kakao-auth --no-verify-jwt
 카카오/네이버 각각 `kakao_id` / `naver_id` 기준이며, 약관 동의도 provider·`auth_user_id` 단위입니다.
 `009_member_provider_identity.sql` 적용 후 Edge Function을 재배포하세요.
 
+**구매내역도 provider 분리:** 동일 이메일로 이메일·카카오·네이버를 모두 쓰는 경우
+`011` + `012_order_multi_provider_email_fix.sql` 을 SQL Editor에서 실행하세요.
+null/`auth_provider` 없는 회원 주문은 **이메일 회원에만** 귀속되고, 카카오/네이버 로그인에서는 보이지 않습니다.
+
 #### D. (선택) Supabase 기본 Kakao Provider
 
 1. Kakao Redirect URI에 `https://<REF>.supabase.co/auth/v1/callback` 추가
@@ -329,6 +338,21 @@ BO 배너 관리(`BO-08-main-banners.html`)에서 이미지 업로드 시:
 4. FO 상세 — 미리보기 1–2장 + 워터마크 확인
 5. FO 결제 → BO 주문 반영
 6. `ChodrumAPI.mode === 'live'` 이면 Supabase 연결됨
+
+## 7-b. 토스페이먼츠(PG) 결제
+
+FO 체크아웃(`/checkout`)은 **토스페이먼츠** 결제창을 사용합니다.
+
+1. [토스페이먼츠 개발자센터](https://developers.tosspayments.com)에서 Client Key / Secret Key 발급
+2. `html/shared/config.js`에 `TOSS_CLIENT_KEY` 설정 (비우면 로컬 **데모 결제창**)
+3. (권장) 승인용 Edge Function 배포:
+   ```bash
+   supabase secrets set TOSS_SECRET_KEY=test_sk_...
+   supabase functions deploy toss-confirm --no-verify-jwt
+   ```
+4. `TOSS_CONFIRM_URL`에 `https://<REF>.supabase.co/functions/v1/toss-confirm` 설정
+
+성공/실패 콜백: `/payment/success`, `/payment/fail` → 완료 시 `/order-complete`
 
 ## 8. 보안 (데모 한계)
 

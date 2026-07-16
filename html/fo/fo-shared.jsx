@@ -12,6 +12,8 @@ const PAGES = {
   cart: '/cart',
   checkout: '/checkout',
   complete: '/order-complete',
+  paymentSuccess: '/payment/success',
+  paymentFail: '/payment/fail',
   login: '/login',
   signup: '/signup',
   authCallback: '/fo/FO-08-auth-callback.html',
@@ -52,16 +54,50 @@ function useStoreTick() {
   }, []);
 }
 
-/** 회원 구매내역 — live면 Supabase orders(BO와 동일), 아니면 localStorage */
-async function loadPurchases(email) {
+/** 회원 구매내역 — live면 identity-scoped Supabase orders, 아니면 identity-filtered localStorage */
+async function loadPurchases(emailOrUser, opts) {
   const empty = [];
-  if (!email) return empty;
+  let email = '';
+  let authUserId = null;
+  let provider = null;
+  let fromOAuth = false;
+  let type = null;
+  if (emailOrUser && typeof emailOrUser === 'object') {
+    email = emailOrUser.email || '';
+    authUserId = emailOrUser.authId || emailOrUser.auth_user_id || null;
+    provider = emailOrUser.provider || emailOrUser.auth_provider || null;
+    fromOAuth = emailOrUser.fromOAuth === true;
+    type = emailOrUser.type || null;
+  } else {
+    email = emailOrUser || '';
+    opts = opts || {};
+    authUserId = opts.authUserId || opts.auth_user_id || null;
+    provider = opts.provider || opts.auth_provider || null;
+    fromOAuth = opts.fromOAuth === true;
+    type = opts.type || null;
+  }
+  const isSocial =
+    fromOAuth ||
+    type === 'social' ||
+    (!!provider && provider !== 'email' && provider !== 'email_password');
+  /* Social must never default provider to email — that reopens cross-account leak */
+  if (isSocial && (!provider || provider === 'email')) {
+    console.warn('[CHODRUM] loadPurchases: social user missing provider');
+    if (Store.purchases && typeof Store.purchases.replace === 'function') Store.purchases.replace([]);
+    return empty;
+  }
+  if (!email && !authUserId) return empty;
   try {
     if (window.ChodrumAPI && ChodrumAPI.ready) await ChodrumAPI.ready;
   } catch (e) { /* ignore */ }
   if (window.ChodrumAPI && ChodrumAPI.orders && typeof ChodrumAPI.orders.purchasesForEmail === 'function') {
     try {
-      const list = await ChodrumAPI.orders.purchasesForEmail(email);
+      const list = await ChodrumAPI.orders.purchasesForEmail(email, {
+        authUserId,
+        provider: isSocial ? provider : (provider || 'email'),
+        fromOAuth,
+        type: type || (isSocial ? 'social' : 'email'),
+      });
       if (Array.isArray(list) && Store.purchases && typeof Store.purchases.replace === 'function') {
         Store.purchases.replace(list.map((p) => ({
           id: p.id || p.sheetId,
@@ -69,17 +105,37 @@ async function loadPurchases(email) {
           title: p.title || '',
           orderNo: p.orderNo,
           paidAt: p.paidAt || Date.now(),
+          authUserId: authUserId || null,
+          provider: isSocial ? provider : (provider || 'email'),
         })));
       }
       return Array.isArray(list) ? list : empty;
     } catch (e) {
       console.warn('[CHODRUM] loadPurchases', e);
+      /* Do not fall back to another account's cached purchases */
+      if (isSocial) {
+        if (Store.purchases && typeof Store.purchases.replace === 'function') Store.purchases.replace([]);
+        return empty;
+      }
     }
   }
   const raw = Store.purchases.list();
   if (!Array.isArray(raw)) return empty;
   const day = 86400000;
-  return raw.filter((p) => p && typeof p === 'object').map((p) => {
+  return raw.filter((p) => {
+    if (!p || typeof p !== 'object') return false;
+    const pUid = p.authUserId || p.auth_user_id || null;
+    const pProv = p.provider || p.auth_provider || null;
+    if (isSocial) {
+      if (authUserId && pUid && pUid !== authUserId) return false;
+      if (!pProv || pProv !== provider) return false;
+      return true;
+    }
+    if (pUid && authUserId && pUid !== authUserId) return false;
+    if (pProv && pProv !== 'email') return false;
+    /* Untagged cache rows: email login only */
+    return true;
+  }).map((p) => {
     const id = (p.sheetId != null && p.sheetId !== '') ? p.sheetId : p.id;
     const paidAt = Number(p.paidAt) || Date.now();
     return {

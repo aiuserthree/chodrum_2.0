@@ -562,6 +562,8 @@
           buyer: o.buyer_name,
           email: o.email,
           member: !!o.is_member,
+          authUserId: o.auth_user_id || null,
+          provider: o.auth_provider || null,
           items: (o.order_items || []).map(function (it) {
             return { id: it.sheet_id, qty: it.qty, price: it.price };
           }),
@@ -576,21 +578,25 @@
 
     var memRes = await client.from('members').select('*').order('joined_at', { ascending: false });
     if (!memRes.error) {
-      var orderCountByEmail = {};
+      var orderCountByIdentity = {};
       (A.orders || []).forEach(function (o) {
-        if (!o || !o.email) return;
-        var key = String(o.email).toLowerCase();
-        orderCountByEmail[key] = (orderCountByEmail[key] || 0) + 1;
+        if (!o || !o.email || !o.member) return;
+        var prov = o.provider || 'email';
+        var key = prov + '|' + String(o.email).toLowerCase();
+        orderCountByIdentity[key] = (orderCountByIdentity[key] || 0) + 1;
       });
       A.members = (memRes.data || []).map(function (m) {
-        var emailKey = String(m.email || '').toLowerCase();
+        var prov = normalizeMemberProvider(m.auth_provider || m.auth_type || 'email');
+        var emailKey = prov + '|' + String(m.email || '').toLowerCase();
         return {
           name: m.name,
           email: m.email,
           type: m.auth_type,
+          provider: prov,
+          authUserId: m.auth_user_id || null,
           birth: m.birth || '',
           joined: fmtJoined(m.joined_at),
-          orders: orderCountByEmail[emailKey] != null ? orderCountByEmail[emailKey] : (m.orders_count || 0),
+          orders: orderCountByIdentity[emailKey] != null ? orderCountByIdentity[emailKey] : (m.orders_count || 0),
           status: m.status,
         };
       });
@@ -783,14 +789,56 @@
   }
 
   /* -------- orders -------- */
+
+  function isMissingOrderIdentityColumn(err) {
+    if (!err) return false;
+    if (err.code === 'PGRST204') return true;
+    var msg = err.message || '';
+    return /auth_user_id|auth_provider/.test(msg);
+  }
+
+  function mapOrderRowsWithDownloads(orderRows, downloadRows) {
+    var byOrder = {};
+    (downloadRows || []).forEach(function (d) {
+      byOrder[d.order_no] = byOrder[d.order_no] || {};
+      byOrder[d.order_no][d.sheet_id] = d;
+    });
+    return (orderRows || []).map(function (o) {
+      return {
+        orderNo: o.order_no,
+        date: fmtOrderDate(o.created_at),
+        createdAt: o.created_at ? new Date(o.created_at).getTime() : Date.now(),
+        items: (o.order_items || []).map(function (it) {
+          var d = (byOrder[o.order_no] || {})[it.sheet_id];
+          var sheet = (window.DrumData && typeof window.DrumData.byId === 'function')
+            ? window.DrumData.byId(it.sheet_id)
+            : null;
+          return {
+            id: it.sheet_id,
+            sheetId: it.sheet_id,
+            title: (sheet && sheet.title) || '',
+            dday: d ? ddayFromExpires(d.expires_at, d.status) : 7,
+          };
+        }),
+      };
+    });
+  }
+
   async function createOrder(order) {
-    /* order: { no, buyer, email, member, method, status, total, items:[{id,qty,price}] } */
+    /* order: { no, buyer, email, member, method, status, total, items, authUserId?, provider? } */
+    var authUserId = order.authUserId || order.auth_user_id || null;
+    var authProvider = order.member
+      ? normalizeMemberProvider(order.auth_provider || order.provider || 'email')
+      : null;
+
     if (!live()) {
       window.AdminData.orders = [{
         no: order.no,
         buyer: order.buyer,
         email: order.email,
         member: !!order.member,
+        authUserId: authUserId,
+        provider: authProvider,
         items: order.items.map(function (it) { return { id: it.id, qty: it.qty, price: it.price }; }),
         method: order.method,
         status: order.status || '결제완료',
@@ -801,7 +849,7 @@
     }
 
     var client = sb();
-    var ordIns = await client.from('orders').insert({
+    var orderRow = {
       order_no: order.no,
       buyer_name: order.buyer,
       email: order.email,
@@ -809,7 +857,16 @@
       method: order.method,
       status: order.status || '결제완료',
       total: order.total || 0,
-    }).select().single();
+    };
+    if (order.member && authUserId) orderRow.auth_user_id = authUserId;
+    if (order.member && authProvider) orderRow.auth_provider = authProvider;
+
+    var ordIns = await client.from('orders').insert(orderRow).select().single();
+    if (ordIns.error && isMissingOrderIdentityColumn(ordIns.error)) {
+      delete orderRow.auth_user_id;
+      delete orderRow.auth_provider;
+      ordIns = await client.from('orders').insert(orderRow).select().single();
+    }
     if (ordIns.error) throw ordIns.error;
 
     var items = (order.items || []).map(function (it) {
@@ -827,7 +884,7 @@
 
     var expires = new Date(Date.now() + 7 * 86400000).toISOString();
     var dls = (order.items || []).map(function (it) {
-      return {
+      var row = {
         email: order.email,
         is_member: !!order.member,
         sheet_id: it.id,
@@ -835,22 +892,37 @@
         status: 'ACTIVE',
         expires_at: expires,
       };
+      if (order.member && authUserId) row.auth_user_id = authUserId;
+      if (order.member && authProvider) row.auth_provider = authProvider;
+      return row;
     });
     if (dls.length) {
       var dlIns = await client.from('downloads').insert(dls);
+      if (dlIns.error && isMissingOrderIdentityColumn(dlIns.error)) {
+        dls.forEach(function (row) {
+          delete row.auth_user_id;
+          delete row.auth_provider;
+        });
+        dlIns = await client.from('downloads').insert(dls);
+      }
       if (dlIns.error) console.warn('[CHODRUM] downloads insert', dlIns.error);
     }
 
     if (order.member && order.email) {
       try {
-        var mem = await getMemberByEmail(order.email, order.auth_provider || order.provider || null);
-        if (!mem) mem = await getMemberByEmail(order.email, 'email');
+        var mem = null;
+        if (authUserId) mem = await getMemberByAuthUserId(authUserId);
+        if (!mem) {
+          mem = await getMemberByEmail(order.email, authProvider || order.auth_provider || order.provider || null);
+        }
+        /* Do not fall back to another provider's member row (email ≠ Kakao ≠ Naver) */
         if (mem) {
           var countQ = client
             .from('members')
             .update({ orders_count: (mem.orders_count || 0) + 1 });
           if (mem.id) countQ = countQ.eq('id', mem.id);
-          else countQ = countQ.eq('email', mem.email);
+          else if (mem.auth_user_id) countQ = countQ.eq('auth_user_id', mem.auth_user_id);
+          else countQ = countQ.eq('email', mem.email).eq('auth_provider', mem.auth_provider || authProvider || 'email');
           await countQ;
         }
       } catch (e) {
@@ -877,6 +949,7 @@
     }
   }
 
+  /** Guest lookup (FO-10) — email only; guests have no auth identity */
   async function ordersForEmail(email) {
     email = (email || '').toLowerCase();
     if (!live()) {
@@ -887,57 +960,298 @@
       .from('orders')
       .select('order_no, created_at, order_items(sheet_id, qty)')
       .ilike('email', email)
+      .eq('is_member', false)
       .order('created_at', { ascending: false });
     if (o2.error) throw o2.error;
-    var dl = await client.from('downloads').select('*').ilike('email', email);
-    var byOrder = {};
-    (dl.data || []).forEach(function (d) {
-      byOrder[d.order_no] = byOrder[d.order_no] || {};
-      byOrder[d.order_no][d.sheet_id] = d;
-    });
-    return (o2.data || []).map(function (o) {
-      return {
-        orderNo: o.order_no,
-        date: fmtOrderDate(o.created_at),
-        createdAt: o.created_at ? new Date(o.created_at).getTime() : Date.now(),
-        items: (o.order_items || []).map(function (it) {
-          var d = (byOrder[o.order_no] || {})[it.sheet_id];
-          var sheet = (window.DrumData && typeof window.DrumData.byId === 'function')
-            ? window.DrumData.byId(it.sheet_id)
-            : null;
-          return {
-            id: it.sheet_id,
-            sheetId: it.sheet_id,
-            title: (sheet && sheet.title) || '',
-            dday: d ? ddayFromExpires(d.expires_at, d.status) : 7,
-          };
-        }),
-      };
-    });
+    var dl = await client.from('downloads').select('*').ilike('email', email).eq('is_member', false);
+    return mapOrderRowsWithDownloads(o2.data, dl.error ? [] : dl.data);
   }
 
-  /* FO 마이페이지용 — 주문+다운로드를 구매 행으로 펼침 (BO와 동일 DB 소스) */
-  async function purchasesForEmail(email) {
-    email = (email || '').toLowerCase();
-    if (!email) return [];
+  /**
+   * Member purchase history — identity-scoped.
+   *
+   * Rules (same contact email ≠ same buyer):
+   *  - auth_user_id match always wins when present
+   *  - Kakao/Naver/Google: NEVER claim email-provider or null-provider rows
+   *  - email-password: may also claim email/null-provider legacy for that email
+   *    (excluding rows already tagged to another auth_user_id)
+   */
+  async function ordersForMember(identity) {
+    identity = identity || {};
+    var email = (identity.email || '').toLowerCase();
+    var authUserId = identity.authUserId || identity.auth_user_id || null;
+    var provider = normalizeMemberProvider(
+      identity.provider || identity.auth_provider || identity.authProvider || 'email'
+    );
+    var isSocial =
+      identity.fromOAuth === true ||
+      identity.type === 'social' ||
+      (provider && provider !== 'email' && provider !== 'email_password');
+    if (isSocial && (provider === 'email' || provider === 'email_password')) {
+      /* Guard: social session must not fall into email legacy path */
+      provider = normalizeMemberProvider(
+        identity.provider || identity.auth_provider || identity.authProvider || 'social'
+      );
+      if (provider === 'email' || provider === 'social') {
+        console.warn('[CHODRUM] social identity missing provider — purchase history empty');
+        return [];
+      }
+    }
+    if (!email && !authUserId) return [];
+
+    if (!live()) {
+      return [];
+    }
+
+    var client = sb();
+    var selectCols = 'order_no, created_at, auth_user_id, auth_provider, order_items(sheet_id, qty)';
+    var byNo = {};
+    var identityColsMissing = false;
+
+    function orderBelongs(o) {
+      if (!o || !o.order_no) return false;
+      var rowProv = o.auth_provider
+        ? normalizeMemberProvider(o.auth_provider)
+        : null;
+      var rowUid = o.auth_user_id || null;
+
+      /* Another Auth user's order — never */
+      if (authUserId && rowUid && rowUid !== authUserId) return false;
+
+      if (authUserId && rowUid === authUserId) {
+        /* Own auth_user_id: social must not inherit mis-tagged email/null rows */
+        if (isSocial || provider !== 'email') {
+          if (!rowProv || rowProv === 'email') return false;
+          if (rowProv !== provider) return false;
+          return true;
+        }
+        /* Email account: reject rows tagged to a social provider */
+        if (rowProv && rowProv !== 'email') return false;
+        return true;
+      }
+
+      /* Untagged / provider-only rows */
+      if (provider === 'email' && !isSocial) {
+        if (rowUid && authUserId && rowUid !== authUserId) return false;
+        return !rowProv || rowProv === 'email';
+      }
+
+      /* Social: only exact provider, never null/email */
+      if (!rowProv || rowProv === 'email') return false;
+      return rowProv === provider;
+    }
+
+    function mergeRows(rows) {
+      (rows || []).forEach(function (o) {
+        if (orderBelongs(o)) byNo[o.order_no] = o;
+      });
+    }
+
+    /* 1) Primary: this Auth user only */
+    if (authUserId) {
+      var byId = await client
+        .from('orders')
+        .select(selectCols)
+        .eq('auth_user_id', authUserId)
+        .eq('is_member', true)
+        .order('created_at', { ascending: false });
+      if (byId.error && isMissingOrderIdentityColumn(byId.error)) {
+        identityColsMissing = true;
+      } else if (byId.error) {
+        throw byId.error;
+      } else {
+        mergeRows(byId.data);
+      }
+    }
+
+    if (!identityColsMissing && email) {
+      if (provider === 'email' && !isSocial) {
+        /* 2a) Email account: email-provider + null legacy (not another user's) */
+        var byEmailProv = await client
+          .from('orders')
+          .select(selectCols)
+          .ilike('email', email)
+          .eq('is_member', true)
+          .eq('auth_provider', 'email')
+          .order('created_at', { ascending: false });
+        if (byEmailProv.error && isMissingOrderIdentityColumn(byEmailProv.error)) {
+          identityColsMissing = true;
+        } else if (byEmailProv.error) {
+          throw byEmailProv.error;
+        } else {
+          mergeRows(byEmailProv.data);
+        }
+        if (!identityColsMissing) {
+          var legacy = await client
+            .from('orders')
+            .select(selectCols)
+            .ilike('email', email)
+            .eq('is_member', true)
+            .is('auth_provider', null)
+            .order('created_at', { ascending: false });
+          if (!legacy.error) mergeRows(legacy.data);
+        }
+      } else if (provider !== 'email') {
+        /*
+         * 2b) Social: only same-provider rows.
+         * Prefer untagged-null auth_user_id orphans for THIS provider only.
+         * Do NOT query auth_provider=email or null.
+         */
+        var bySocial = await client
+          .from('orders')
+          .select(selectCols)
+          .ilike('email', email)
+          .eq('is_member', true)
+          .eq('auth_provider', provider)
+          .order('created_at', { ascending: false });
+        if (bySocial.error && isMissingOrderIdentityColumn(bySocial.error)) {
+          identityColsMissing = true;
+        } else if (bySocial.error) {
+          throw bySocial.error;
+        } else {
+          mergeRows(bySocial.data);
+        }
+      }
+    }
+
+    if (identityColsMissing) {
+      /* migration 011 not applied — social must see nothing (would leak by email) */
+      if (provider !== 'email' || isSocial) {
+        console.warn('[CHODRUM] orders identity columns missing — social purchase history empty until 011');
+        return [];
+      }
+      var bare = await client
+        .from('orders')
+        .select('order_no, created_at, order_items(sheet_id, qty)')
+        .ilike('email', email)
+        .eq('is_member', true)
+        .order('created_at', { ascending: false });
+      if (bare.error) throw bare.error;
+      mergeRows(bare.data);
+    }
+
+    var orderRows = Object.keys(byNo).map(function (k) { return byNo[k]; });
+    orderRows.sort(function (a, b) {
+      return new Date(b.created_at || 0) - new Date(a.created_at || 0);
+    });
+
+    var dlRows = [];
+    var orderNos = orderRows.map(function (o) { return o.order_no; });
+    function mergeDl(rows) {
+      (rows || []).forEach(function (d) {
+        if (!d) return;
+        if (authUserId && d.auth_user_id && d.auth_user_id !== authUserId) return;
+        if (orderNos.length && d.order_no && orderNos.indexOf(d.order_no) === -1) {
+          /* only enrich downloads for already-accepted orders */
+          return;
+        }
+        dlRows.push(d);
+      });
+    }
+    if (authUserId && !identityColsMissing) {
+      var dlId = await client.from('downloads').select('*').eq('auth_user_id', authUserId);
+      if (!dlId.error) mergeDl(dlId.data);
+      else if (isMissingOrderIdentityColumn(dlId.error)) identityColsMissing = true;
+    }
+    if (!identityColsMissing && email && orderNos.length) {
+      if (provider === 'email' && !isSocial) {
+        var dlEmail = await client
+          .from('downloads')
+          .select('*')
+          .ilike('email', email)
+          .eq('auth_provider', 'email');
+        if (!dlEmail.error) mergeDl(dlEmail.data);
+        var dlLegacy = await client
+          .from('downloads')
+          .select('*')
+          .ilike('email', email)
+          .eq('is_member', true)
+          .is('auth_provider', null);
+        if (!dlLegacy.error) mergeDl(dlLegacy.data);
+      } else if (provider !== 'email') {
+        var dlSocial = await client
+          .from('downloads')
+          .select('*')
+          .ilike('email', email)
+          .eq('auth_provider', provider);
+        if (!dlSocial.error) mergeDl(dlSocial.data);
+      }
+    }
+    if (identityColsMissing && email && provider === 'email' && !isSocial) {
+      var dlBare = await client.from('downloads').select('*').ilike('email', email).eq('is_member', true);
+      if (!dlBare.error) mergeDl(dlBare.data);
+    }
+
+    return mapOrderRowsWithDownloads(orderRows, dlRows);
+  }
+
+  function filterLocalPurchases(local, email, authUserId, provider, isSocial) {
+    var day = 86400000;
+    provider = normalizeMemberProvider(provider || 'email');
+    return (local || []).filter(function (p) {
+      if (!p || typeof p !== 'object') return false;
+      var pUid = p.authUserId || p.auth_user_id || null;
+      var pProv = p.provider || p.auth_provider || null;
+      if (pUid || pProv) {
+        if (authUserId && pUid && pUid !== authUserId) return false;
+        if (isSocial || provider !== 'email') {
+          if (!pProv || normalizeMemberProvider(pProv) !== provider) return false;
+          if (authUserId && pUid && pUid !== authUserId) return false;
+          return true;
+        }
+        /* email account */
+        if (pUid && authUserId && pUid !== authUserId) return false;
+        if (pProv && normalizeMemberProvider(pProv) !== 'email') return false;
+        return true;
+      }
+      /* Untagged local cache: only email-password may see (never social) */
+      return provider === 'email' && !isSocial;
+    }).map(function (p) {
+      var id = p.sheetId != null && p.sheetId !== '' ? p.sheetId : p.id;
+      var paidAt = Number(p.paidAt) || Date.now();
+      return {
+        id: id,
+        sheetId: id,
+        title: p.title || '',
+        orderNo: p.orderNo,
+        paidAt: paidAt,
+        date: new Date(paidAt).toLocaleDateString('ko-KR', { year: 'numeric', month: '2-digit', day: '2-digit' }).replace(/\. /g, '.').replace(/\.$/, ''),
+        dday: 7 - Math.floor((Date.now() - paidAt) / day),
+        authUserId: p.authUserId || p.auth_user_id || null,
+        provider: p.provider || p.auth_provider || null,
+      };
+    }).filter(function (p) { return p.id != null && p.id !== ''; });
+  }
+
+  /* FO 마이페이지용 — 주문+다운로드를 구매 행으로 펼침 (identity-scoped) */
+  async function purchasesForEmail(email, opts) {
+    opts = opts || {};
+    email = (email || opts.email || '').toLowerCase();
+    var authUserId = opts.authUserId || opts.auth_user_id || null;
+    var provider = opts.provider || opts.auth_provider || opts.authProvider || null;
+    var isSocial =
+      opts.fromOAuth === true ||
+      opts.type === 'social' ||
+      (!!provider && normalizeMemberProvider(provider) !== 'email');
+
+    if (!email && !authUserId) return [];
     if (!live()) {
       var local = (window.Store && Store.purchases && Store.purchases.list()) || [];
-      var day = 86400000;
-      return local.filter(function (p) { return p && typeof p === 'object'; }).map(function (p) {
-        var id = p.sheetId != null && p.sheetId !== '' ? p.sheetId : p.id;
-        var paidAt = Number(p.paidAt) || Date.now();
-        return {
-          id: id,
-          sheetId: id,
-          title: p.title || '',
-          orderNo: p.orderNo,
-          paidAt: paidAt,
-          date: new Date(paidAt).toLocaleDateString('ko-KR', { year: 'numeric', month: '2-digit', day: '2-digit' }).replace(/\. /g, '.').replace(/\.$/, ''),
-          dday: 7 - Math.floor((Date.now() - paidAt) / day),
-        };
-      }).filter(function (p) { return p.id != null && p.id !== ''; });
+      return filterLocalPurchases(local, email, authUserId, provider || 'email', isSocial);
     }
-    var orders = await ordersForEmail(email);
+
+    if (isSocial && !provider) {
+      console.warn('[CHODRUM] purchasesForEmail: social without provider');
+      return [];
+    }
+
+    var orders = await ordersForMember({
+      email: email,
+      authUserId: authUserId,
+      provider: provider || (isSocial ? null : 'email'),
+      fromOAuth: opts.fromOAuth,
+      type: opts.type || (isSocial ? 'social' : 'email'),
+    });
     var out = [];
     orders.forEach(function (o) {
       (o.items || []).forEach(function (it) {
@@ -961,11 +1275,11 @@
   function normalizeMemberProvider(raw) {
     if (!raw) return 'email';
     var p = String(raw).toLowerCase();
-    if (p === 'custom:naver' || p.indexOf('naver') !== -1) return 'naver';
-    if (p.indexOf('kakao') !== -1) return 'kakao';
-    if (p.indexOf('google') !== -1) return 'google';
-    if (p === 'email' || p === 'email_password' || p === '이메일') return 'email';
-    if (p === 'social' || p === '소셜') return 'social';
+    if (p === 'custom:naver' || p.indexOf('naver') !== -1 || raw === '네이버') return 'naver';
+    if (p.indexOf('kakao') !== -1 || raw === '카카오') return 'kakao';
+    if (p.indexOf('google') !== -1 || raw === '구글') return 'google';
+    if (p === 'email' || p === 'email_password' || p === '이메일' || raw === '이메일') return 'email';
+    if (p === 'social' || p === '소셜' || raw === '소셜') return 'social';
     return p;
   }
 
@@ -1274,6 +1588,7 @@
       create: createOrder,
       updateStatus: updateOrderStatus,
       forEmail: ordersForEmail,
+      forMember: ordersForMember,
       purchasesForEmail: purchasesForEmail,
     },
     members: {

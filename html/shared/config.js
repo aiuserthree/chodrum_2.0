@@ -36,4 +36,18 @@ window.CHODRUM_CONFIG = {
   /* BO 관리자 로그인 (FO 회원 인증과 별도). html/bo/BO-00-login.html */
   ADMIN_ID: 'admin',
   ADMIN_PASSWORD: 'chodrum2026',
+
+  /* ── 토스페이먼츠 (PG) ─────────────────────────────────────────
+   * 개발자센터 https://developers.tosspayments.com 에서 발급
+   * Client Key 만 프론트에 둡니다. Secret Key 는 절대 HTML에 넣지 마세요.
+   * 승인(confirm)은 서버(Edge Function 등)에서 Secret Key 로 호출해야 합니다.
+   *
+   * TOSS_CLIENT_KEY 가 비어 있거나 YOUR_ 로 시작하면 로컬 데모 결제창으로 동작합니다.
+   * 테스트 키 예: test_ck_D5GePWvyJnrK0W0k6q8gLzN9 (공식 문서 샘플 · 변경될 수 있음)
+   */
+  TOSS_CLIENT_KEY: 'test_ck_D5GePWvyJnrK0W0k6q8gLzN9',
+  /* 'auto' = 키 있으면 토스 SDK / 없으면 데모 · 'demo' = 항상 데모 · 'live' = 항상 SDK */
+  TOSS_MODE: 'auto',
+  /* 결제 승인 Edge Function URL (배포 후 설정). 비어 있으면 프로토타입은 confirm 생략 */
+  TOSS_CONFIRM_URL: '', // e.g. 'https://xxxx.supabase.co/functions/v1/toss-confirm'
 };

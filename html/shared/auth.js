@@ -165,17 +165,45 @@
     return contact || authEmail || '';
   }
 
-  function profileFromUser(user) {
-    if (!user) return null;
+  function detectAuthProvider(user) {
+    if (!user) return 'email';
     var meta = user.user_metadata || {};
+    var app = user.app_metadata || {};
     var identities = user.identities || [];
+    var authEmail = String(user.email || '');
+
+    /* Bridge users: magiclink identity is "email" — must not win over kakao_id / naver_id */
+    if (meta.kakao_id || app.provider === 'kakao' || /^kakao_/i.test(authEmail.split('@')[0] || '')) {
+      if (isSyntheticOAuthEmail(authEmail) || meta.kakao_id || app.provider === 'kakao') return 'kakao';
+    }
+    if (meta.naver_id || app.provider === 'naver' || /^naver_/i.test(authEmail.split('@')[0] || '')) {
+      if (isSyntheticOAuthEmail(authEmail) || meta.naver_id || app.provider === 'naver') return 'naver';
+    }
+
     var rawProvider =
       meta.auth_provider ||
       meta.provider ||
-      (identities[0] && identities[0].provider) ||
-      (user.app_metadata && user.app_metadata.provider) ||
-      'email';
-    var provider = normalizeProvider(rawProvider);
+      app.provider ||
+      null;
+
+    /* Prefer non-email identity when present (Supabase may list email first) */
+    if (!rawProvider || rawProvider === 'email') {
+      for (var i = 0; i < identities.length; i++) {
+        var ip = identities[i] && identities[i].provider;
+        if (ip && ip !== 'email') {
+          rawProvider = ip;
+          break;
+        }
+      }
+    }
+    if (!rawProvider) rawProvider = (identities[0] && identities[0].provider) || 'email';
+    return normalizeProvider(rawProvider);
+  }
+
+  function profileFromUser(user) {
+    if (!user) return null;
+    var meta = user.user_metadata || {};
+    var provider = detectAuthProvider(user);
     if (provider === 'email' || provider === 'email_password') {
       return {
         type: 'email',
@@ -380,6 +408,22 @@
         console.warn('[CHODRUM] member merge', e);
       }
     }
+    /* Identity change → drop prior account purchase cache (same browser, shared email) */
+    try {
+      var prev = window.Store && Store.user && Store.user.get();
+      var prevKey = prev
+        ? String(prev.authId || '') + '|' + String(prev.provider || '') + '|' + String(prev.email || '').toLowerCase()
+        : '';
+      var nextKey =
+        String(profile.authId || '') +
+        '|' +
+        String(profile.provider || '') +
+        '|' +
+        String(profile.email || '').toLowerCase();
+      if (prevKey && nextKey && prevKey !== nextKey && Store.purchases && Store.purchases.replace) {
+        Store.purchases.replace([]);
+      }
+    } catch (e) { /* ignore */ }
     if (window.Store && Store.user) Store.user.set(profile);
     /*
      * members upsert ONLY for consented users.
@@ -1188,6 +1232,10 @@
     }
     clearPendingProfile();
     if (window.Store && Store.user) Store.user.clear();
+    /* Purchases are identity-scoped — never leave prior account's cache for next login */
+    if (window.Store && Store.purchases && typeof Store.purchases.replace === 'function') {
+      Store.purchases.replace([]);
+    }
   }
 
   function isProviderEnabled(provider) {

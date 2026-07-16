@@ -27,9 +27,10 @@
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="../shared/supabase-client.js"></script>
 <script src="../shared/api.js"></script>
+<script src="../shared/toss-payments.js"></script>
 <script type="text/babel" src="/fo/fo-shared.jsx"></script>
 <script type="text/babel">
-/* FO-06 주문/결제 — 장바구니 경유 필수 · 회원 자동입력 / 비회원 이메일 재확인 · PG 결제 */
+/* FO-06 주문/결제 — 장바구니 경유 필수 · 회원 자동입력 / 비회원 이메일 재확인 · 토스페이먼츠 PG */
 const DS = window.DrumSheetStoreDesignSystem_3a2462;
 const { Button, Icon, Input, Checkbox, Card, Badge } = DS;
 const F = window.FO;
@@ -60,6 +61,8 @@ function CheckoutPage() {
   const [a2, setA2] = React.useState(false);
   const [a3, setA3] = React.useState(false);
   const [doc, setDoc] = React.useState(null); /* 'purchase' | 'refund' | 'marketing' | null */
+  const [paying, setPaying] = React.useState(false);
+  const pgDemo = window.ChodrumPayments && ChodrumPayments.isDemoMode();
 
   /* S-07: 장바구니 미경유(결제 대상 없음) → 진입 차단 */
   if (!items.length) {
@@ -80,6 +83,8 @@ function CheckoutPage() {
   const setAll = (on) => { setA1(on); setA2(on); setA3(on); };
 
   const doPay = async () => {
+    if (paying || !canPay) return;
+    setPaying(true);
     const order = {
       no: window.orderNo(),
       date: new Date().toLocaleString('ko-KR', { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }),
@@ -96,43 +101,27 @@ function CheckoutPage() {
       guest: !member,
       email: member ? demoUser.email : email,
       buyer: member ? demoUser.name : name,
+      phone: member ? '' : phone,
+      cartIds: ids.slice(),
+      authUserId: member ? (demoUser.authId || demoUser.auth_user_id || null) : null,
+      provider: member ? (demoUser.provider || demoUser.auth_provider || 'email') : null,
+      auth_provider: member ? (demoUser.provider || demoUser.auth_provider || 'email') : null,
     };
     try {
-      await window.ChodrumAPI.orders.create({
-        no: order.no,
-        buyer: order.buyer,
-        email: order.email,
-        member: member,
-        method: order.method,
-        status: '결제완료',
-        total: order.total,
-        items: order.items,
-      });
+      /* 토스 결제창 → success/fail 콜백에서 주문 확정 (장바구니는 성공 시에만 비움) */
+      await window.ChodrumPayments.requestCheckout(order, pay);
     } catch (e) {
       console.warn(e);
-      F.toast('주문 동기화에 실패했지만 로컬로 계속 진행해요');
+      F.toast((e && e.message) || '결제 요청에 실패했어요');
+      setPaying(false);
     }
-    Store.lastOrder.set(order);
-    if (member) {
-      Store.purchases.add(order.items.map((it) => ({
-        id: it.id,
-        sheetId: it.id,
-        title: it.title || '악보',
-        orderNo: order.no,
-        paidAt: Date.now(),
-      })));
-    } else {
-      Store.guestOrders.add(email, {
-        orderNo: order.no,
-        date: order.date,
-        items: order.items.map((it) => ({ id: it.id, sheetId: it.id, title: it.title || '악보', dday: 7 })),
-      });
-    }
-    Store.cart.remove(ids);
-    location.href = F.PAGES.complete;
   };
 
-  const payBtn = (size) => <Button variant="primary" size={size} fullWidth disabled={!canPay} onClick={doPay}>{F.won(total)} 결제하기</Button>;
+  const payBtn = (size) => (
+    <Button variant="primary" size={size} fullWidth disabled={!canPay || paying} onClick={doPay}>
+      {paying ? '결제창 여는 중…' : F.won(total) + ' 결제하기'}
+    </Button>
+  );
 
   const docTitle =
     doc === 'purchase' ? '구매조건 및 결제 진행 동의'
@@ -185,7 +174,10 @@ function CheckoutPage() {
               <F.PayOption id="naver" label="네이버페이" cur={pay} onPick={setPay} />
               <F.PayOption id="bank" label="계좌이체" cur={pay} onPick={setPay} />
             </div>
-            <p className="fo-caption" style={{ marginTop: 8 }}>PG사 결제창으로 이동해 안전하게 결제돼요.</p>
+            <p className="fo-caption" style={{ marginTop: 8 }}>
+              토스페이먼츠 결제창으로 이동해 안전하게 결제돼요.
+              {pgDemo ? <span style={{ display: 'block', marginTop: 4 }}>현재 <b>데모 모드</b>예요. Client Key를 넣으면 실제 테스트 결제창이 열려요.</span> : null}
+            </p>
           </F.Section>
 
           <F.Section label="약관 동의">

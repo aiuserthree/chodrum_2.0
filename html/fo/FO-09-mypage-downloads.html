@@ -91,13 +91,13 @@ function DownloadsPage() {
 
   React.useEffect(() => {
     let cancelled = false;
-    if (!user || !user.email) {
+    if (!user || (!user.email && !user.authId)) {
       setPurchases([]);
       setDataReady(true);
       return undefined;
     }
     setDataReady(false);
-    F.loadPurchases(user.email).then((list) => {
+    F.loadPurchases(user).then((list) => {
       if (cancelled) return;
       setPurchases(Array.isArray(list) ? list : []);
       setDataReady(true);
@@ -107,7 +107,7 @@ function DownloadsPage() {
       setDataReady(true);
     });
     return () => { cancelled = true; };
-  }, [user && user.email]);
+  }, [user && user.email, user && user.authId, user && user.provider]);
 
   if (!user) {
     return (

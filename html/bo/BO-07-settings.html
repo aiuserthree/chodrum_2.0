@@ -154,22 +154,26 @@ function TermsTab() {
 /* ---------------- PG 설정 ---------------- */
 function PgTab() {
   const [test, setTest] = React.useState(true);
+  const ck = (window.CHODRUM_CONFIG && window.CHODRUM_CONFIG.TOSS_CLIENT_KEY) || 'test_ck_…';
   return (
     <Card padding={18} style={{ maxWidth: 560, display: 'flex', flexDirection: 'column', gap: 14 }}>
       <span style={{ fontSize: 15, fontWeight: 600 }}>PG 연동</span>
+      <p style={{ fontSize: 12.5, lineHeight: 1.55, color: 'var(--text-secondary)', margin: 0 }}>
+        FO 결제는 <b style={{ color: 'var(--text-primary)' }}>토스페이먼츠</b> SDK로 연동돼 있어요. Client Key는 <span className="ds-mono" style={{ fontSize: 11.5 }}>html/shared/config.js</span>의 <span className="ds-mono" style={{ fontSize: 11.5 }}>TOSS_CLIENT_KEY</span>에 설정합니다. Secret Key는 Edge Function(<span className="ds-mono" style={{ fontSize: 11.5 }}>toss-confirm</span>)에만 넣으세요.
+      </p>
       <B.Labeled label="PG사"><Select value="토스페이먼츠" onChange={() => {}} options={['토스페이먼츠', 'KG이니시스', '나이스페이먼츠']} /></B.Labeled>
-      <Input label="Client Key" value="test_ck_D5GePWvyJnrK0W0k6q8gLzN9" onChange={() => {}} />
-      <Input label="Secret Key" type="password" value="****************************" onChange={() => {}} hint="키는 암호화되어 저장돼요." />
+      <Input label="Client Key (config.js)" value={ck} onChange={() => {}} hint="이 화면은 안내용이에요. 실제 키는 config.js를 수정하세요." />
+      <Input label="Secret Key" type="password" value="****************************" onChange={() => {}} hint="브라우저에 두지 마세요. supabase secrets / Edge Function만." />
       <B.Labeled label="사용할 결제 수단">
         <div style={{ display: 'flex', flexDirection: 'column', gap: 10, paddingTop: 2 }}>
           <Checkbox checked onChange={() => {}} label="신용 / 체크카드" />
           <Checkbox checked onChange={() => {}} label="카카오페이" />
           <Checkbox checked onChange={() => {}} label="네이버페이" />
-          <Checkbox checked={false} onChange={() => {}} label="계좌이체" />
+          <Checkbox checked onChange={() => {}} label="계좌이체" />
         </div>
       </B.Labeled>
       <Checkbox checked={test} onChange={setTest} label={<span>테스트 모드 {test ? <Badge variant="warning" size="sm">TEST</Badge> : null}</span>} />
-      <div style={{ display: 'flex', justifyContent: 'flex-end' }}><Button variant="primary" size="sm" iconLeft="check" onClick={() => B.toast('PG 설정을 저장했어요')}>저장</Button></div>
+      <div style={{ display: 'flex', justifyContent: 'flex-end' }}><Button variant="primary" size="sm" iconLeft="check" onClick={() => B.toast('실제 설정은 config.js · Edge Function에서 관리해요')}>확인</Button></div>
     </Card>
   );
 }

@@ -39,6 +39,8 @@
     { "source": "/wishlist", "destination": "/fo/FO-04-wishlist.html" },
     { "source": "/cart", "destination": "/fo/FO-05-cart.html" },
     { "source": "/checkout", "destination": "/fo/FO-06-checkout.html" },
+    { "source": "/payment/success", "destination": "/fo/FO-06-payment-success.html" },
+    { "source": "/payment/fail", "destination": "/fo/FO-06-payment-fail.html" },
     { "source": "/order-complete", "destination": "/fo/FO-07-order-complete.html" },
     { "source": "/login", "destination": "/fo/FO-08-login.html" },
     { "source": "/signup", "destination": "/fo/FO-08-signup.html" },
