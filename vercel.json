@@ -8,27 +8,39 @@
   "trailingSlash": false,
   "headers": [
     {
-      "source": "/(.*)\\.js",
+      "source": "/:path*.js",
       "headers": [
-        { "key": "Cache-Control", "value": "public, max-age=86400, stale-while-revalidate=604800" }
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=86400, stale-while-revalidate=604800"
+        }
       ]
     },
     {
-      "source": "/(.*)\\.css",
+      "source": "/:path*.css",
       "headers": [
-        { "key": "Cache-Control", "value": "public, max-age=86400, stale-while-revalidate=604800" }
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=86400, stale-while-revalidate=604800"
+        }
       ]
     },
     {
-      "source": "/shared/(logo|.*\\.(png|jpg|jpeg|webp|svg|ico))",
+      "source": "/shared/:path*",
       "headers": [
-        { "key": "Cache-Control", "value": "public, max-age=604800, stale-while-revalidate=2592000" }
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=604800, stale-while-revalidate=2592000"
+        }
       ]
     },
     {
-      "source": "/_ds/(.*)",
+      "source": "/_ds/:path*",
       "headers": [
-        { "key": "Cache-Control", "value": "public, max-age=604800, stale-while-revalidate=2592000" }
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=604800, stale-while-revalidate=2592000"
+        }
       ]
     }
   ],
@@ -60,41 +72,145 @@
     }
   ],
   "rewrites": [
-    { "source": "/sheets", "destination": "/fo/FO-02-sheet-list.html" },
-    { "source": "/sheet", "destination": "/fo/FO-03-sheet-detail.html" },
-    { "source": "/wishlist", "destination": "/fo/FO-04-wishlist.html" },
-    { "source": "/cart", "destination": "/fo/FO-05-cart.html" },
-    { "source": "/checkout", "destination": "/fo/FO-06-checkout.html" },
-    { "source": "/payment/success", "destination": "/fo/FO-06-payment-success.html" },
-    { "source": "/payment/fail", "destination": "/fo/FO-06-payment-fail.html" },
-    { "source": "/order-complete", "destination": "/fo/FO-07-order-complete.html" },
-    { "source": "/login", "destination": "/fo/FO-08-login.html" },
-    { "source": "/signup", "destination": "/fo/FO-08-signup.html" },
-    { "source": "/find-id", "destination": "/fo/FO-08-find-id.html" },
-    { "source": "/password-reset", "destination": "/fo/FO-08-password-reset.html" },
-    { "source": "/oauth-terms", "destination": "/fo/FO-08-oauth-terms.html" },
-    { "source": "/mypage", "destination": "/fo/FO-09-mypage.html" },
-    { "source": "/mypage/downloads", "destination": "/fo/FO-09-mypage-downloads.html" },
-    { "source": "/mypage/edit", "destination": "/fo/FO-09-mypage-edit.html" },
-    { "source": "/mypage/withdraw", "destination": "/fo/FO-09-mypage-withdraw.html" },
-    { "source": "/guest-lookup", "destination": "/fo/FO-10-guest-lookup.html" },
-    { "source": "/guide", "destination": "/fo/FO-11-guide.html" },
-    { "source": "/terms", "destination": "/fo/FO-11-terms.html" },
-    { "source": "/privacy", "destination": "/fo/FO-11-privacy.html" },
-    { "source": "/marketing", "destination": "/fo/FO-11-marketing.html" },
-
-    { "source": "/bo/login", "destination": "/bo/BO-00-login.html" },
-    { "source": "/bo/dashboard", "destination": "/bo/BO-01-dashboard.html" },
-    { "source": "/bo/sheets", "destination": "/bo/BO-02-sheets.html" },
-    { "source": "/bo/sheets/register", "destination": "/bo/BO-02-sheet-register.html" },
-    { "source": "/bo/categories", "destination": "/bo/BO-02-categories.html" },
-    { "source": "/bo/pricing", "destination": "/bo/BO-02-pricing.html" },
-    { "source": "/bo/orders", "destination": "/bo/BO-03-orders.html" },
-    { "source": "/bo/members", "destination": "/bo/BO-04-members.html" },
-    { "source": "/bo/downloads", "destination": "/bo/BO-05-downloads.html" },
-    { "source": "/bo/reports", "destination": "/bo/BO-06-reports.html" },
-    { "source": "/bo/settings", "destination": "/bo/BO-07-settings.html" },
-    { "source": "/bo/banners", "destination": "/bo/BO-08-main-banners.html" },
-    { "source": "/bo/featured", "destination": "/bo/BO-08-main-featured.html" }
+    {
+      "source": "/sheets",
+      "destination": "/fo/FO-02-sheet-list.html"
+    },
+    {
+      "source": "/sheet",
+      "destination": "/fo/FO-03-sheet-detail.html"
+    },
+    {
+      "source": "/wishlist",
+      "destination": "/fo/FO-04-wishlist.html"
+    },
+    {
+      "source": "/cart",
+      "destination": "/fo/FO-05-cart.html"
+    },
+    {
+      "source": "/checkout",
+      "destination": "/fo/FO-06-checkout.html"
+    },
+    {
+      "source": "/payment/success",
+      "destination": "/fo/FO-06-payment-success.html"
+    },
+    {
+      "source": "/payment/fail",
+      "destination": "/fo/FO-06-payment-fail.html"
+    },
+    {
+      "source": "/order-complete",
+      "destination": "/fo/FO-07-order-complete.html"
+    },
+    {
+      "source": "/login",
+      "destination": "/fo/FO-08-login.html"
+    },
+    {
+      "source": "/signup",
+      "destination": "/fo/FO-08-signup.html"
+    },
+    {
+      "source": "/find-id",
+      "destination": "/fo/FO-08-find-id.html"
+    },
+    {
+      "source": "/password-reset",
+      "destination": "/fo/FO-08-password-reset.html"
+    },
+    {
+      "source": "/oauth-terms",
+      "destination": "/fo/FO-08-oauth-terms.html"
+    },
+    {
+      "source": "/mypage",
+      "destination": "/fo/FO-09-mypage.html"
+    },
+    {
+      "source": "/mypage/downloads",
+      "destination": "/fo/FO-09-mypage-downloads.html"
+    },
+    {
+      "source": "/mypage/edit",
+      "destination": "/fo/FO-09-mypage-edit.html"
+    },
+    {
+      "source": "/mypage/withdraw",
+      "destination": "/fo/FO-09-mypage-withdraw.html"
+    },
+    {
+      "source": "/guest-lookup",
+      "destination": "/fo/FO-10-guest-lookup.html"
+    },
+    {
+      "source": "/guide",
+      "destination": "/fo/FO-11-guide.html"
+    },
+    {
+      "source": "/terms",
+      "destination": "/fo/FO-11-terms.html"
+    },
+    {
+      "source": "/privacy",
+      "destination": "/fo/FO-11-privacy.html"
+    },
+    {
+      "source": "/marketing",
+      "destination": "/fo/FO-11-marketing.html"
+    },
+    {
+      "source": "/bo/login",
+      "destination": "/bo/BO-00-login.html"
+    },
+    {
+      "source": "/bo/dashboard",
+      "destination": "/bo/BO-01-dashboard.html"
+    },
+    {
+      "source": "/bo/sheets",
+      "destination": "/bo/BO-02-sheets.html"
+    },
+    {
+      "source": "/bo/sheets/register",
+      "destination": "/bo/BO-02-sheet-register.html"
+    },
+    {
+      "source": "/bo/categories",
+      "destination": "/bo/BO-02-categories.html"
+    },
+    {
+      "source": "/bo/pricing",
+      "destination": "/bo/BO-02-pricing.html"
+    },
+    {
+      "source": "/bo/orders",
+      "destination": "/bo/BO-03-orders.html"
+    },
+    {
+      "source": "/bo/members",
+      "destination": "/bo/BO-04-members.html"
+    },
+    {
+      "source": "/bo/downloads",
+      "destination": "/bo/BO-05-downloads.html"
+    },
+    {
+      "source": "/bo/reports",
+      "destination": "/bo/BO-06-reports.html"
+    },
+    {
+      "source": "/bo/settings",
+      "destination": "/bo/BO-07-settings.html"
+    },
+    {
+      "source": "/bo/banners",
+      "destination": "/bo/BO-08-main-banners.html"
+    },
+    {
+      "source": "/bo/featured",
+      "destination": "/bo/BO-08-main-featured.html"
+    }
   ]
 }
