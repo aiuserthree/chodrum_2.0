@@ -5,9 +5,9 @@ const F = window.FO;
 const D = window.DrumData;
 
 function CheckoutPage() {
+  F.useStoreTick();
   const user = Store.user.get();
   const selParam = F.qp('sel');
-  const asGuest = F.qp('as') === 'guest';
   const cart = Store.cart.list();
   const ids = (selParam ? selParam.split(',') : cart.map((c) => c.id)).filter((id) => cart.some((c) => c.id === id));
   const items = ids.map((id) => {
@@ -16,9 +16,8 @@ function CheckoutPage() {
   });
   const total = items.reduce((n, it) => n + (Number(it.price) || 0) * it.qty, 0);
 
-  const [mode, setMode] = React.useState(user && !asGuest ? '회원' : '비회원');
-  const member = mode === '회원';
-  const demoUser = user || { name: '', email: '', provider: 'email' };
+  /* 실제 로그인 세션 (Store.user ← ChodrumAuth) — 회원/비회원 미리보기 토글 없음 */
+  const member = !!user;
 
   const [name, setName] = React.useState('');
   const [phone, setPhone] = React.useState('');
@@ -67,13 +66,13 @@ function CheckoutPage() {
       total: total,
       method: { card: '신용 / 체크카드', kakao: '카카오페이', naver: '네이버페이', bank: '계좌이체' }[pay],
       guest: !member,
-      email: member ? demoUser.email : email,
-      buyer: member ? demoUser.name : name,
+      email: member ? user.email : email,
+      buyer: member ? user.name : name,
       phone: member ? '' : phone,
       cartIds: ids.slice(),
-      authUserId: member ? (demoUser.authId || demoUser.auth_user_id || null) : null,
-      provider: member ? (demoUser.provider || demoUser.auth_provider || 'email') : null,
-      auth_provider: member ? (demoUser.provider || demoUser.auth_provider || 'email') : null,
+      authUserId: member ? (user.authId || user.auth_user_id || null) : null,
+      provider: member ? (user.provider || user.auth_provider || 'email') : null,
+      auth_provider: member ? (user.provider || user.auth_provider || 'email') : null,
     };
     try {
       /* 토스 결제창 → success/fail 콜백에서 주문 확정 (장바구니는 성공 시에만 비움) */
@@ -100,13 +99,11 @@ function CheckoutPage() {
     <F.Scaffold title="주문 / 결제" back={F.PAGES.cart} cta={payBtn('lg')}>
       <div data-screen-label="FO-06 주문/결제" className="fo-two" style={{ paddingTop: 4 }}>
         <div>
-          {!user ? <F.PreviewToggle options={['회원', '비회원']} value={mode} onChange={setMode} /> : null}
-
           <F.Section label="주문자 정보" first>
             {member ? (
               <Card padding={16} style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                <F.KV k="이름" v={<span style={{ fontWeight: 500 }}>{demoUser.name}</span>} />
-                <F.KV k="이메일" v={<span className="ds-mono" style={{ fontSize: 13 }}>{demoUser.email}</span>} />
+                <F.KV k="이름" v={<span style={{ fontWeight: 500 }}>{user.name}</span>} />
+                <F.KV k="이메일" v={<span className="ds-mono" style={{ fontSize: 13 }}>{user.email}</span>} />
                 <p className="fo-caption" style={{ display: 'flex', alignItems: 'center', gap: 6 }}><Icon name="check" size={13} style={{ color: 'var(--status-success)' }} />회원 정보로 자동 입력되었어요. 구매 내역은 마이페이지에 저장돼요.</p>
               </Card>
             ) : (

@@ -683,10 +683,6 @@
       location.href = PAGES.cart;
     } }, "\uC7A5\uBC14\uAD6C\uB2C8\uB85C \uC774\uB3D9"), /* @__PURE__ */ React.createElement(Button, { variant: "secondary", size: "lg", fullWidth: true, onClick: onClose }, "\uACC4\uC18D \uC1FC\uD551")));
   }
-  function PreviewToggle({ label = "\uD654\uBA74 \uC0C1\uD0DC \uBBF8\uB9AC\uBCF4\uAE30", options, value, onChange }) {
-    const { Chip } = DS;
-    return /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", padding: "10px 12px", background: "var(--surface-sunken)", border: "1px dashed var(--border-strong)", borderRadius: 8, marginTop: 16 } }, /* @__PURE__ */ React.createElement("span", { className: "ds-mono", style: { fontSize: 11, color: "var(--text-tertiary)", letterSpacing: "0.4px" } }, label), options.map((o) => /* @__PURE__ */ React.createElement(Chip, { key: o, selected: value === o, onClick: () => onChange(o) }, o)));
-  }
   function legalDoc(id) {
     return window.ChodrumLegal && ChodrumLegal.byId(id) || null;
   }
@@ -720,5 +716,5 @@
       "\uBCF4\uAE30"
     ) : null);
   }
-  window.FO = { PAGES, won, qp, goBack, toast, useStoreTick, loadPurchases, Money, Stars, StaffThumb, sheetCoverUrl, DdayBadge, Header, TabBar, Footer, Scaffold, isSocialUser, MyPageNav, MyPageLayout, FavButton, SheetCard, SheetRow, SectionHeader, Section, KV, Empty, PayOption, Dialog, CartAddedDialog, resolveSheet, lineTitle, downloadSheetPdf, pdfFileName, MISSING_SHEET_TITLE, PreviewToggle, legalDoc, legalVer, LegalDocBody, LegalTermRow };
+  window.FO = { PAGES, won, qp, goBack, toast, useStoreTick, loadPurchases, Money, Stars, StaffThumb, sheetCoverUrl, DdayBadge, Header, TabBar, Footer, Scaffold, isSocialUser, MyPageNav, MyPageLayout, FavButton, SheetCard, SheetRow, SectionHeader, Section, KV, Empty, PayOption, Dialog, CartAddedDialog, resolveSheet, lineTitle, downloadSheetPdf, pdfFileName, MISSING_SHEET_TITLE, legalDoc, legalVer, LegalDocBody, LegalTermRow };
 })();
