@@ -1,0 +1,76 @@
+/* BO-08 메인 관리 > 추천 관리 — 홈 추천 악보 큐레이션 (최대 6개) */
+const DS = window.DrumSheetStoreDesignSystem_3a2462;
+const { Button, IconButton, Card, Badge, Input, Checkbox, Icon } = DS;
+const B = window.BO;
+const D = window.DrumData;
+
+const MAX = 4;
+
+function FeaturedPage() {
+  const [reco, setReco] = React.useState(D.recommended.slice());
+  const [q, setQ] = React.useState('');
+  const list = D.sheets.filter((s) => (s.title + s.artist).toLowerCase().includes(q.toLowerCase()));
+
+  const toggle = (id) => setReco((r) => {
+    if (r.includes(id)) return r.filter((x) => x !== id);
+    if (r.length >= MAX) { B.toast('추천 악보는 최대 ' + MAX + '개까지예요'); return r; }
+    return [...r, id];
+  });
+
+  return (
+    <B.Shell active="featured" title="메인 관리 — 추천 관리"
+      actions={<Button variant="primary" size="sm" iconLeft="check" onClick={async () => {
+        try { await window.ChodrumAPI.featured.save(reco); B.toast('추천 악보 설정을 저장했어요 · 홈 「추천 악보」에 반영돼요'); }
+        catch (e) { console.warn(e); B.toast('저장 실패'); }
+      }}>저장</Button>}>
+      <div data-screen-label="BO-08 추천 관리" style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+        {/* 현재 노출 순서 */}
+        <Card padding={0}>
+          <B.CardHead title="홈 노출 순서" right={<span className="ds-mono" style={{ fontSize: 12, color: 'var(--text-secondary)' }}>{reco.length}/{MAX}</span>} />
+          <div style={{ padding: '0 18px 16px' }}>
+            {reco.length ? reco.map((id, i) => {
+              const s = D.byId(id);
+              return (
+                <div key={id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 0', borderTop: i ? '1px solid var(--border-default)' : 'none' }}>
+                  <span className="ds-mono" style={{ width: 18, fontSize: 13, fontWeight: 600, color: i === 0 ? 'var(--color-ink)' : 'var(--text-tertiary)' }}>{i + 1}</span>
+                  <B.Thumb />
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontSize: 13.5, fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{s.title}</div>
+                    <div style={{ fontSize: 12, color: 'var(--text-secondary)' }}>{s.artist} · {s.genre}</div>
+                  </div>
+                  <IconButton name="chevron-up" variant="ghost" size="sm" label="위로" onClick={() => i > 0 && setReco((r) => { const n = r.slice(); [n[i - 1], n[i]] = [n[i], n[i - 1]]; return n; })} />
+                  <IconButton name="chevron-down" variant="ghost" size="sm" label="아래로" onClick={() => i < reco.length - 1 && setReco((r) => { const n = r.slice(); [n[i + 1], n[i]] = [n[i], n[i + 1]]; return n; })} />
+                  <IconButton name="x" variant="ghost" size="sm" label="제외" onClick={() => toggle(id)} />
+                </div>
+              );
+            }) : <p style={{ padding: '8px 0 4px', fontSize: 13, color: 'var(--text-secondary)' }}>선택된 추천 악보가 없어요. 아래 목록에서 선택해주세요.</p>}
+          </div>
+        </Card>
+
+        {/* 악보 선택 */}
+        <Card padding={0}>
+          <B.CardHead title="악보 선택" right={<div style={{ width: 220 }}><Input size="sm" iconLeft="search" placeholder="곡명 / 아티스트" value={q} onChange={(e) => setQ(e.target.value)} /></div>} />
+          <div style={{ padding: '0 18px 14px' }}>
+            {list.map((s, i) => (
+              <div key={s.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 0', borderTop: i ? '1px solid var(--border-default)' : 'none' }}>
+                <Checkbox checked={reco.includes(s.id)} onChange={() => toggle(s.id)} />
+                <B.Thumb />
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontSize: 13.5, fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{s.title}</div>
+                  <div style={{ fontSize: 12, color: 'var(--text-secondary)' }}>{s.artist} · {s.genre} · {s.level}</div>
+                </div>
+                <span className="ds-mono" style={{ fontSize: 12, color: 'var(--text-secondary)' }}>판매 {s.sold.toLocaleString('ko-KR')}</span>
+                {reco.includes(s.id) ? <Badge variant="solid" size="sm">홈 노출</Badge> : null}
+              </div>
+            ))}
+            {!list.length ? <p style={{ padding: '12px 0', fontSize: 13, color: 'var(--text-secondary)' }}>검색 결과가 없어요.</p> : null}
+          </div>
+        </Card>
+        <p style={{ fontSize: 12, color: 'var(--text-secondary)' }}>추천 악보는 홈 「추천 악보」 영역에 순서대로 노출돼요. 판매중지·숨김 상태의 악보는 자동으로 제외돼요.</p>
+      </div>
+    </B.Shell>
+  );
+}
+window.ChodrumBoot.whenReady(() => {
+  ReactDOM.createRoot(document.getElementById('app')).render(<FeaturedPage />);
+});

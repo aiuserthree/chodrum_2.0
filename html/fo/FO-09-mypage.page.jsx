@@ -1,0 +1,126 @@
+/* FO-09 마이페이지 — 프로필 · 구매/다운로드 요약 · 메뉴 (회원 전용, GUEST는 로그인 유도) */
+const DS = window.DrumSheetStoreDesignSystem_3a2462;
+const { Button, Icon, Card, Badge } = DS;
+const F = window.FO;
+
+const PROVIDER_LABEL = { email: '이메일', kakao: '카카오', naver: '네이버', google: '구글' };
+
+function MenuRow({ label, href, icon, muted, onClick }) {
+  return (
+    <a href={href} onClick={onClick} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '15px 2px', borderTop: '1px solid var(--border-default)', fontSize: 14.5, color: muted ? 'var(--text-secondary)' : 'var(--text-primary)', fontWeight: 500 }}>
+      <Icon name={icon} size={17} style={{ color: 'var(--color-icon)' }} />
+      {label}
+      <Icon name="chevron-right" size={16} style={{ color: 'var(--color-icon)', marginLeft: 'auto' }} />
+    </a>
+  );
+}
+
+function MyPage() {
+  F.useStoreTick();
+  const user = Store.user.get();
+  const [purchases, setPurchases] = React.useState([]);
+  const [purchasesReady, setPurchasesReady] = React.useState(false);
+
+  React.useEffect(() => {
+    let cancelled = false;
+    if (!user || (!user.email && !user.authId)) {
+      setPurchases([]);
+      setPurchasesReady(true);
+      return undefined;
+    }
+    setPurchasesReady(false);
+    F.loadPurchases(user).then((list) => {
+      if (cancelled) return;
+      setPurchases(Array.isArray(list) ? list : []);
+      setPurchasesReady(true);
+    }).catch(() => {
+      if (cancelled) return;
+      setPurchases([]);
+      setPurchasesReady(true);
+    });
+    return () => { cancelled = true; };
+  }, [user && user.email, user && user.authId, user && user.provider]);
+
+  if (!user) {
+    return (
+      <F.Scaffold tab="my" title="마이페이지">
+        <div data-screen-label="FO-09 마이페이지 (비로그인)" className="fo-container mid" style={{ padding: 0 }}>
+          <F.Empty icon="user" title="로그인이 필요해요" sub="구매 내역과 다운로드는 로그인 후 이용할 수 있어요." />
+          <div style={{ maxWidth: 420, margin: '0 auto', display: 'flex', flexDirection: 'column', gap: 10 }}>
+            <Button variant="primary" size="lg" fullWidth onClick={() => location.href = F.PAGES.login}>로그인 / 회원가입</Button>
+            <Button variant="secondary" size="lg" fullWidth onClick={() => location.href = F.PAGES.guest}>비회원 주문 조회</Button>
+          </div>
+        </div>
+      </F.Scaffold>
+    );
+  }
+
+  const active = purchases.filter((p) => p.dday >= 0).length;
+  const favN = Store.fav.list().length;
+
+  return (
+    <F.Scaffold tab="my" title="마이페이지">
+      <div data-screen-label="FO-09 마이페이지" className="fo-two" style={{ paddingTop: 20 }}>
+        <div>
+          <Card padding={18} style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <span style={{ fontSize: 17, fontWeight: 600, letterSpacing: '-0.4px' }}>{user.name}</span>
+                <Badge variant={user.type === 'email' ? 'neutral' : 'outline'} size="sm">{PROVIDER_LABEL[user.provider] || '이메일'} 회원</Badge>
+              </div>
+              <div className="ds-mono" style={{ fontSize: 12, color: 'var(--text-secondary)', marginTop: 4, overflow: 'hidden', textOverflow: 'ellipsis' }}>{user.email}</div>
+            </div>
+            <Button variant="secondary" size="sm" onClick={async () => { await window.ChodrumAuth.signOut(); F.toast('로그아웃되었어요'); }}>로그아웃</Button>
+          </Card>
+
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginTop: 12 }}>
+            <Card interactive padding={14} onClick={() => location.href = F.PAGES.downloads}>
+              <div style={{ fontSize: 12.5, color: 'var(--text-secondary)' }}>다운로드 가능</div>
+              <div className="ds-mono" style={{ fontSize: 22, fontWeight: 600, marginTop: 4 }}>{purchasesReady ? active : '·'}<span style={{ fontSize: 13, fontWeight: 500, color: 'var(--text-secondary)' }}> 건</span></div>
+            </Card>
+            <Card interactive padding={14} onClick={() => location.href = F.PAGES.wish}>
+              <div style={{ fontSize: 12.5, color: 'var(--text-secondary)' }}>찜한 악보</div>
+              <div className="ds-mono" style={{ fontSize: 22, fontWeight: 600, marginTop: 4 }}>{favN}<span style={{ fontSize: 13, fontWeight: 500, color: 'var(--text-secondary)' }}> 개</span></div>
+            </Card>
+          </div>
+
+          <div style={{ marginTop: 18 }}>
+            <MenuRow label="구매 내역 / 다운로드" href={F.PAGES.downloads} icon="download" />
+            <MenuRow label="찜 목록" href={F.PAGES.wish} icon="heart" />
+            <MenuRow label="내 정보 수정" href={F.PAGES.edit} icon="user" />
+            <MenuRow label="회원 탈퇴" href={F.PAGES.withdraw} icon="log-out" muted />
+          </div>
+        </div>
+
+        <div className="fo-desktop">
+          <Card padding={18} style={{ marginTop: 0 }}>
+            <F.SectionHeader title="최근 구매" action="전체보기" href={F.PAGES.downloads} style={{ marginBottom: 6 }} />
+            {!purchasesReady ? (
+              <p className="fo-caption" style={{ marginTop: 8 }}>구매 내역을 불러오는 중…</p>
+            ) : purchases.length ? purchases.slice(0, 3).map((p, i) => {
+              const snap = (p && p.title) || '';
+              const s = (F && typeof F.resolveSheet === 'function')
+                ? F.resolveSheet(p.id, { title: snap || '악보' })
+                : { id: p.id, title: snap || '악보' };
+              const title = (F && typeof F.lineTitle === 'function')
+                ? F.lineTitle(p, s)
+                : (snap || (s && s.title) || '악보');
+              const row = Object.assign({}, s || {}, { title: title });
+              return (
+                <div key={String(p.orderNo) + String(p.id) + i} style={{ borderTop: i ? '1px solid var(--border-default)' : 'none' }}>
+                  <F.SheetRow s={row} href={null}
+                    sub={<div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 2 }}><F.DdayBadge dday={p.dday} /><span className="ds-mono" style={{ fontSize: 11, color: 'var(--text-secondary)' }}>{p.date}</span></div>}
+                    right={<Button variant={p.dday < 0 ? 'secondary' : 'primary'} size="sm" iconLeft="download" disabled={p.dday < 0} onClick={() => F.downloadSheetPdf(p.id, { title, expired: p.dday < 0, orderNo: p.orderNo })}>{p.dday < 0 ? '만료' : 'PDF'}</Button>} />
+                </div>
+              );
+            }) : (
+              <p className="fo-caption" style={{ marginTop: 8 }}>최근 구매 내역이 없어요.</p>
+            )}
+            <p className="fo-caption" style={{ marginTop: 8 }}>다운로드는 결제일로부터 7일간 가능해요.</p>
+          </Card>
+        </div>
+      </div>
+    </F.Scaffold>
+  );
+}
+ReactDOM.createRoot(document.getElementById('app')).render(<MyPage />);

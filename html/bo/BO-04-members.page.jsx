@@ -1,0 +1,163 @@
+/* BO-04 회원 관리 — 회원 목록(일반/소셜) · 상세(구매내역) · 상태 관리 · 비회원 주문 조회 */
+const DS = window.DrumSheetStoreDesignSystem_3a2462;
+const { Button, Card, Badge, Chip, Select, Input, Icon } = DS;
+const B = window.BO;
+const A = window.AdminData;
+const D = window.DrumData;
+
+const M_TONE = { 정상: 'success', 정지: 'warning', 탈퇴: 'neutral' };
+const amountOf = (o) => o.items.reduce((n, it) => n + D.byId(it.id).price * it.qty, 0);
+
+function MembersPage() {
+  const [tab, setTab] = React.useState('회원 목록');
+  const [members, setMembers] = React.useState(A.members);
+  const [type, setType] = React.useState('전체');
+  const [status, setStatus] = React.useState('전체');
+  const [cur, setCur] = React.useState(null);
+  const [guestEmail, setGuestEmail] = React.useState('');
+  const [guestResult, setGuestResult] = React.useState(null);
+
+  const rows = members.filter((m) =>
+    (type === '전체' || m.type === type) && (status === '전체' || m.status === status));
+
+  const memberOrderMatch = (o, m) => {
+    if (!o || !m || o.email !== m.email) return false;
+    if (!o.member) return false;
+    const mp = m.provider || ({ '카카오': 'kakao', '네이버': 'naver', '구글': 'google', '이메일': 'email' }[m.type] || 'email');
+    if (o.provider) return o.provider === mp;
+    /* legacy orders without provider: only attribute to email-password members */
+    return mp === 'email';
+  };
+
+  const setMemberStatus = async (email, st) => {
+    try {
+      if (window.ChodrumAPI && ChodrumAPI.members) {
+        await ChodrumAPI.members.updateStatus(email, st);
+      }
+      setMembers((ms) => ms.map((m) => m.email === email ? { ...m, status: st } : m));
+      setCur((c) => c && c.email === email ? { ...c, status: st } : c);
+      B.toast('회원 상태를 「' + st + '」로 변경했어요');
+    } catch (e) {
+      B.toast((e && e.message) || '상태 변경에 실패했어요');
+    }
+  };
+  const searchGuest = () => {
+    const found = A.orders.filter((o) => !o.member && o.email.toLowerCase() === guestEmail.trim().toLowerCase());
+    setGuestResult(found);
+  };
+
+  return (
+    <B.Shell active="members" title="회원 관리">
+      <div data-screen-label="BO-04 회원 관리" style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+        <div style={{ display: 'flex', gap: 8 }}>
+          {['회원 목록', '비회원 주문 조회'].map((t) => <Chip key={t} selected={tab === t} onClick={() => setTab(t)}>{t}</Chip>)}
+        </div>
+
+        {tab === '회원 목록' ? (
+          <React.Fragment>
+            <div className="bo-toolbar">
+              <div style={{ width: 140 }}><Select size="sm" value={type} onChange={(e) => setType(e.target.value)} options={['전체', '이메일', '카카오', '네이버', '구글']} /></div>
+              <div style={{ width: 120 }}><Select size="sm" value={status} onChange={(e) => setStatus(e.target.value)} options={['전체', '정상', '정지', '탈퇴']} /></div>
+              <span className="ds-mono" style={{ fontSize: 12, color: 'var(--text-secondary)', marginLeft: 'auto' }}>{rows.length}명</span>
+            </div>
+            <Card padding={0}>
+              <div style={{ padding: 6 }}>
+                <B.Table minWidth={760} head={['회원', '이메일', '가입유형', '가입일', { l: '주문', r: true }, '상태']}>
+                  {rows.map((m) => (
+                    <tr key={m.email} onClick={() => setCur(m)} style={{ cursor: 'pointer' }}>
+                      <B.Td>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                          <span style={{ width: 30, height: 30, borderRadius: 9999, background: 'var(--surface-inverse)', color: '#fff', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, fontWeight: 600 }}>{m.name.slice(0, 1)}</span>
+                          <span style={{ fontWeight: 600 }}>{m.name}</span>
+                        </div>
+                      </B.Td>
+                      <B.Td><span style={{ ...B.mono, fontSize: 12, color: 'var(--text-secondary)' }}>{m.email}</span></B.Td>
+                      <B.Td><Badge variant={m.type === '이메일' ? 'neutral' : 'outline'} size="sm">{m.type}</Badge></B.Td>
+                      <B.Td><span style={{ ...B.mono, fontSize: 12 }}>{m.joined}</span></B.Td>
+                      <B.Td r><span style={B.mono}>{m.orders}</span></B.Td>
+                      <B.Td><Badge variant={M_TONE[m.status]} size="sm">{m.status}</Badge></B.Td>
+                    </tr>
+                  ))}
+                </B.Table>
+              </div>
+            </Card>
+            <p style={{ fontSize: 12, color: 'var(--text-secondary)' }}>소셜 회원(카카오/네이버/구글)은 비밀번호가 없는 계정이에요. 행을 클릭하면 상세와 상태 관리를 볼 수 있어요.</p>
+          </React.Fragment>
+        ) : (
+          <div className="bo-cards2">
+            <Card padding={18} style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+              <span style={{ fontSize: 15, fontWeight: 600 }}>이메일로 조회</span>
+              <p style={{ fontSize: 13, color: 'var(--text-secondary)', lineHeight: 1.55 }}>비회원 구매자의 유일한 조회 키는 주문 시 입력한 이메일이에요. CS 응대 시 이메일로 주문을 찾을 수 있어요.</p>
+              <div style={{ display: 'flex', gap: 8 }}>
+                <div style={{ flex: 1 }}><Input size="sm" iconLeft="mail" placeholder="주문 시 이메일" value={guestEmail} onChange={(e) => setGuestEmail(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && searchGuest()} /></div>
+                <Button variant="primary" size="sm" onClick={searchGuest}>조회</Button>
+              </div>
+            </Card>
+            <Card padding={0}>
+              <B.CardHead title="조회 결과" right={guestResult ? <span className="ds-mono" style={{ fontSize: 12, color: 'var(--text-secondary)' }}>{guestResult.length}건</span> : null} />
+              {guestResult === null ? (
+                <p style={{ padding: '0 18px 18px', fontSize: 13, color: 'var(--text-secondary)' }}>이메일을 입력하고 조회를 눌러주세요.</p>
+              ) : guestResult.length ? (
+                <div style={{ padding: '0 18px 12px' }}>
+                  {guestResult.map((o, i) => (
+                    <div key={o.no} style={{ padding: '12px 0', borderTop: i ? '1px solid var(--border-default)' : 'none' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8, flexWrap: 'wrap' }}>
+                        <span style={{ ...B.mono, fontSize: 12.5, fontWeight: 600 }}>{o.no}</span>
+                        <Badge variant={B.ORDER_TONE[o.status]} size="sm">{o.status}</Badge>
+                      </div>
+                      <div style={{ fontSize: 13, color: 'var(--text-secondary)', marginTop: 4 }}>{o.items.map((it) => D.byId(it.id).title).join(', ')}</div>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 4 }}>
+                        <span style={{ ...B.mono, fontSize: 12, color: 'var(--text-tertiary)' }}>{o.date}</span>
+                        <span style={{ ...B.mono, fontSize: 13, fontWeight: 600 }}>{B.won(amountOf(o))}</span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p style={{ padding: '0 18px 18px', fontSize: 13, color: 'var(--text-secondary)' }}>해당 이메일로 주문 내역이 없어요. 오타 가능성을 함께 안내해주세요.</p>
+              )}
+            </Card>
+          </div>
+        )}
+      </div>
+
+      {/* 회원 상세 모달 (구매 내역 포함) */}
+      <B.Modal open={!!cur} onClose={() => setCur(null)} title={cur ? '회원 상세' : ''} width={580}
+        footer={cur ? <Button variant="primary" size="sm" onClick={() => setCur(null)}>닫기</Button> : null}>
+        {cur ? (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+              <span style={{ width: 44, height: 44, borderRadius: 9999, background: 'var(--surface-inverse)', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 16, fontWeight: 600 }}>{cur.name.slice(0, 1)}</span>
+              <div style={{ flex: 1 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <span style={{ fontSize: 16, fontWeight: 600 }}>{cur.name}</span>
+                  <Badge variant={cur.type === '이메일' ? 'neutral' : 'outline'} size="sm">{cur.type}</Badge>
+                  <Badge variant={M_TONE[cur.status]} size="sm">{cur.status}</Badge>
+                </div>
+                <div style={{ ...B.mono, fontSize: 12, color: 'var(--text-secondary)', marginTop: 3 }}>{cur.email} · 가입 {cur.joined}</div>
+              </div>
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+              <span style={{ fontSize: 13, color: 'var(--text-secondary)', flex: 'none' }}>회원 상태</span>
+              <div style={{ width: 130 }}><Select size="sm" value={cur.status} onChange={(e) => setMemberStatus(cur.email, e.target.value)} options={['정상', '정지', '탈퇴']} /></div>
+            </div>
+            <hr style={{ height: 1, background: 'var(--border-default)', border: 0 }} />
+            <div>
+              <div style={{ fontSize: 13.5, fontWeight: 600, marginBottom: 8 }}>구매 내역</div>
+              {A.orders.filter((o) => memberOrderMatch(o, cur)).length ? A.orders.filter((o) => memberOrderMatch(o, cur)).map((o) => (
+                <div key={o.no} style={{ display: 'flex', justifyContent: 'space-between', gap: 8, padding: '8px 0', borderTop: '1px solid var(--border-default)', fontSize: 13 }}>
+                  <span style={{ ...B.mono, fontSize: 12 }}>{o.no}</span>
+                  <span style={{ color: 'var(--text-secondary)', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', padding: '0 8px' }}>{D.byId(o.items[0].id).title}{o.items.length > 1 ? ' 외' : ''}</span>
+                  <span style={B.mono}>{B.won(amountOf(o))}</span>
+                </div>
+              )) : <p style={{ fontSize: 13, color: 'var(--text-secondary)' }}>최근 구매 내역이 없어요.</p>}
+            </div>
+          </div>
+        ) : null}
+      </B.Modal>
+    </B.Shell>
+  );
+}
+window.ChodrumBoot.whenReady(() => {
+  ReactDOM.createRoot(document.getElementById('app')).render(<MembersPage />);
+});

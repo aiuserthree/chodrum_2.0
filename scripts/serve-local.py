@@ -4,6 +4,7 @@
 Plain `python3 -m http.server` does not apply Vercel pretty URLs, so
 /login, /bo/login, /mypage, etc. return 404. Use this instead:
 
+  npm run build          # after editing *.jsx / *.page.jsx
   python3 scripts/serve-local.py
   # → http://localhost:8765/login
   # → http://localhost:8765/bo/login

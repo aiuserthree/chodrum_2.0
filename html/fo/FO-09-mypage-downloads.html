@@ -16,161 +16,16 @@
 </head>
 <body class="fo-body">
 <div id="app"></div>
-<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
-<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
-<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react@18.3.1/umd/react.production.min.js" integrity="sha384-DGyLxAyjq0f9SPpVevD6IgztCFlnMF6oW/XQGmfe+IsZ8TqEiDrcHkMLKI6fiB/Z" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.production.min.js" integrity="sha384-gTGxhz21lVGYNMcdJOyq01Edg0jhn/c22nsx0kyqP0TxaV5WVdsSH1fSDUf5YJj1" crossorigin="anonymous"></script>
 <script src="../_ds/drum-sheet-store-design-system-3a2462a0-2443-475e-a3b6-f7937913eb0b/_ds_bundle.js"></script>
 <script src="../shared/data.js"></script>
 <script src="../shared/store.js"></script>
 <script src="../shared/config.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.110.5"></script>
 <script src="../shared/supabase-client.js"></script>
 <script src="../shared/api.js"></script>
-<script type="text/babel" src="/fo/fo-shared.jsx"></script>
-<script type="text/babel">
-/* FO-09-01 구매 내역 / 다운로드 — 7일 잔여기간 뱃지 · 만료 시 비활성화 */
-const DS = window.DrumSheetStoreDesignSystem_3a2462;
-const { Button, Icon, Chip, Card } = DS;
-const F = window.FO;
-const MISSING = (F && F.MISSING_SHEET_TITLE) || '삭제되었거나 찾을 수 없는 악보';
-
-function purchaseSheetId(p) {
-  if (!p || typeof p !== 'object') return '';
-  /* sheetId 우선 — 일부 레코드에서 id 가 다른 의미일 수 있음 */
-  if (p.sheetId != null && p.sheetId !== '') return p.sheetId;
-  if (p.id != null && p.id !== '') return p.id;
-  return '';
-}
-
-/** 스냅샷 → lastOrder → resolveSheet. 절대 throw / undefined.title 없음 */
-function purchaseDisplay(p) {
-  const row = (p && typeof p === 'object') ? p : {};
-  const id = purchaseSheetId(row);
-  let snap = (row.title && row.title !== MISSING) ? String(row.title) : '';
-
-  /* 예전 주문: purchases 에 title 없음 → lastOrder.items 스냅샷 시도 */
-  if (!snap) {
-    try {
-      const order = Store.lastOrder.get();
-      const items = (order && Array.isArray(order.items)) ? order.items : [];
-      const hit = items.find((it) => {
-        if (!it) return false;
-        const iid = (it.sheetId != null && it.sheetId !== '') ? it.sheetId : it.id;
-        return String(iid) === String(id);
-      });
-      if (hit && hit.title && hit.title !== MISSING) snap = String(hit.title);
-    } catch (e) { /* ignore */ }
-  }
-
-  let cover = '';
-  let title = snap || '악보';
-  try {
-    const resolved = (F && typeof F.resolveSheet === 'function')
-      ? F.resolveSheet(id, { title: snap || '악보' })
-      : null;
-    if (F && typeof F.lineTitle === 'function') title = F.lineTitle({ title: snap }, resolved);
-    else {
-      const t = resolved && resolved.title;
-      title = (snap && snap !== MISSING) ? snap : ((t && t !== MISSING) ? t : (snap || '악보'));
-    }
-    if (F && typeof F.sheetCoverUrl === 'function') cover = F.sheetCoverUrl(resolved) || '';
-  } catch (e) {
-    title = snap || '악보';
-    cover = '';
-  }
-  if (!title || title === MISSING) title = snap || '악보';
-  return { id: id, title: title, cover: cover };
-}
-
-function DownloadsPage() {
-  F.useStoreTick();
-  const user = Store.user.get();
-  const [filter, setFilter] = React.useState('전체');
-  const [purchases, setPurchases] = React.useState([]);
-  const [dataReady, setDataReady] = React.useState(false);
-
-  React.useEffect(() => {
-    let cancelled = false;
-    if (!user || (!user.email && !user.authId)) {
-      setPurchases([]);
-      setDataReady(true);
-      return undefined;
-    }
-    setDataReady(false);
-    F.loadPurchases(user).then((list) => {
-      if (cancelled) return;
-      setPurchases(Array.isArray(list) ? list : []);
-      setDataReady(true);
-    }).catch(() => {
-      if (cancelled) return;
-      setPurchases([]);
-      setDataReady(true);
-    });
-    return () => { cancelled = true; };
-  }, [user && user.email, user && user.authId, user && user.provider]);
-
-  if (!user) {
-    return (
-      <F.Scaffold title="구매 내역 / 다운로드" back={F.PAGES.my}>
-        <F.MyPageLayout active="downloads" label="FO-09-01 구매내역 (비로그인)">
-          <F.Empty icon="user" title="로그인이 필요해요" sub="구매 내역과 다운로드는 로그인 후 이용할 수 있어요." action="로그인 / 회원가입" href={F.PAGES.login} />
-        </F.MyPageLayout>
-      </F.Scaffold>
-    );
-  }
-
-  const list = purchases.filter((p) => filter === '전체' || (filter === '다운로드 가능' ? p.dday >= 0 : p.dday < 0));
-
-  return (
-    <F.Scaffold title="구매 내역 / 다운로드" back={F.PAGES.my}>
-      <F.MyPageLayout active="downloads" label="FO-09-01 구매 내역 / 다운로드">
-        <div className="fo-chips" style={{ padding: '2px 0 6px' }}>
-          {['전체', '다운로드 가능', '기간 만료'].map((k) => <Chip key={k} selected={filter === k} onClick={() => setFilter(k)}>{k}</Chip>)}
-        </div>
-
-        {!dataReady ? (
-          <div style={{ padding: '48px 16px', textAlign: 'center', color: 'var(--text-secondary)', fontSize: 14 }}>구매 내역을 불러오는 중…</div>
-        ) : list.length ? (
-          <div>
-            {list.map((p, i) => {
-              const disp = purchaseDisplay(p);
-              const title = (disp && disp.title) || (p && p.title) || '악보';
-              const cover = (disp && disp.cover) || '';
-              const expired = !!(p && p.dday < 0);
-              const rowKey = String((p && p.orderNo) || '') + String((p && p.id) || '') + String(i);
-              return (
-                <div key={rowKey} style={{ display: 'flex', gap: 12, padding: '16px 0', borderTop: i ? '1px solid var(--border-default)' : 'none', alignItems: 'center' }}>
-                  <div style={{ width: 52, flex: 'none', borderRadius: 8, overflow: 'hidden', border: '1px solid var(--border-default)' }}>
-                    <F.StaffThumb ratio="1 / 1" size={17} src={cover || undefined} alt={title} />
-                  </div>
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ fontSize: 14.5, fontWeight: 600, letterSpacing: '-0.3px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{title}</div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 7, marginTop: 5, flexWrap: 'wrap' }}>
-                      <F.DdayBadge dday={p.dday} />
-                      <span className="ds-mono" style={{ fontSize: 11, color: 'var(--text-secondary)' }}>{p.date}</span>
-                      <span className="ds-mono fo-desktop" style={{ fontSize: 11, color: 'var(--text-tertiary)' }}>{p.orderNo}</span>
-                    </div>
-                    {expired ? <div className="fo-caption" style={{ marginTop: 4 }}>다운로드 기간이 만료되었어요. 고객센터에서 재발급을 요청할 수 있어요.</div> : null}
-                  </div>
-                  <Button variant={expired ? 'secondary' : 'primary'} size="sm" iconLeft="download" disabled={expired}
-                    onClick={() => F.downloadSheetPdf(disp.id || p.id, { title, expired, orderNo: p.orderNo })}>{expired ? '만료' : 'PDF'}</Button>
-                </div>
-              );
-            })}
-          </div>
-        ) : (
-          <F.Empty icon="download" title={filter === '기간 만료' ? '만료된 항목이 없어요' : '구매한 악보가 없어요'} sub="결제가 완료된 악보가 여기에 표시돼요." action="악보 둘러보기" href={F.PAGES.list} />
-        )}
-
-        <div style={{ marginTop: 20, padding: '12px 14px', background: 'var(--surface-sunken)', border: '1px solid var(--border-default)', borderRadius: 'var(--radius-lg)', display: 'flex', gap: 8 }}>
-          <Icon name="info" size={14} style={{ color: 'var(--color-icon)', marginTop: 1, flex: 'none' }} />
-          <span className="fo-caption">다운로드는 <b>결제일로부터 7일(168시간)</b> 동안 가능하고, 기간 내에는 여러 번 받을 수 있어요. PDF 파일로 저장돼요.</span>
-        </div>
-      </F.MyPageLayout>
-    </F.Scaffold>
-  );
-}
-ReactDOM.createRoot(document.getElementById('app')).render(<DownloadsPage />);
-</script>
+<script src="./fo-shared.js"></script>
+<script src="./FO-09-mypage-downloads.page.js"></script>
 </body>
 </html>

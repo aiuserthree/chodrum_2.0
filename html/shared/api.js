@@ -202,33 +202,75 @@
     };
   }
 
-  /** Sign preview/* paths so private sheets bucket still works in <img src>. */
+  /**
+   * Sign preview/* paths so private sheets bucket still works in <img src>.
+   * Batches createSignedUrls (one round-trip) instead of N sequential calls —
+   * critical after migration 013 made the sheets bucket private.
+   */
   async function signPreviewUrlsForSheets(sheets) {
     if (!live() || !sheets || !sheets.length) return sheets;
     var client = sb();
-    var out = [];
-    for (var i = 0; i < sheets.length; i++) {
-      var s = Object.assign({}, sheets[i]);
-      var urls = (s.previewUrls || []).slice();
-      var signed = [];
-      for (var j = 0; j < urls.length; j++) {
-        var path = sheetsStoragePath(urls[j], 'preview');
-        if (path && path.indexOf('preview/') === 0) {
-          try {
-            var r = await client.storage.from('sheets').createSignedUrl(path, 3600);
-            signed.push((r.data && r.data.signedUrl) || urls[j]);
-          } catch (_) {
-            signed.push(urls[j]);
-          }
-        } else {
-          signed.push(urls[j]);
+    var pathSet = {};
+    var pathList = [];
+    sheets.forEach(function (s) {
+      (s.previewUrls || []).forEach(function (url) {
+        var p = sheetsStoragePath(url, 'preview');
+        if (p && p.indexOf('preview/') === 0 && !pathSet[p]) {
+          pathSet[p] = true;
+          pathList.push(p);
         }
+      });
+    });
+    var signedMap = {};
+    if (pathList.length) {
+      try {
+        /* supabase-js batches; chunk to stay under URL/body limits */
+        var CHUNK = 100;
+        for (var c = 0; c < pathList.length; c += CHUNK) {
+          var chunk = pathList.slice(c, c + CHUNK);
+          var r = await client.storage.from('sheets').createSignedUrls(chunk, 3600);
+          if (r.error) {
+            console.warn('[CHODRUM] createSignedUrls', r.error);
+            continue;
+          }
+          (r.data || []).forEach(function (item) {
+            if (!item) return;
+            var key = item.path || '';
+            var url = item.signedUrl || item.signedURL || '';
+            if (key && url && !item.error) signedMap[key] = url;
+          });
+        }
+      } catch (e) {
+        console.warn('[CHODRUM] preview sign batch failed', e);
       }
-      s.previewUrls = signed;
-      s.previewUrl = signed[0] || '';
-      out.push(s);
     }
-    return out;
+    return sheets.map(function (s) {
+      var urls = (s.previewUrls || []).map(function (url) {
+        var p = sheetsStoragePath(url, 'preview');
+        if (p && signedMap[p]) return signedMap[p];
+        return url;
+      });
+      var copy = Object.assign({}, s);
+      copy.previewUrls = urls;
+      copy.previewUrl = urls[0] || '';
+      return copy;
+    });
+  }
+
+  /** Auth / legal / payment interstitial — skip catalog hydrate for first paint. */
+  function isLightHydratePage() {
+    try {
+      var p = location.pathname || '';
+      if (/\/(login|signup|find-id|password-reset|oauth-terms|terms|privacy|marketing|guide)(\/|$)/i.test(p)) {
+        return true;
+      }
+      if (/\/payment\/(success|fail)/i.test(p)) return true;
+      if (/FO-08-|FO-11-|FO-06-payment/i.test(p)) return true;
+      if (/BO-00-login/i.test(p) || /\/bo\/login/i.test(p)) return true;
+      return false;
+    } catch (_) {
+      return false;
+    }
   }
 
   function sheetToRow(s) {
@@ -558,10 +600,43 @@
     var D = window.DrumData;
     var A = window.AdminData;
 
-    var sheetsRes = await client.from('sheets').select('*').order('sold', { ascending: false });
-    if (sheetsRes.error) throw sheetsRes.error;
+    /* Login / legal / payment interstitials: mark ready without catalog fetch. */
+    if (isLightHydratePage()) {
+      return { mode: 'live', error: null, light: true };
+    }
 
-    var sheets = await signPreviewUrlsForSheets((sheetsRes.data || []).map(mapSheet));
+    var bo = isBoPage();
+    var sheetsPromise = client.from('sheets').select('*').order('sold', { ascending: false });
+    var metaPromise = Promise.all([
+      client.from('featured_sheets').select('sheet_id, sort_order').order('sort_order'),
+      client.from('home_promo').select('*').eq('id', 1).maybeSingle(),
+      client.from('banners').select('*').order('sort_order'),
+      client.from('site_settings').select('key, value'),
+      bo
+        ? client.from('orders').select('*, order_items(sheet_id, qty, price)').order('created_at', { ascending: false })
+        : Promise.resolve({ error: null, data: [] }),
+      bo
+        ? client.from('members').select('*').order('joined_at', { ascending: false })
+        : Promise.resolve({ error: null, data: [] }),
+      bo
+        ? client.from('downloads').select('*').order('created_at', { ascending: false })
+        : Promise.resolve({ error: null, data: [] }),
+    ]);
+
+    /* Sign previews while other tables load (overlap network). */
+    var sheetsRes = await sheetsPromise;
+    if (sheetsRes.error) throw sheetsRes.error;
+    var signPromise = signPreviewUrlsForSheets((sheetsRes.data || []).map(mapSheet));
+    var settled = await Promise.all([signPromise, metaPromise]);
+    var sheets = settled[0];
+    var featRes = settled[1][0];
+    var promoRes = settled[1][1];
+    var banRes = settled[1][2];
+    var setRes = settled[1][3];
+    var ordRes = settled[1][4];
+    var memRes = settled[1][5];
+    var dlRes = settled[1][6];
+
     D.sheets = sheets;
     D.byId = function (id) {
       var key = id == null ? '' : String(id);
@@ -576,12 +651,10 @@
       if (s.status && s.status !== '판매중') A.sheetStatus[s.id] = s.status;
     });
 
-    var featRes = await client.from('featured_sheets').select('sheet_id, sort_order').order('sort_order');
     if (!featRes.error) {
       D.recommended = (featRes.data || []).map(function (r) { return r.sheet_id; });
     }
 
-    var promoRes = await client.from('home_promo').select('*').eq('id', 1).maybeSingle();
     if (!promoRes.error && promoRes.data) {
       D.banner = {
         sheetId: promoRes.data.sheet_id,
@@ -591,7 +664,6 @@
       };
     }
 
-    var banRes = await client.from('banners').select('*').order('sort_order');
     if (banRes.error) {
       console.warn('[CHODRUM] banners hydrate 실패', banRes.error);
     } else {
@@ -612,7 +684,6 @@
       D.homeBanners = A.banners.slice();
     }
 
-    var setRes = await client.from('site_settings').select('key, value');
     if (!setRes.error && setRes.data) {
       setRes.data.forEach(function (row) {
         if (row.key === 'genres' && Array.isArray(row.value)) D.genres = row.value;
@@ -620,21 +691,8 @@
       });
     }
 
-    var ordRes = { error: null, data: [] };
-    var memRes = { error: null, data: [] };
-    var dlRes = { error: null, data: [] };
-
     /* Sensitive tables: BO admin only (014 RLS). FO must not pull all rows. */
-    if (isBoPage()) {
-      ordRes = await client
-        .from('orders')
-        .select('*, order_items(sheet_id, qty, price)')
-        .order('created_at', { ascending: false });
-      memRes = await client.from('members').select('*').order('joined_at', { ascending: false });
-      dlRes = await client.from('downloads').select('*').order('created_at', { ascending: false });
-    }
-
-    if (!ordRes.error && isBoPage()) {
+    if (!ordRes.error && bo) {
       A.orders = (ordRes.data || []).map(function (o) {
         return {
           no: o.order_no,
@@ -655,7 +713,7 @@
       });
     }
 
-    if (!memRes.error && isBoPage()) {
+    if (!memRes.error && bo) {
       var orderCountByIdentity = {};
       (A.orders || []).forEach(function (o) {
         if (!o || !o.email || !o.member) return;
@@ -680,7 +738,7 @@
       });
     }
 
-    if (!dlRes.error && isBoPage()) {
+    if (!dlRes.error && bo) {
       A.downloads = (dlRes.data || []).map(function (d) {
         return {
           at: fmtOrderDate(d.created_at),

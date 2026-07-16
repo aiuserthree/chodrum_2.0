@@ -1,0 +1,130 @@
+/* BO-03 주문/결제 관리 — 회원/비회원 필터 · 주문 상세 · 환불 처리(권한 회수 연동) */
+const DS = window.DrumSheetStoreDesignSystem_3a2462;
+const { Button, Card, Badge, Chip, Select, Checkbox, Input, Icon } = DS;
+const B = window.BO;
+const A = window.AdminData;
+const D = window.DrumData;
+
+const amountOf = (o) => o.items.reduce((n, it) => {
+  const sheet = D.byId(it.id);
+  const unit = it.price != null ? it.price : (sheet ? sheet.price : 0);
+  return n + unit * it.qty;
+}, 0);
+
+function OrdersPage() {
+  const [orders, setOrders] = React.useState(A.orders);
+  const [f, setF] = React.useState('전체');
+  const [type, setType] = React.useState('전체');
+  const [cur, setCur] = React.useState(null); /* 상세 모달 대상 */
+  const [refunding, setRefunding] = React.useState(false);
+  const [reason, setReason] = React.useState('');
+  const [revoke, setRevoke] = React.useState(true);
+
+  const rows = orders.filter((o) =>
+    (f === '전체' || o.status === f) &&
+    (type === '전체' || (type === '회원' ? o.member : !o.member)));
+
+  const openDetail = (o) => { setCur(o); setRefunding(false); setReason(''); setRevoke(true); };
+  const setStatus = async (no, status) => {
+    setOrders((os) => os.map((o) => o.no === no ? { ...o, status } : o));
+    setCur((c) => c && c.no === no ? { ...c, status } : c);
+    try { await window.ChodrumAPI.orders.updateStatus(no, status, { revoke }); }
+    catch (e) { console.warn(e); B.toast('상태 동기화 실패'); }
+  };
+  const doRefund = async () => {
+    await setStatus(cur.no, '환불');
+    B.toast('환불 완료' + (revoke ? ' · 다운로드 권한을 회수했어요' : ''));
+    setRefunding(false);
+  };
+
+  return (
+    <B.Shell active="orders" title="주문 / 결제 관리">
+      <div data-screen-label="BO-03 주문/결제 관리" style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+        <div className="bo-toolbar">
+          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+            {['전체', '결제완료', '대기', '취소', '환불'].map((x) => <Chip key={x} selected={f === x} onClick={() => setF(x)}>{x}</Chip>)}
+          </div>
+          <div style={{ width: 130, marginLeft: 'auto' }}><Select size="sm" value={type} onChange={(e) => setType(e.target.value)} options={['전체', '회원', '비회원']} /></div>
+        </div>
+
+        <Card padding={0}>
+          <div style={{ padding: 6 }}>
+            <B.Table minWidth={860} head={['주문번호', '주문자', '유형', '상품', '결제수단', { l: '금액', r: true }, '상태', { l: '시간', r: true }]}>
+              {rows.map((o) => (
+                <tr key={o.no} onClick={() => openDetail(o)} style={{ cursor: 'pointer' }}>
+                  <B.Td><span style={{ ...B.mono, fontSize: 12 }}>{o.no}</span></B.Td>
+                  <B.Td>
+                    <div style={{ fontWeight: 500 }}>{o.buyer}</div>
+                    <div style={{ ...B.mono, fontSize: 11, color: 'var(--text-secondary)' }}>{o.email}</div>
+                  </B.Td>
+                  <B.Td><Badge variant={o.member ? 'outline' : 'neutral'} size="sm">{o.member ? '회원' : '비회원'}</Badge></B.Td>
+                  <B.Td><span style={{ color: 'var(--text-secondary)' }}>{(D.byId(o.items[0].id) || { title: o.items[0].id }).title}{o.items.length > 1 ? ' 외 ' + (o.items.length - 1) + '건' : ''}</span></B.Td>
+                  <B.Td>{o.method}</B.Td>
+                  <B.Td r><span style={B.mono}>{B.won(amountOf(o))}</span></B.Td>
+                  <B.Td><Badge variant={B.ORDER_TONE[o.status]} size="sm">{o.status}</Badge></B.Td>
+                  <B.Td r><span style={{ ...B.mono, fontSize: 12, color: 'var(--text-secondary)' }}>{o.date}</span></B.Td>
+                </tr>
+              ))}
+            </B.Table>
+          </div>
+        </Card>
+        <p style={{ fontSize: 12, color: 'var(--text-secondary)' }}>행을 클릭하면 주문 상세와 환불 처리를 진행할 수 있어요. 결제 실패 주문은 장바구니가 유지된 상태로 재결제를 유도해요.</p>
+      </div>
+
+      {/* 주문 상세 모달 (BO-03) */}
+      <B.Modal open={!!cur} onClose={() => setCur(null)} title={cur ? '주문 상세' : ''} width={600}
+        footer={cur ? (
+          refunding ? (
+            <React.Fragment>
+              <Button variant="secondary" size="sm" onClick={() => setRefunding(false)}>취소</Button>
+              <Button variant="primary" size="sm" disabled={!reason.trim()} onClick={doRefund}>환불 확정</Button>
+            </React.Fragment>
+          ) : (
+            <React.Fragment>
+              {cur.status === '결제완료' ? <Button variant="secondary" size="sm" onClick={() => setRefunding(true)}>환불 처리</Button> : null}
+              <Button variant="primary" size="sm" onClick={() => setCur(null)}>닫기</Button>
+            </React.Fragment>
+          )
+        ) : null}>
+        {cur ? (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+              <B.KVRow k="주문번호" v={<span style={{ ...B.mono, fontSize: 13 }}>{cur.no}</span>} />
+              <B.KVRow k="주문자" v={<span style={{ fontWeight: 500 }}>{cur.buyer} <Badge variant={cur.member ? 'outline' : 'neutral'} size="sm">{cur.member ? '회원' : '비회원'}</Badge></span>} />
+              <B.KVRow k="이메일" v={<span style={{ ...B.mono, fontSize: 12.5 }}>{cur.email}</span>} />
+              <B.KVRow k="결제수단 / 일시" v={<span style={{ fontSize: 13.5 }}>{cur.method} · <span style={B.mono}>{cur.date}</span></span>} />
+            </div>
+            <hr style={{ height: 1, background: 'var(--border-default)', border: 0 }} />
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+              {cur.items.map((it) => {
+                const s = D.byId(it.id);
+                return <B.KVRow key={it.id} k={<span style={{ color: 'var(--text-primary)' }}>{s.title} ×{it.qty}</span>} v={<span style={B.mono}>{B.won(s.price * it.qty)}</span>} />;
+              })}
+              <B.KVRow k={<b style={{ color: 'var(--text-primary)' }}>총 결제금액</b>} v={<span style={{ ...B.mono, fontSize: 16, fontWeight: 600 }}>{B.won(amountOf(cur))}</span>} />
+            </div>
+            <hr style={{ height: 1, background: 'var(--border-default)', border: 0 }} />
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+              <span style={{ fontSize: 13, color: 'var(--text-secondary)', flex: 'none' }}>결제 상태</span>
+              <div style={{ width: 140 }}>
+                <Select size="sm" value={cur.status} onChange={(e) => { setStatus(cur.no, e.target.value); B.toast('상태를 「' + e.target.value + '」로 변경했어요'); }} options={['결제완료', '대기', '취소', '환불']} />
+              </div>
+              <Badge variant={B.ORDER_TONE[cur.status]} size="sm">{cur.status}</Badge>
+            </div>
+
+            {refunding ? (
+              <div style={{ padding: 14, background: 'var(--surface-sunken)', borderRadius: 'var(--radius-lg)', display: 'flex', flexDirection: 'column', gap: 12 }}>
+                <span style={{ fontSize: 14, fontWeight: 600 }}>환불 처리</span>
+                <Input label="환불 사유 (필수)" placeholder="예: 구매자 요청 — 중복 구매" value={reason} onChange={(e) => setReason(e.target.value)} />
+                <Checkbox checked={revoke} onChange={setRevoke} label="다운로드 권한 즉시 회수 (REVOKED)" />
+                <p style={{ fontSize: 12, color: 'var(--text-secondary)', lineHeight: 1.5 }}>권한을 회수하면 구매자 화면에서 다운로드 버튼이 즉시 비활성화되고, 환불 안내 메일이 발송돼요.</p>
+              </div>
+            ) : null}
+          </div>
+        ) : null}
+      </B.Modal>
+    </B.Shell>
+  );
+}
+window.ChodrumBoot.whenReady(() => {
+  ReactDOM.createRoot(document.getElementById('app')).render(<OrdersPage />);
+});

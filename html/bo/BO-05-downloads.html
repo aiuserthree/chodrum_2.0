@@ -15,126 +15,16 @@
 </head>
 <body class="bo-body">
 <div id="app"></div>
-<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
-<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
-<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react@18.3.1/umd/react.production.min.js" integrity="sha384-DGyLxAyjq0f9SPpVevD6IgztCFlnMF6oW/XQGmfe+IsZ8TqEiDrcHkMLKI6fiB/Z" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.production.min.js" integrity="sha384-gTGxhz21lVGYNMcdJOyq01Edg0jhn/c22nsx0kyqP0TxaV5WVdsSH1fSDUf5YJj1" crossorigin="anonymous"></script>
 <script src="../_ds/drum-sheet-store-design-system-3a2462a0-2443-475e-a3b6-f7937913eb0b/_ds_bundle.js"></script>
 <script src="../shared/data.js"></script>
 <script src="../shared/config.js"></script>
 <script src="../shared/bo-auth.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.110.5"></script>
 <script src="../shared/supabase-client.js"></script>
 <script src="../shared/api.js"></script>
-<script type="text/babel" src="/bo/bo-shared.jsx"></script>
-<script type="text/babel">
-/* BO-05 다운로드 관리 — 이력 조회 · 7일 정책 관리 · 기간 재부여(사유 기록) */
-const DS = window.DrumSheetStoreDesignSystem_3a2462;
-const { Button, Card, Badge, Chip, Input, Icon } = DS;
-const B = window.BO;
-const A = window.AdminData;
-const D = window.DrumData;
-
-function DownloadsPage() {
-  const [rows, setRows] = React.useState(A.downloads);
-  const [f, setF] = React.useState('전체');
-  const [days, setDays] = React.useState('7');
-  const [target, setTarget] = React.useState(null); /* 재부여 대상 */
-  const [reDays, setReDays] = React.useState('7');
-  const [reason, setReason] = React.useState('');
-
-  const list = rows.filter((r) => f === '전체' || r.status === f);
-
-  const regrant = () => {
-    setRows((rs) => rs.map((r) => r === target ? { ...r, status: 'ACTIVE', dday: Number(reDays) || 7 } : r));
-    B.toast('다운로드 기간을 재부여했어요 (사유가 감사 로그에 기록돼요)');
-    setTarget(null); setReason('');
-  };
-
-  return (
-    <B.Shell active="downloads" title="다운로드 관리">
-      <div data-screen-label="BO-05 다운로드 관리" style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-        {/* 정책 관리 */}
-        <Card padding={18} style={{ display: 'flex', alignItems: 'center', gap: 14, flexWrap: 'wrap' }}>
-          <div style={{ flex: 1, minWidth: 220 }}>
-            <div style={{ fontSize: 15, fontWeight: 600 }}>다운로드 기간 정책</div>
-            <p style={{ fontSize: 12.5, color: 'var(--text-secondary)', marginTop: 4, lineHeight: 1.5 }}>결제 완료 시점부터 적용되는 기본 다운로드 가능 기간이에요. 기간 내 재다운로드는 무제한 허용돼요.</p>
-          </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            <input type="number" value={days} onChange={(e) => setDays(e.target.value)} style={{ width: 64, padding: '8px 10px', fontFamily: 'var(--font-mono)', fontSize: 14, textAlign: 'right', border: '1px solid var(--border-default)', borderRadius: 8, outline: 'none' }} />
-            <span style={{ fontSize: 14, color: 'var(--text-secondary)' }}>일 (기본 7일 = 168시간)</span>
-            <Button variant="secondary" size="sm" onClick={() => B.toast('정책을 저장했어요 · 이후 결제부터 적용돼요')}>저장</Button>
-          </div>
-        </Card>
-
-        <div className="bo-toolbar">
-          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-            {['전체', 'ACTIVE', 'EXPIRED', 'REVOKED'].map((x) => <Chip key={x} selected={f === x} onClick={() => setF(x)}>{x === '전체' ? '전체' : B.ENT_LABEL[x]}</Chip>)}
-          </div>
-          <span className="ds-mono" style={{ fontSize: 12, color: 'var(--text-secondary)', marginLeft: 'auto' }}>{list.length}건</span>
-        </div>
-
-        <Card padding={0}>
-          <div style={{ padding: 6 }}>
-            <B.Table minWidth={880} head={[{ l: '일시' }, '사용자', '악보', '주문번호', '상태', { l: '잔여', r: true }, '']}>
-              {list.map((r, i) => (
-                <tr key={i}>
-                  <B.Td><span style={{ ...B.mono, fontSize: 12, color: 'var(--text-secondary)' }}>{r.at}</span></B.Td>
-                  <B.Td>
-                    <div style={{ ...B.mono, fontSize: 12 }}>{r.email}</div>
-                    <Badge variant={r.member ? 'outline' : 'neutral'} size="sm">{r.member ? '회원' : '비회원'}</Badge>
-                  </B.Td>
-                  <B.Td><span style={{ fontWeight: 500 }}>{D.byId(r.sheetId).title}</span></B.Td>
-                  <B.Td><span style={{ ...B.mono, fontSize: 12, color: 'var(--text-secondary)' }}>{r.orderNo}</span></B.Td>
-                  <B.Td><Badge variant={B.ENT_TONE[r.status]} size="sm">{B.ENT_LABEL[r.status]}</Badge></B.Td>
-                  <B.Td r>
-                    <span style={{ ...B.mono, fontSize: 12.5, color: r.status === 'ACTIVE' ? 'var(--text-primary)' : 'var(--text-tertiary)' }}>
-                      {r.status === 'ACTIVE' ? 'D-' + r.dday : r.status === 'EXPIRED' ? '만료 ' + Math.abs(r.dday) + '일 경과' : '—'}
-                    </span>
-                  </B.Td>
-                  <B.Td>
-                    {r.status !== 'ACTIVE' ? (
-                      <Button variant="secondary" size="sm" iconLeft="refresh-cw" onClick={() => { setTarget(r); setReDays('7'); setReason(''); }}>재부여</Button>
-                    ) : null}
-                  </B.Td>
-                </tr>
-              ))}
-            </B.Table>
-          </div>
-        </Card>
-        <p style={{ fontSize: 12, color: 'var(--text-secondary)' }}>재부여는 예외 처리이며 반드시 사유가 기록돼요. 환불로 회수(REVOKED)된 권한도 정책에 따라 재부여할 수 있어요.</p>
-      </div>
-
-      {/* 재부여 모달 */}
-      <B.Modal open={!!target} onClose={() => setTarget(null)} title="다운로드 기간 재부여" width={480}
-        footer={target ? (
-          <React.Fragment>
-            <Button variant="secondary" size="sm" onClick={() => setTarget(null)}>취소</Button>
-            <Button variant="primary" size="sm" disabled={!reason.trim()} onClick={regrant}>재부여 확정</Button>
-          </React.Fragment>
-        ) : null}>
-        {target ? (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-              <B.KVRow k="대상" v={<span style={{ fontWeight: 500 }}>{D.byId(target.sheetId).title}</span>} />
-              <B.KVRow k="사용자" v={<span style={{ ...B.mono, fontSize: 12.5 }}>{target.email}</span>} />
-              <B.KVRow k="현재 상태" v={<Badge variant={B.ENT_TONE[target.status]} size="sm">{B.ENT_LABEL[target.status]}</Badge>} />
-            </div>
-            <hr style={{ height: 1, background: 'var(--border-default)', border: 0 }} />
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-              <span style={{ fontSize: 13.5, fontWeight: 500, flex: 'none' }}>재부여 기간</span>
-              <input type="number" value={reDays} onChange={(e) => setReDays(e.target.value)} style={{ width: 64, padding: '7px 10px', fontFamily: 'var(--font-mono)', fontSize: 13, textAlign: 'right', border: '1px solid var(--border-default)', borderRadius: 8, outline: 'none' }} />
-              <span style={{ fontSize: 13, color: 'var(--text-secondary)' }}>일</span>
-            </div>
-            <Input label="재부여 사유 (필수 · 감사 로그 기록)" placeholder="예: 기간 내 다운로드 실패 문의 — CS-2260" value={reason} onChange={(e) => setReason(e.target.value)} />
-          </div>
-        ) : null}
-      </B.Modal>
-    </B.Shell>
-  );
-}
-window.ChodrumBoot.whenReady(() => {
-  ReactDOM.createRoot(document.getElementById('app')).render(<DownloadsPage />);
-});
-</script>
+<script src="./bo-shared.js"></script>
+<script src="./BO-05-downloads.page.js"></script>
 </body>
 </html>
