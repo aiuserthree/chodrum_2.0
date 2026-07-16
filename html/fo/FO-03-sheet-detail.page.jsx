@@ -62,95 +62,103 @@ function sheetYoutubeUrl(s) {
   return String(s.youtubeUrl || s.youtube_url || '').trim();
 }
 
+function sheetSlugFromPath() {
+  const m = location.pathname.match(/^\/sheets\/([^/]+)\/?$/);
+  if (!m) return null;
+  const raw = m[1];
+  if (D && typeof D.normalizeSlugKey === 'function') return D.normalizeSlugKey(raw);
+  try { return decodeURIComponent(raw); } catch (_) { return raw; }
+}
+
+function useChodrumReady() {
+  const [ready, setReady] = React.useState(() => !!(window.ChodrumAPI && window.ChodrumAPI.readyState && window.ChodrumAPI.readyState.ready));
+  React.useEffect(() => {
+    if (ready) return undefined;
+    const done = () => setReady(true);
+    if (window.ChodrumAPI && window.ChodrumAPI.ready) {
+      window.ChodrumAPI.ready.then(done).catch(done);
+    }
+    window.addEventListener('chodrum:ready', done);
+    return () => window.removeEventListener('chodrum:ready', done);
+  }, [ready]);
+  return ready;
+}
+
 function DetailPage() {
-  const slugPath = F.detailSlugFromPath();
+  const slugPath = sheetSlugFromPath();
   const idFromQuery = F.qp('id');
-  const [sheet, setSheet] = React.useState(null);
-  const [loadState, setLoadState] = React.useState('loading'); /* loading | ok | missing | stopped */
+  const bootReady = useChodrumReady();
+  const [, bump] = React.useState(0);
+  const [fetchedSheet, setFetchedSheet] = React.useState(null);
+  const [slugPending, setSlugPending] = React.useState(false);
+  const [slugResolved, setSlugResolved] = React.useState(false);
   F.useStoreTick();
 
   React.useEffect(() => {
-    let cancelled = false;
+    const onReady = () => bump((n) => n + 1);
+    window.addEventListener('chodrum:ready', onReady);
+    return () => window.removeEventListener('chodrum:ready', onReady);
+  }, []);
 
-    async function resolveSheet() {
-      if (!slugPath && !idFromQuery) {
-        if (!cancelled) {
-          setSheet(null);
-          setLoadState('missing');
-        }
-        return;
-      }
+  let s = null;
+  if (slugPath && typeof D.bySlug === 'function') {
+    s = D.bySlug(slugPath);
+  } else if (idFromQuery) {
+    s = D.byId(idFromQuery);
+  }
+  if (!s && fetchedSheet) s = fetchedSheet;
 
-      try {
-        if (window.ChodrumAPI && ChodrumAPI.ready) await ChodrumAPI.ready;
-      } catch (_) { /* hydrate error — still try cache / fetch */ }
-
-      const D = window.DrumData;
-      let s = null;
-      if (slugPath && D && typeof D.bySlug === 'function') {
-        s = D.bySlug(slugPath);
-      }
-      if (!s && idFromQuery && D && typeof D.byId === 'function') {
-        s = D.byId(idFromQuery);
-      }
-      if (!s && slugPath && window.ChodrumAPI && ChodrumAPI.sheets
-          && typeof ChodrumAPI.sheets.getBySlug === 'function') {
-        try {
-          s = await ChodrumAPI.sheets.getBySlug(slugPath);
-        } catch (e) {
-          console.warn('[FO-03] getBySlug', e);
-        }
-      }
-
-      if (cancelled) return;
-      if (!s) {
-        setSheet(null);
-        setLoadState('missing');
-        return;
-      }
-      if (s.status && s.status !== '판매중') {
-        setSheet(s);
-        setLoadState('stopped');
-        return;
-      }
-      setSheet(s);
-      setLoadState('ok');
+  /* Slug URL: catalog miss → single-row Supabase fetch before 404 */
+  React.useEffect(() => {
+    if (!bootReady) return undefined;
+    if (!slugPath || s) {
+      setSlugResolved(true);
+      return undefined;
     }
-
-    setLoadState('loading');
-    resolveSheet();
-    window.addEventListener('chodrum:ready', resolveSheet);
-    return () => {
-      cancelled = true;
-      window.removeEventListener('chodrum:ready', resolveSheet);
-    };
-  }, [slugPath, idFromQuery]);
+    if (!A || !A.sheets || typeof A.sheets.getBySlug !== 'function') {
+      setSlugResolved(true);
+      return undefined;
+    }
+    let cancelled = false;
+    setSlugPending(true);
+    setSlugResolved(false);
+    A.sheets.getBySlug(slugPath)
+      .then((row) => {
+        if (!cancelled && row) setFetchedSheet(row);
+      })
+      .catch(() => { /* fall through to 404 */ })
+      .finally(() => {
+        if (!cancelled) {
+          setSlugPending(false);
+          setSlugResolved(true);
+        }
+      });
+    return () => { cancelled = true; };
+  }, [bootReady, slugPath, s && s.id]);
 
   /* Legacy ?id= → canonical slug URL (middleware handles 301 on cold load) */
   React.useEffect(() => {
-    if (!idFromQuery || slugPath || !sheet || !sheet.slug) return;
-    const next = F.sheetUrl(sheet);
+    if (!idFromQuery || slugPath || !s || !s.slug) return;
+    const next = F.sheetUrl(s);
     const cur = location.pathname + location.search;
     if (next && cur !== next) {
       history.replaceState(null, '', next);
     }
-  }, [idFromQuery, slugPath, sheet && sheet.slug, sheet && sheet.id]);
+  }, [idFromQuery, slugPath, s && s.slug, s && s.id]);
 
   const [cartAsk, setCartAsk] = React.useState(false);
   const [cartMsg, setCartMsg] = React.useState('장바구니에 담았어요');
 
-  if (loadState === 'loading') {
+  if (!bootReady || (slugPath && !s && (slugPending || !slugResolved))) {
     return (
       <F.Scaffold title="악보 상세" back={F.PAGES.list}>
-        <div style={{ padding: '64px 24px', textAlign: 'center', color: 'var(--text-secondary)', fontSize: 14 }}>
-          악보 정보를 불러오는 중…
-        </div>
+        <p className="fo-caption" style={{ textAlign: 'center', padding: '48px 16px' }}>악보 정보를 불러오는 중…</p>
       </F.Scaffold>
     );
   }
 
   /* 존재하지 않는 악보 ID → 404 안내 (FO-03 예외 처리) */
-  if (loadState === 'missing' || !sheet) {
+  if (!s) {
     return (
       <F.Scaffold title="악보 상세" back={F.PAGES.list}>
         <F.Empty icon="music" title="악보를 찾을 수 없어요" sub="판매가 종료되었거나 삭제된 악보예요. 다른 악보를 둘러보세요." action="악보 둘러보기" href={F.PAGES.list} />
@@ -159,7 +167,7 @@ function DetailPage() {
   }
 
   /* 숨김/판매중지 악보는 스토어에서 차단 */
-  if (loadState === 'stopped' || (sheet.status && sheet.status !== '판매중')) {
+  if (s.status && s.status !== '판매중') {
     return (
       <F.Scaffold title="악보 상세" back={F.PAGES.list}>
         <F.Empty icon="eye-off" title="현재 판매하지 않는 악보예요" sub="다른 악보를 둘러보세요." action="악보 둘러보기" href={F.PAGES.list} />
@@ -167,7 +175,6 @@ function DetailPage() {
     );
   }
 
-  const s = sheet;
   const faved = Store.fav.has(s.id);
   const related = D.sheets.filter((x) => x.genre === s.genre && x.id !== s.id && (!x.status || x.status === '판매중')).slice(0, 4);
   const previewUrls = (s.previewUrls && s.previewUrls.length)
@@ -257,6 +264,12 @@ function DetailPage() {
     </F.Scaffold>
   );
 }
-window.ChodrumBoot.whenReady(() => {
+
+function mountDetailPage() {
   ReactDOM.createRoot(document.getElementById('app')).render(<DetailPage />);
-});
+}
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', mountDetailPage);
+} else {
+  mountDetailPage();
+}

@@ -28,6 +28,22 @@ HTML_DIR = ROOT / "html"
 VERCEL_JSON = ROOT / "vercel.json"
 
 
+def vercel_source_to_regex(source: str) -> re.Pattern:
+    """Turn Vercel rewrite source (e.g. /sheets/:slug) into a Python regex."""
+    src = (source or "/").strip()
+    if not src.startswith("/"):
+        src = "/" + src
+    segments = [s for s in src.split("/") if s]
+    regex_segments = []
+    for seg in segments:
+        if seg.startswith(":") and len(seg) > 1:
+            regex_segments.append("[^/]+")
+        else:
+            regex_segments.append(re.escape(seg))
+    body = "/".join(regex_segments)
+    return re.compile("^/" + body + "/?$")
+
+
 def load_routes():
     data = json.loads(VERCEL_JSON.read_text(encoding="utf-8"))
     redirects = []
@@ -43,7 +59,7 @@ def load_routes():
     for rule in data.get("rewrites") or []:
         rewrites.append(
             (
-                re.compile("^" + re.escape(rule["source"]) + "/?$"),
+                vercel_source_to_regex(rule["source"]),
                 rule["destination"],
             )
         )
