@@ -399,7 +399,7 @@ function Header({ tab, title, back }) {
             </span>
           ) : null}
           <a href={PAGES.home} className={'fo-wordmark' + (isHome ? '' : ' fo-desktop')}>
-            <img src="../shared/logo.png" alt="CHODRUM 로고" style={{ width: 32, height: 32, objectFit: 'contain', display: 'block', flex: 'none' }} />
+            <img src="/shared/logo.png" alt="CHODRUM 로고" style={{ width: 32, height: 32, objectFit: 'contain', display: 'block', flex: 'none' }} />
             CHODRUM
           </a>
           {!isHome && pageTitle ? <span className="fo-header-title">{pageTitle}</span> : null}
@@ -523,7 +523,7 @@ function Footer() {
       <div className="fo-footer-in">
         <div className="fo-footer-top">
           <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
-            <img src="../shared/logo.png" alt="CHODRUM 로고" style={{ width: 24, height: 24, objectFit: 'contain', display: 'block' }} />
+            <img src="/shared/logo.png" alt="CHODRUM 로고" style={{ width: 24, height: 24, objectFit: 'contain', display: 'block' }} />
             <span style={{ fontSize: 15, fontWeight: 600, letterSpacing: '-0.3px' }}>CHODRUM</span>
           </span>
           <div className="fo-footer-links">
