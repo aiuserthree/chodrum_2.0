@@ -29,7 +29,7 @@
 <script src="../shared/auth.js"></script>
 <script type="text/babel" src="/fo/fo-shared.jsx"></script>
 <script type="text/babel">
-/* FO-09-04 회원 탈퇴 — 잔여 다운로드 권한 안내 + 본인 확인(비밀번호/소셜 재인증) */
+/* FO-09-04 회원 탈퇴 — 실제 로그인 회원 유형(일반/소셜)에 따라 본인 확인 UI 분기 */
 const DS = window.DrumSheetStoreDesignSystem_3a2462;
 const { Button, Input, Icon, Card, Checkbox, SocialButton } = DS;
 const F = window.FO;
@@ -37,15 +37,16 @@ const F = window.FO;
 function WithdrawPage() {
   F.useStoreTick();
   const user = Store.user.get();
-  const [mode, setMode] = React.useState(user && user.type === 'social' ? '소셜 회원' : '일반 회원');
-  const social = mode === '소셜 회원';
+  const social = F.isSocialUser(user);
+  const provider = (user && user.provider && user.provider !== 'email') ? user.provider : 'kakao';
   const [agree, setAgree] = React.useState(false);
   const [pw, setPw] = React.useState('');
   const [reauthed, setReauthed] = React.useState(false);
   const [done, setDone] = React.useState(false);
+  const [busy, setBusy] = React.useState(false);
 
   const canWithdraw = agree && (social ? reauthed : pw.length > 0);
-  const [busy, setBusy] = React.useState(false);
+
   const withdraw = async () => {
     if (busy) return;
     setBusy(true);
@@ -77,11 +78,19 @@ function WithdrawPage() {
     );
   }
 
-  return (
-    <F.Scaffold title="회원 탈퇴" back={F.PAGES.my}>
-      <div data-screen-label="FO-09-04 회원 탈퇴" className="fo-container narrow" style={{ padding: '0 0 32px' }}>
-        <F.PreviewToggle options={['일반 회원', '소셜 회원']} value={mode} onChange={setMode} />
+  if (!user) {
+    return (
+      <F.Scaffold title="회원 탈퇴" back={F.PAGES.my}>
+        <div data-screen-label="FO-09-04 회원 탈퇴 (비로그인)" className="fo-container narrow" style={{ padding: '0 0 32px' }}>
+          <F.Empty icon="user" title="로그인이 필요해요" sub="회원 탈퇴는 로그인 후 이용할 수 있어요." action="로그인 / 회원가입" href={F.PAGES.login} />
+        </div>
+      </F.Scaffold>
+    );
+  }
 
+  return (
+    <F.Scaffold title="회원 탈퇴" back={F.PAGES.edit}>
+      <div data-screen-label="FO-09-04 회원 탈퇴" className="fo-container narrow" style={{ padding: '0 0 32px' }}>
         <div style={{ padding: '28px 0 16px' }}>
           <h3 style={{ fontSize: 21, letterSpacing: '-0.5px' }}>정말 탈퇴하시겠어요?</h3>
           <p style={{ fontSize: 14, color: 'var(--text-secondary)', marginTop: 8, lineHeight: 1.55 }}>탈퇴 전에 아래 내용을 꼭 확인해주세요.</p>
@@ -110,7 +119,7 @@ function WithdrawPage() {
                   <span style={{ fontSize: 13 }}>재인증이 완료되었어요.</span>
                 </div>
               ) : (
-                <SocialButton provider={(user && user.provider !== 'email' && user.provider) || 'kakao'} onClick={() => { setReauthed(true); F.toast('소셜 재인증이 완료되었어요'); }} />
+                <SocialButton provider={provider} onClick={() => { setReauthed(true); F.toast('소셜 재인증이 완료되었어요'); }} />
               )}
             </div>
           ) : (

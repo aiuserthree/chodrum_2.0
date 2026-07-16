@@ -543,6 +543,46 @@ function Scaffold({ tab, title, back, width, cta, children, footer = true }) {
   );
 }
 
+/** 소셜(카카오/네이버/구글) 회원 여부 — Store.user 기준 */
+function isSocialUser(user) {
+  if (!user) return false;
+  return user.type === 'social' || user.fromOAuth === true || (user.provider && user.provider !== 'email');
+}
+
+/* 마이페이지 서브페이지 좌측(모바일: 상단 가로) 메뉴 */
+const MYPAGE_NAV_ITEMS = [
+  { k: 'downloads', label: '구매내역 / 다운로드', icon: 'download', href: PAGES.downloads },
+  { k: 'wish', label: '찜 목록', icon: 'heart', href: PAGES.wish },
+  { k: 'edit', label: '내 정보 수정', icon: 'user', href: PAGES.edit },
+];
+
+function MyPageNav({ active }) {
+  return (
+    <nav className="fo-mypage-nav" aria-label="마이페이지 메뉴">
+      {MYPAGE_NAV_ITEMS.map((item) => (
+        <a
+          key={item.k}
+          href={item.href}
+          className={'fo-mypage-nav-item' + (active === item.k ? ' on' : '')}
+          aria-current={active === item.k ? 'page' : undefined}
+        >
+          <Icon name={item.icon} size={16} style={{ color: 'var(--color-icon)', flex: 'none' }} />
+          {item.label}
+        </a>
+      ))}
+    </nav>
+  );
+}
+
+function MyPageLayout({ active, children, label }) {
+  return (
+    <div data-screen-label={label} className="fo-mypage-layout">
+      <MyPageNav active={active} />
+      <div className="fo-mypage-content">{children}</div>
+    </div>
+  );
+}
+
 /* ---------------- 상품 블록 ---------------- */
 function FavButton({ id, size = 'sm' }) {
   useStoreTick();
@@ -950,4 +990,4 @@ function LegalTermRow({ checked, onChange, label, kind, onView }) {
   );
 }
 
-window.FO = { PAGES, won, qp, goBack, toast, useStoreTick, loadPurchases, Money, Stars, StaffThumb, sheetCoverUrl, DdayBadge, Header, TabBar, Footer, Scaffold, FavButton, SheetCard, SheetRow, SectionHeader, Section, KV, Empty, PayOption, Dialog, CartAddedDialog, resolveSheet, lineTitle, downloadSheetPdf, pdfFileName, MISSING_SHEET_TITLE, PreviewToggle, legalDoc, legalVer, LegalDocBody, LegalTermRow };
+window.FO = { PAGES, won, qp, goBack, toast, useStoreTick, loadPurchases, Money, Stars, StaffThumb, sheetCoverUrl, DdayBadge, Header, TabBar, Footer, Scaffold, isSocialUser, MyPageNav, MyPageLayout, FavButton, SheetCard, SheetRow, SectionHeader, Section, KV, Empty, PayOption, Dialog, CartAddedDialog, resolveSheet, lineTitle, downloadSheetPdf, pdfFileName, MISSING_SHEET_TITLE, PreviewToggle, legalDoc, legalVer, LegalDocBody, LegalTermRow };

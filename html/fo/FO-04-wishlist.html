@@ -55,10 +55,10 @@ function WishlistPage() {
 
   return (
     <F.Scaffold title="찜 목록" back={F.PAGES.my}>
-      <div data-screen-label="FO-04 찜 목록" className="fo-container mid" style={{ padding: 0 }}>
+      <F.MyPageLayout active="wish" label="FO-04 찜 목록">
         {items.length ? (
           <React.Fragment>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '18px 0 6px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '2px 0 6px' }}>
               <span className="ds-mono" style={{ fontSize: 13, color: 'var(--text-secondary)' }}>찜한 악보 {items.length}개</span>
               <Button variant="secondary" size="sm" iconLeft="shopping-cart" onClick={addAll}>전체 담기</Button>
             </div>
@@ -84,7 +84,7 @@ function WishlistPage() {
         ) : (
           <F.Empty icon="heart" title="찜한 악보가 없어요" sub="악보 카드의 하트를 눌러 관심 악보를 저장해보세요." action="악보 둘러보기" href={F.PAGES.list} />
         )}
-      </div>
+      </F.MyPageLayout>
       <F.CartAddedDialog open={cartAsk} onClose={() => setCartAsk(false)} message={cartMsg} />
     </F.Scaffold>
   );

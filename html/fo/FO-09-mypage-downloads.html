@@ -112,9 +112,9 @@ function DownloadsPage() {
   if (!user) {
     return (
       <F.Scaffold title="구매 내역 / 다운로드" back={F.PAGES.my}>
-        <div data-screen-label="FO-09-01 구매내역 (비로그인)" className="fo-container mid" style={{ padding: 0 }}>
+        <F.MyPageLayout active="downloads" label="FO-09-01 구매내역 (비로그인)">
           <F.Empty icon="user" title="로그인이 필요해요" sub="구매 내역과 다운로드는 로그인 후 이용할 수 있어요." action="로그인 / 회원가입" href={F.PAGES.login} />
-        </div>
+        </F.MyPageLayout>
       </F.Scaffold>
     );
   }
@@ -123,8 +123,8 @@ function DownloadsPage() {
 
   return (
     <F.Scaffold title="구매 내역 / 다운로드" back={F.PAGES.my}>
-      <div data-screen-label="FO-09-01 구매 내역 / 다운로드" className="fo-container mid" style={{ padding: 0 }}>
-        <div className="fo-chips" style={{ padding: '18px 0 6px' }}>
+      <F.MyPageLayout active="downloads" label="FO-09-01 구매 내역 / 다운로드">
+        <div className="fo-chips" style={{ padding: '2px 0 6px' }}>
           {['전체', '다운로드 가능', '기간 만료'].map((k) => <Chip key={k} selected={filter === k} onClick={() => setFilter(k)}>{k}</Chip>)}
         </div>
 
@@ -166,7 +166,7 @@ function DownloadsPage() {
           <Icon name="info" size={14} style={{ color: 'var(--color-icon)', marginTop: 1, flex: 'none' }} />
           <span className="fo-caption">다운로드는 <b>결제일로부터 7일(168시간)</b> 동안 가능하고, 기간 내에는 여러 번 받을 수 있어요. PDF 파일로 저장돼요.</span>
         </div>
-      </div>
+      </F.MyPageLayout>
     </F.Scaffold>
   );
 }
