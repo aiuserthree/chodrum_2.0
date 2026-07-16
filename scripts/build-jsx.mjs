@@ -47,10 +47,14 @@ function walk(dir, out = []) {
   return out;
 }
 
-function relUrlFromHtml(htmlFile, targetAbs) {
-  let rel = path.relative(path.dirname(htmlFile), targetAbs).split(path.sep).join('/');
-  if (!rel.startsWith('.')) rel = './' + rel;
-  return rel;
+/**
+ * Site-root absolute URL for assets under html/.
+ * Relative paths break under Vercel rewrites (e.g. /sheets → fo/*.html):
+ * browser resolves ./fo-shared.js against /sheets → /fo-shared.js (404).
+ */
+function siteUrlFromHtml(targetAbs) {
+  const rel = path.relative(HTML_ROOT, targetAbs).split(path.sep).join('/');
+  return '/' + rel.replace(/^\.\//, '');
 }
 
 /**
@@ -102,43 +106,47 @@ function rewriteHtml(htmlFile, html) {
   out = out.replace(DEV_REACT_DOM_RE, REACT_PROD.reactDom);
   out = out.replace(BABEL_SCRIPT_RE, '\n');
 
-  /* Shared jsx → compiled js */
+  /* Shared jsx → compiled js (always site-root absolute) */
   out = out.replace(
     /<script\s+type="text\/babel"\s+src="(\/fo\/fo-shared)\.jsx"><\/script>/g,
-    (_, base) => {
-      /* Prefer relative path from this HTML for local serve */
-      const abs = path.join(HTML_ROOT, 'fo', 'fo-shared.js');
-      const href = htmlFile.includes(`${path.sep}home${path.sep}`)
-        ? '/fo/fo-shared.js'
-        : relUrlFromHtml(htmlFile, abs);
-      return `<script src="${href}"></script>`;
-    }
+    () => `<script src="/fo/fo-shared.js"></script>`
   );
   out = out.replace(
     /<script\s+type="text\/babel"\s+src="(\/bo\/bo-shared)\.jsx"><\/script>/g,
-    () => {
-      const abs = path.join(HTML_ROOT, 'bo', 'bo-shared.js');
-      return `<script src="${relUrlFromHtml(htmlFile, abs)}"></script>`;
-    }
+    () => `<script src="/bo/bo-shared.js"></script>`
   );
-  /* Already rewritten shared but still .jsx */
+  /* Already rewritten shared but still .jsx or relative .js */
   out = out.replace(
-    /(<script\s+src=")([^"]*fo-shared)\.jsx("><\/script>)/g,
-    '$1$2.js$3'
+    /<script\s+src="[^"]*fo-shared\.jsx"><\/script>/g,
+    '<script src="/fo/fo-shared.js"></script>'
   );
   out = out.replace(
-    /(<script\s+src=")([^"]*bo-shared)\.jsx("><\/script>)/g,
-    '$1$2.js$3'
+    /<script\s+src="[^"]*bo-shared\.jsx"><\/script>/g,
+    '<script src="/bo/bo-shared.js"></script>'
+  );
+  out = out.replace(
+    /<script\s+src="(?:\.\/)?fo-shared\.js"><\/script>/g,
+    '<script src="/fo/fo-shared.js"></script>'
+  );
+  out = out.replace(
+    /<script\s+src="(?:\.\/)?bo-shared\.js"><\/script>/g,
+    '<script src="/bo/bo-shared.js"></script>'
   );
 
   /* Inline babel → page.js */
   if (hasPage) {
-    const href = relUrlFromHtml(htmlFile, pageJs);
+    const href = siteUrlFromHtml(pageJs);
     out = out.replace(/<script\b([^>]*)>([\s\S]*?)<\/script>/gi, (full, attrs) => {
       if (!/type\s*=\s*["']text\/babel["']/i.test(attrs || '')) return full;
       if (/\bsrc\s*=/i.test(attrs || '')) return full;
       return `<script src="${href}"></script>`;
     });
+    /* Fix already-emitted relative page.js under rewrite URLs */
+    const pageBase = path.basename(pageJs);
+    out = out.replace(
+      new RegExp(`<script\\s+src="(?:\\./)?${pageBase.replace(/\./g, '\\.')}"></script>`, 'g'),
+      `<script src="${href}"></script>`
+    );
   }
 
   /* Strip any remaining type="text/babel" on src scripts */
