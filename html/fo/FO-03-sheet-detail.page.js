@@ -47,42 +47,83 @@
     if (!s) return "";
     return String(s.youtubeUrl || s.youtube_url || "").trim();
   }
-  function sheetSlugFromPath() {
-    const m = location.pathname.match(/^\/sheets\/([^/]+)\/?$/);
-    return m ? decodeURIComponent(m[1]) : null;
-  }
   function DetailPage() {
-    const slugPath = sheetSlugFromPath();
+    const slugPath = F.detailSlugFromPath();
     const idFromQuery = F.qp("id");
-    const [, bump] = React.useState(0);
+    const [sheet, setSheet] = React.useState(null);
+    const [loadState, setLoadState] = React.useState("loading");
     F.useStoreTick();
     React.useEffect(() => {
-      const onReady = () => bump((n) => n + 1);
-      window.addEventListener("chodrum:ready", onReady);
-      return () => window.removeEventListener("chodrum:ready", onReady);
-    }, []);
-    let s = null;
-    if (slugPath && typeof D.bySlug === "function") {
-      s = D.bySlug(slugPath);
-    } else if (idFromQuery) {
-      s = D.byId(idFromQuery);
-    }
+      let cancelled = false;
+      async function resolveSheet() {
+        if (!slugPath && !idFromQuery) {
+          if (!cancelled) {
+            setSheet(null);
+            setLoadState("missing");
+          }
+          return;
+        }
+        try {
+          if (window.ChodrumAPI && ChodrumAPI.ready) await ChodrumAPI.ready;
+        } catch (_) {
+        }
+        const D2 = window.DrumData;
+        let s2 = null;
+        if (slugPath && D2 && typeof D2.bySlug === "function") {
+          s2 = D2.bySlug(slugPath);
+        }
+        if (!s2 && idFromQuery && D2 && typeof D2.byId === "function") {
+          s2 = D2.byId(idFromQuery);
+        }
+        if (!s2 && slugPath && window.ChodrumAPI && ChodrumAPI.sheets && typeof ChodrumAPI.sheets.getBySlug === "function") {
+          try {
+            s2 = await ChodrumAPI.sheets.getBySlug(slugPath);
+          } catch (e) {
+            console.warn("[FO-03] getBySlug", e);
+          }
+        }
+        if (cancelled) return;
+        if (!s2) {
+          setSheet(null);
+          setLoadState("missing");
+          return;
+        }
+        if (s2.status && s2.status !== "\uD310\uB9E4\uC911") {
+          setSheet(s2);
+          setLoadState("stopped");
+          return;
+        }
+        setSheet(s2);
+        setLoadState("ok");
+      }
+      setLoadState("loading");
+      resolveSheet();
+      window.addEventListener("chodrum:ready", resolveSheet);
+      return () => {
+        cancelled = true;
+        window.removeEventListener("chodrum:ready", resolveSheet);
+      };
+    }, [slugPath, idFromQuery]);
     React.useEffect(() => {
-      if (!idFromQuery || slugPath || !s || !s.slug) return;
-      const next = F.sheetUrl(s);
+      if (!idFromQuery || slugPath || !sheet || !sheet.slug) return;
+      const next = F.sheetUrl(sheet);
       const cur = location.pathname + location.search;
       if (next && cur !== next) {
         history.replaceState(null, "", next);
       }
-    }, [idFromQuery, slugPath, s && s.slug, s && s.id]);
+    }, [idFromQuery, slugPath, sheet && sheet.slug, sheet && sheet.id]);
     const [cartAsk, setCartAsk] = React.useState(false);
     const [cartMsg, setCartMsg] = React.useState("\uC7A5\uBC14\uAD6C\uB2C8\uC5D0 \uB2F4\uC558\uC5B4\uC694");
-    if (!s) {
+    if (loadState === "loading") {
+      return /* @__PURE__ */ React.createElement(F.Scaffold, { title: "\uC545\uBCF4 \uC0C1\uC138", back: F.PAGES.list }, /* @__PURE__ */ React.createElement("div", { style: { padding: "64px 24px", textAlign: "center", color: "var(--text-secondary)", fontSize: 14 } }, "\uC545\uBCF4 \uC815\uBCF4\uB97C \uBD88\uB7EC\uC624\uB294 \uC911\u2026"));
+    }
+    if (loadState === "missing" || !sheet) {
       return /* @__PURE__ */ React.createElement(F.Scaffold, { title: "\uC545\uBCF4 \uC0C1\uC138", back: F.PAGES.list }, /* @__PURE__ */ React.createElement(F.Empty, { icon: "music", title: "\uC545\uBCF4\uB97C \uCC3E\uC744 \uC218 \uC5C6\uC5B4\uC694", sub: "\uD310\uB9E4\uAC00 \uC885\uB8CC\uB418\uC5C8\uAC70\uB098 \uC0AD\uC81C\uB41C \uC545\uBCF4\uC608\uC694. \uB2E4\uB978 \uC545\uBCF4\uB97C \uB458\uB7EC\uBCF4\uC138\uC694.", action: "\uC545\uBCF4 \uB458\uB7EC\uBCF4\uAE30", href: F.PAGES.list }));
     }
-    if (s.status && s.status !== "\uD310\uB9E4\uC911") {
+    if (loadState === "stopped" || sheet.status && sheet.status !== "\uD310\uB9E4\uC911") {
       return /* @__PURE__ */ React.createElement(F.Scaffold, { title: "\uC545\uBCF4 \uC0C1\uC138", back: F.PAGES.list }, /* @__PURE__ */ React.createElement(F.Empty, { icon: "eye-off", title: "\uD604\uC7AC \uD310\uB9E4\uD558\uC9C0 \uC54A\uB294 \uC545\uBCF4\uC608\uC694", sub: "\uB2E4\uB978 \uC545\uBCF4\uB97C \uB458\uB7EC\uBCF4\uC138\uC694.", action: "\uC545\uBCF4 \uB458\uB7EC\uBCF4\uAE30", href: F.PAGES.list }));
     }
+    const s = sheet;
     const faved = Store.fav.has(s.id);
     const related = D.sheets.filter((x) => x.genre === s.genre && x.id !== s.id && (!x.status || x.status === "\uD310\uB9E4\uC911")).slice(0, 4);
     const previewUrls = s.previewUrls && s.previewUrls.length ? s.previewUrls.slice(0, 2) : s.previewUrl ? [s.previewUrl] : [];

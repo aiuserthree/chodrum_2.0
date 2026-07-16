@@ -34,6 +34,16 @@ const PAGES = {
 
 const won = (v) => '₩' + Number(v).toLocaleString('ko-KR');
 const qp = (name) => new URLSearchParams(location.search).get(name);
+/** Slug segment from /sheets/{slug} (decoded; null when not a slug detail URL). */
+function detailSlugFromPath() {
+  const m = location.pathname.match(/^\/sheets\/([^/]+)\/?$/);
+  if (!m) return null;
+  try {
+    return decodeURIComponent(m[1]);
+  } catch (_) {
+    return m[1];
+  }
+}
 /** Canonical sheet detail URL: /sheets/{slug} */
 function sheetUrl(s) {
   if (!s) return PAGES.list;
@@ -1056,4 +1066,4 @@ function LegalTermRow({ checked, onChange, label, kind, onView }) {
   );
 }
 
-window.FO = { PAGES, won, qp, sheetUrl, goBack, toast, useStoreTick, loadPurchases, Money, Stars, StaffThumb, sheetCoverUrl, DdayBadge, Header, TabBar, Footer, Scaffold, isSocialUser, MyPageNav, MyPageLayout, FavButton, SheetCard, SheetRow, SectionHeader, Section, KV, Empty, PayOption, Dialog, CartAddedDialog, resolveSheet, lineTitle, downloadSheetPdf, pdfFileName, MISSING_SHEET_TITLE, legalDoc, legalVer, LegalDocBody, LegalTermRow };
+window.FO = { PAGES, won, qp, detailSlugFromPath, sheetUrl, goBack, toast, useStoreTick, loadPurchases, Money, Stars, StaffThumb, sheetCoverUrl, DdayBadge, Header, TabBar, Footer, Scaffold, isSocialUser, MyPageNav, MyPageLayout, FavButton, SheetCard, SheetRow, SectionHeader, Section, KV, Empty, PayOption, Dialog, CartAddedDialog, resolveSheet, lineTitle, downloadSheetPdf, pdfFileName, MISSING_SHEET_TITLE, legalDoc, legalVer, LegalDocBody, LegalTermRow };

@@ -62,44 +62,95 @@ function sheetYoutubeUrl(s) {
   return String(s.youtubeUrl || s.youtube_url || '').trim();
 }
 
-function sheetSlugFromPath() {
-  const m = location.pathname.match(/^\/sheets\/([^/]+)\/?$/);
-  return m ? decodeURIComponent(m[1]) : null;
-}
-
 function DetailPage() {
-  const slugPath = sheetSlugFromPath();
+  const slugPath = F.detailSlugFromPath();
   const idFromQuery = F.qp('id');
-  const [, bump] = React.useState(0);
+  const [sheet, setSheet] = React.useState(null);
+  const [loadState, setLoadState] = React.useState('loading'); /* loading | ok | missing | stopped */
   F.useStoreTick();
-  /* Re-read DrumData after hydrate (belt-and-suspenders with whenReady). */
-  React.useEffect(() => {
-    const onReady = () => bump((n) => n + 1);
-    window.addEventListener('chodrum:ready', onReady);
-    return () => window.removeEventListener('chodrum:ready', onReady);
-  }, []);
 
-  let s = null;
-  if (slugPath && typeof D.bySlug === 'function') {
-    s = D.bySlug(slugPath);
-  } else if (idFromQuery) {
-    s = D.byId(idFromQuery);
-  }
+  React.useEffect(() => {
+    let cancelled = false;
+
+    async function resolveSheet() {
+      if (!slugPath && !idFromQuery) {
+        if (!cancelled) {
+          setSheet(null);
+          setLoadState('missing');
+        }
+        return;
+      }
+
+      try {
+        if (window.ChodrumAPI && ChodrumAPI.ready) await ChodrumAPI.ready;
+      } catch (_) { /* hydrate error — still try cache / fetch */ }
+
+      const D = window.DrumData;
+      let s = null;
+      if (slugPath && D && typeof D.bySlug === 'function') {
+        s = D.bySlug(slugPath);
+      }
+      if (!s && idFromQuery && D && typeof D.byId === 'function') {
+        s = D.byId(idFromQuery);
+      }
+      if (!s && slugPath && window.ChodrumAPI && ChodrumAPI.sheets
+          && typeof ChodrumAPI.sheets.getBySlug === 'function') {
+        try {
+          s = await ChodrumAPI.sheets.getBySlug(slugPath);
+        } catch (e) {
+          console.warn('[FO-03] getBySlug', e);
+        }
+      }
+
+      if (cancelled) return;
+      if (!s) {
+        setSheet(null);
+        setLoadState('missing');
+        return;
+      }
+      if (s.status && s.status !== '판매중') {
+        setSheet(s);
+        setLoadState('stopped');
+        return;
+      }
+      setSheet(s);
+      setLoadState('ok');
+    }
+
+    setLoadState('loading');
+    resolveSheet();
+    window.addEventListener('chodrum:ready', resolveSheet);
+    return () => {
+      cancelled = true;
+      window.removeEventListener('chodrum:ready', resolveSheet);
+    };
+  }, [slugPath, idFromQuery]);
 
   /* Legacy ?id= → canonical slug URL (middleware handles 301 on cold load) */
   React.useEffect(() => {
-    if (!idFromQuery || slugPath || !s || !s.slug) return;
-    const next = F.sheetUrl(s);
+    if (!idFromQuery || slugPath || !sheet || !sheet.slug) return;
+    const next = F.sheetUrl(sheet);
     const cur = location.pathname + location.search;
     if (next && cur !== next) {
       history.replaceState(null, '', next);
     }
-  }, [idFromQuery, slugPath, s && s.slug, s && s.id]);
+  }, [idFromQuery, slugPath, sheet && sheet.slug, sheet && sheet.id]);
+
   const [cartAsk, setCartAsk] = React.useState(false);
   const [cartMsg, setCartMsg] = React.useState('장바구니에 담았어요');
 
+  if (loadState === 'loading') {
+    return (
+      <F.Scaffold title="악보 상세" back={F.PAGES.list}>
+        <div style={{ padding: '64px 24px', textAlign: 'center', color: 'var(--text-secondary)', fontSize: 14 }}>
+          악보 정보를 불러오는 중…
+        </div>
+      </F.Scaffold>
+    );
+  }
+
   /* 존재하지 않는 악보 ID → 404 안내 (FO-03 예외 처리) */
-  if (!s) {
+  if (loadState === 'missing' || !sheet) {
     return (
       <F.Scaffold title="악보 상세" back={F.PAGES.list}>
         <F.Empty icon="music" title="악보를 찾을 수 없어요" sub="판매가 종료되었거나 삭제된 악보예요. 다른 악보를 둘러보세요." action="악보 둘러보기" href={F.PAGES.list} />
@@ -108,7 +159,7 @@ function DetailPage() {
   }
 
   /* 숨김/판매중지 악보는 스토어에서 차단 */
-  if (s.status && s.status !== '판매중') {
+  if (loadState === 'stopped' || (sheet.status && sheet.status !== '판매중')) {
     return (
       <F.Scaffold title="악보 상세" back={F.PAGES.list}>
         <F.Empty icon="eye-off" title="현재 판매하지 않는 악보예요" sub="다른 악보를 둘러보세요." action="악보 둘러보기" href={F.PAGES.list} />
@@ -116,6 +167,7 @@ function DetailPage() {
     );
   }
 
+  const s = sheet;
   const faved = Store.fav.has(s.id);
   const related = D.sheets.filter((x) => x.genre === s.genre && x.id !== s.id && (!x.status || x.status === '판매중')).slice(0, 4);
   const previewUrls = (s.previewUrls && s.previewUrls.length)

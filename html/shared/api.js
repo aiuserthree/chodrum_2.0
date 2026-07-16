@@ -174,6 +174,31 @@
       .catch(function () { return null; });
   }
 
+  function normalizeSlugKey(raw) {
+    var D = window.DrumData;
+    if (D && typeof D.normalizeSlugKey === 'function') return D.normalizeSlugKey(raw);
+    if (raw == null) return '';
+    var s = String(raw).trim();
+    if (!s) return '';
+    try {
+      var prev = null;
+      while (s !== prev && /%[0-9A-Fa-f]{2}/.test(s)) {
+        prev = s;
+        s = decodeURIComponent(s.replace(/\+/g, ' '));
+      }
+    } catch (_) { /* keep s */ }
+    return s.replace(/[A-Z]/g, function (c) { return c.toLowerCase(); });
+  }
+
+  function findSheetBySlug(sheets, slug) {
+    var key = normalizeSlugKey(slug);
+    if (!key || !sheets || !sheets.length) return undefined;
+    for (var i = 0; i < sheets.length; i++) {
+      if (normalizeSlugKey(sheets[i].slug) === key) return sheets[i];
+    }
+    return undefined;
+  }
+
   function mapSheet(row) {
     var previewUrls = normalizePreviewUrls(row);
     var createdAt = row.created_at || row.createdAt || null;
@@ -589,10 +614,7 @@
         var key = id == null ? '' : String(id);
         return D.sheets.find(function (s) { return String(s.id) === key; });
       };
-      D.bySlug = function (slug) {
-        var key = slug == null ? '' : String(slug);
-        return D.sheets.find(function (s) { return String(s.slug) === key; });
-      };
+      D.bySlug = function (slug) { return findSheetBySlug(D.sheets, slug); };
       D.visibleSheets = function () {
         return D.sheets.filter(function (s) { return s.status === '판매중'; });
       };
@@ -634,7 +656,18 @@
     /* Sign previews while other tables load (overlap network). */
     var sheetsRes = await sheetsPromise;
     if (sheetsRes.error) throw sheetsRes.error;
-    var signPromise = signPreviewUrlsForSheets((sheetsRes.data || []).map(mapSheet));
+    var mappedSheets = (sheetsRes.data || []).map(mapSheet);
+    /* Catalog available before preview signing — slug detail lookup must not wait on signed URLs. */
+    D.sheets = mappedSheets;
+    D.byId = function (id) {
+      var key = id == null ? '' : String(id);
+      return D.sheets.find(function (s) { return String(s.id) === key; });
+    };
+    D.bySlug = function (slug) { return findSheetBySlug(D.sheets, slug); };
+    D.visibleSheets = function () {
+      return D.sheets.filter(function (s) { return s.status === '판매중'; });
+    };
+    var signPromise = signPreviewUrlsForSheets(mappedSheets);
     var settled = await Promise.all([signPromise, metaPromise]);
     var sheets = settled[0];
     var featRes = settled[1][0];
@@ -650,10 +683,7 @@
       var key = id == null ? '' : String(id);
       return D.sheets.find(function (s) { return String(s.id) === key; });
     };
-    D.bySlug = function (slug) {
-      var key = slug == null ? '' : String(slug);
-      return D.sheets.find(function (s) { return String(s.slug) === key; });
-    };
+    D.bySlug = function (slug) { return findSheetBySlug(D.sheets, slug); };
     D.visibleSheets = function () {
       return D.sheets.filter(function (s) { return s.status === '판매중'; });
     };
@@ -787,6 +817,39 @@
     var res = await sb().from('sheets').select('*').order('sold', { ascending: false });
     if (res.error) throw res.error;
     return signPreviewUrlsForSheets((res.data || []).map(mapSheet));
+  }
+
+  /** FO slug deep-link — cache first, then single-row Supabase fetch. */
+  async function getSheetBySlug(slug) {
+    var D = window.DrumData;
+    var cached = D && typeof D.bySlug === 'function' ? D.bySlug(slug) : findSheetBySlug(D && D.sheets, slug);
+    if (cached) return cached;
+
+    var key = normalizeSlugKey(slug);
+    if (!key) return null;
+    if (!live()) return null;
+
+    var client = sb();
+    var res = await client.from('sheets').select('*').eq('slug', key).maybeSingle();
+    if (res.error) throw res.error;
+    if (!res.data) {
+      var alt = String(slug || '').trim();
+      if (alt && alt !== key) {
+        var resAlt = await client.from('sheets').select('*').eq('slug', alt).maybeSingle();
+        if (resAlt.error) throw resAlt.error;
+        if (resAlt.data) res = resAlt;
+      }
+    }
+    if (!res.data) return null;
+
+    var mappedList = await signPreviewUrlsForSheets([mapSheet(res.data)]);
+    var mapped = mappedList[0];
+    if (D && mapped) {
+      var i = D.sheets.findIndex(function (s) { return s.id === mapped.id; });
+      if (i >= 0) D.sheets[i] = mapped;
+      else D.sheets.push(mapped);
+    }
+    return mapped;
   }
 
   async function upsertSheet(sheet) {
@@ -1809,6 +1872,7 @@
     youtubeCanEmbed: youtubeCanEmbed,
     sheets: {
       list: listSheets,
+      getBySlug: getSheetBySlug,
       upsert: upsertSheet,
       remove: deleteSheets,
       setStatus: setSheetStatus,

@@ -31,6 +31,15 @@
   };
   const won = (v) => "\u20A9" + Number(v).toLocaleString("ko-KR");
   const qp = (name) => new URLSearchParams(location.search).get(name);
+  function detailSlugFromPath() {
+    const m = location.pathname.match(/^\/sheets\/([^/]+)\/?$/);
+    if (!m) return null;
+    try {
+      return decodeURIComponent(m[1]);
+    } catch (_) {
+      return m[1];
+    }
+  }
   function sheetUrl(s) {
     if (!s) return PAGES.list;
     const slug = String(s.slug || s.id || "").trim();
@@ -723,5 +732,5 @@
       "\uBCF4\uAE30"
     ) : null);
   }
-  window.FO = { PAGES, won, qp, sheetUrl, goBack, toast, useStoreTick, loadPurchases, Money, Stars, StaffThumb, sheetCoverUrl, DdayBadge, Header, TabBar, Footer, Scaffold, isSocialUser, MyPageNav, MyPageLayout, FavButton, SheetCard, SheetRow, SectionHeader, Section, KV, Empty, PayOption, Dialog, CartAddedDialog, resolveSheet, lineTitle, downloadSheetPdf, pdfFileName, MISSING_SHEET_TITLE, legalDoc, legalVer, LegalDocBody, LegalTermRow };
+  window.FO = { PAGES, won, qp, detailSlugFromPath, sheetUrl, goBack, toast, useStoreTick, loadPurchases, Money, Stars, StaffThumb, sheetCoverUrl, DdayBadge, Header, TabBar, Footer, Scaffold, isSocialUser, MyPageNav, MyPageLayout, FavButton, SheetCard, SheetRow, SectionHeader, Section, KV, Empty, PayOption, Dialog, CartAddedDialog, resolveSheet, lineTitle, downloadSheetPdf, pdfFileName, MISSING_SHEET_TITLE, legalDoc, legalVer, LegalDocBody, LegalTermRow };
 })();

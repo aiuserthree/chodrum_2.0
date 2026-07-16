@@ -37,13 +37,30 @@ window.AdminData = {
 };
 
 /* 공용 헬퍼 */
+/** Canonical slug key for URL ↔ DB lookup (decode, trim, latin lower-case). */
+window.DrumData.normalizeSlugKey = function (raw) {
+  if (raw == null) return '';
+  var s = String(raw).trim();
+  if (!s) return '';
+  try {
+    var prev = null;
+    while (s !== prev && /%[0-9A-Fa-f]{2}/.test(s)) {
+      prev = s;
+      s = decodeURIComponent(s.replace(/\+/g, ' '));
+    }
+  } catch (_) { /* keep s */ }
+  return s.replace(/[A-Z]/g, function (c) { return c.toLowerCase(); });
+};
 window.DrumData.byId = function (id) {
   var key = id == null ? '' : String(id);
   return window.DrumData.sheets.find(function (s) { return String(s.id) === key; });
 };
 window.DrumData.bySlug = function (slug) {
-  var key = slug == null ? '' : String(slug);
-  return window.DrumData.sheets.find(function (s) { return String(s.slug) === key; });
+  var key = window.DrumData.normalizeSlugKey(slug);
+  if (!key) return undefined;
+  return window.DrumData.sheets.find(function (s) {
+    return window.DrumData.normalizeSlugKey(s.slug) === key;
+  });
 };
 window.DrumData.visibleSheets = function () {
   return window.DrumData.sheets.filter(function (s) {
