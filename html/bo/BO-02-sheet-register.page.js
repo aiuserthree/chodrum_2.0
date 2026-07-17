@@ -31,6 +31,9 @@
       }
     }
   }
+  function isImgSrc(url) {
+    return /^(https?:|blob:|data:)/i.test(String(url || ""));
+  }
   function FileDrop({ icon, title, sub, fileName, accept, uploading, onFile }) {
     const inputRef = React.useRef(null);
     return /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement(
@@ -74,7 +77,7 @@
   }
   function PreviewSlot({ page, slot, uploading, onFile, onClear }) {
     const inputRef = React.useRef(null);
-    const src = slot.thumb || slot.url;
+    const src = isImgSrc(slot.thumb) ? slot.thumb : isImgSrc(slot.url) ? slot.url : "";
     return /* @__PURE__ */ React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 8 } }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 } }, /* @__PURE__ */ React.createElement("span", { style: { fontSize: 13, fontWeight: 600 } }, "\uBBF8\uB9AC\uBCF4\uAE30 ", page, "\uD398\uC774\uC9C0"), src ? /* @__PURE__ */ React.createElement(
       "button",
       {
@@ -159,44 +162,69 @@
     }, []);
     React.useEffect(() => {
       if (!editId) return;
-      const s = D.byId(editId);
-      if (!s) {
-        B.toast("\uD574\uB2F9 \uC545\uBCF4\uB97C \uCC3E\uC744 \uC218 \uC5C6\uC5B4\uC694");
+      let cancelled = false;
+      (async () => {
+        try {
+          if (window.ChodrumAPI && window.ChodrumAPI.ready) await window.ChodrumAPI.ready;
+        } catch (_) {
+        }
+        if (cancelled) return;
+        const s = D.byId(editId);
+        if (!s) {
+          B.toast("\uD574\uB2F9 \uC545\uBCF4\uB97C \uCC3E\uC744 \uC218 \uC5C6\uC5B4\uC694");
+          setHydrated(true);
+          return;
+        }
+        existingRef.current = s;
+        const urls = Array.isArray(s.previewUrls) && s.previewUrls.length ? s.previewUrls.filter(Boolean).slice(0, 2) : s.previewUrl ? [s.previewUrl] : [];
+        let slots = [EMPTY_PREVIEW(), EMPTY_PREVIEW()];
+        try {
+          const resolved = window.ChodrumAPI && window.ChodrumAPI.sheets.resolvePreviewDisplays ? await window.ChodrumAPI.sheets.resolvePreviewDisplays(urls) : urls.map((u) => ({ path: u, displayUrl: isImgSrc(u) ? u : "" }));
+          slots = [
+            resolved[0] ? { name: fileNameFromUrl(resolved[0].path || urls[0]), url: resolved[0].path || urls[0], thumb: resolved[0].displayUrl || "" } : EMPTY_PREVIEW(),
+            resolved[1] ? { name: fileNameFromUrl(resolved[1].path || urls[1]), url: resolved[1].path || urls[1], thumb: resolved[1].displayUrl || "" } : EMPTY_PREVIEW()
+          ];
+        } catch (e) {
+          console.warn(e);
+          slots = [
+            urls[0] ? { name: fileNameFromUrl(urls[0]), url: urls[0], thumb: isImgSrc(urls[0]) ? urls[0] : "" } : EMPTY_PREVIEW(),
+            urls[1] ? { name: fileNameFromUrl(urls[1]), url: urls[1], thumb: isImgSrc(urls[1]) ? urls[1] : "" } : EMPTY_PREVIEW()
+          ];
+        }
+        if (cancelled) return;
+        const pdfPath = window.ChodrumAPI && window.ChodrumAPI.sheets.storagePath ? window.ChodrumAPI.sheets.storagePath(s.pdfUrl, "pdf") || s.pdfUrl || "" : s.pdfUrl || "";
+        setPdf({
+          name: fileNameFromUrl(pdfPath) || (pdfPath ? "\uB4F1\uB85D\uB41C PDF" : ""),
+          url: pdfPath
+        });
+        setPreviews(slots);
+        const filled = slots.filter((p) => p.url).length;
+        const previewCount = filled >= 2 ? "2\uD398\uC774\uC9C0" : filled === 1 ? "1\uD398\uC774\uC9C0" : "2\uD398\uC774\uC9C0";
+        setForm({
+          title: s.title || "",
+          artist: s.artist || "",
+          genre: s.genre || D.genres[0],
+          level: s.level || D.levels[1],
+          pages: s.pages != null ? String(s.pages) : "",
+          price: s.price != null ? String(s.price) : "",
+          orig: s.orig != null ? String(s.orig) : "",
+          status: s.status || "\uD310\uB9E4\uC911",
+          preview: previewCount,
+          popular: !!s.popular,
+          youtubeUrl: s.youtubeUrl || ""
+        });
         setHydrated(true);
-        return;
-      }
-      existingRef.current = s;
-      const urls = Array.isArray(s.previewUrls) && s.previewUrls.length ? s.previewUrls.filter(Boolean).slice(0, 2) : s.previewUrl ? [s.previewUrl] : [];
-      setPdf({
-        name: fileNameFromUrl(s.pdfUrl) || (s.pdfUrl ? "\uB4F1\uB85D\uB41C PDF" : ""),
-        url: s.pdfUrl || ""
-      });
-      setPreviews([
-        urls[0] ? { name: fileNameFromUrl(urls[0]), url: urls[0], thumb: urls[0] } : EMPTY_PREVIEW(),
-        urls[1] ? { name: fileNameFromUrl(urls[1]), url: urls[1], thumb: urls[1] } : EMPTY_PREVIEW()
-      ]);
-      const previewCount = urls.length >= 2 ? "2\uD398\uC774\uC9C0" : urls.length === 1 ? "1\uD398\uC774\uC9C0" : "2\uD398\uC774\uC9C0";
-      setForm({
-        title: s.title || "",
-        artist: s.artist || "",
-        genre: s.genre || D.genres[0],
-        level: s.level || D.levels[1],
-        pages: s.pages != null ? String(s.pages) : "",
-        price: s.price != null ? String(s.price) : "",
-        orig: s.orig != null ? String(s.orig) : "",
-        status: s.status || "\uD310\uB9E4\uC911",
-        preview: previewCount,
-        popular: !!s.popular,
-        youtubeUrl: s.youtubeUrl || ""
-      });
-      setHydrated(true);
-      document.title = "CHODRUM Admin \u2014 \uC545\uBCF4 \uC218\uC815";
+        document.title = "CHODRUM Admin \u2014 \uC545\uBCF4 \uC218\uC815";
+      })();
+      return () => {
+        cancelled = true;
+      };
     }, [editId]);
     const pickPdf = async (file) => {
       setBusy((b) => ({ ...b, pdf: true }));
       try {
         const r = await window.ChodrumAPI.sheets.uploadFile(file, "pdf");
-        setPdf({ name: r.name || file.name, url: r.url });
+        setPdf({ name: r.name || file.name, url: r.path || r.url });
         B.toast(isEdit ? "PDF \uC6D0\uBCF8\uC744 \uAD50\uCCB4\uD588\uC5B4\uC694" : "PDF \uC6D0\uBCF8\uC744 \uC62C\uB838\uC5B4\uC694");
       } catch (e) {
         console.warn(e);
@@ -210,10 +238,12 @@
       setBusy((b) => ({ ...b, [key]: true }));
       try {
         const r = await window.ChodrumAPI.sheets.uploadFile(file, "preview");
+        const storePath = r.path || r.url || "";
+        const thumb = r.signedUrl || (isImgSrc(r.url) ? r.url : "");
         setPreviews((prev) => {
           const next = prev.slice();
           revokeThumb(next[index]);
-          next[index] = { name: r.name || file.name, url: r.url, thumb: r.url };
+          next[index] = { name: r.name || file.name, url: storePath, thumb };
           return next;
         });
         B.toast("\uBBF8\uB9AC\uBCF4\uAE30 " + (index + 1) + "\uD398\uC774\uC9C0\uB97C \uC62C\uB838\uC5B4\uC694 (\uC0C1\uB2E8 \uC77C\uBD80\uB9CC \uACF5\uAC1C)");
@@ -273,7 +303,7 @@
         setBusy((b) => ({ ...b, save: false }));
       }
     };
-    const filledPreviews = previews.filter((p) => p.thumb || p.url);
+    const filledPreviews = previews.filter((p) => p.url || isImgSrc(p.thumb));
     const pageTitle = isEdit ? "\uC545\uBCF4 \uC218\uC815" : "\uC545\uBCF4 \uB4F1\uB85D";
     const saveLabel = busy.save ? isEdit ? "\uC800\uC7A5 \uC911\u2026" : "\uB4F1\uB85D \uC911\u2026" : isEdit ? "\uC800\uC7A5\uD558\uAE30" : "\uB4F1\uB85D\uD558\uAE30";
     return /* @__PURE__ */ React.createElement(
@@ -313,7 +343,7 @@
           onClear: () => clearPreview(1)
         }
       ))), /* @__PURE__ */ React.createElement(Card, { padding: 18, style: { display: "flex", flexDirection: "column", gap: 10 } }, /* @__PURE__ */ React.createElement("span", { style: { fontSize: 15, fontWeight: 600 } }, "\uBBF8\uB9AC\uBCF4\uAE30 \uD655\uC778"), filledPreviews.length ? /* @__PURE__ */ React.createElement("div", { style: { display: "grid", gridTemplateColumns: filledPreviews.length > 1 ? "1fr 1fr" : "1fr", gap: 10 } }, previews.map((p, i) => {
-        const src = p.thumb || p.url;
+        const src = isImgSrc(p.thumb) ? p.thumb : isImgSrc(p.url) ? p.url : "";
         if (!src) return null;
         return /* @__PURE__ */ React.createElement("div", { key: i, style: { borderRadius: 8, overflow: "hidden", border: "1px solid var(--border-default)", position: "relative", background: "#f6f6f6", aspectRatio: "5 / 6", display: "flex", alignItems: "center", justifyContent: "center" } }, /* @__PURE__ */ React.createElement(
           "img",

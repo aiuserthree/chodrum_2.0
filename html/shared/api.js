@@ -303,9 +303,12 @@
   }
 
   function sheetToRow(s) {
-    var previewUrls = normalizePreviewUrls(s);
+    var previewUrls = normalizePreviewUrls(s).map(function (u) {
+      return sheetsStoragePath(u, 'preview') || u;
+    }).filter(Boolean);
     var yt = (s.youtubeUrl != null ? s.youtubeUrl : s.youtube_url) || '';
     yt = String(yt).trim();
+    var pdfPath = sheetsStoragePath(s.pdfUrl, 'pdf') || s.pdfUrl || null;
     return {
       id: s.id,
       code: s.code || null,
@@ -321,7 +324,8 @@
       rating: Number(s.rating) || 0,
       sold: Number(s.sold) || 0,
       status: s.status || '판매중',
-      pdf_url: s.pdfUrl || null,
+      /* Always persist storage paths — never signed/public URLs (bucket private after 013) */
+      pdf_url: pdfPath,
       preview_url: previewUrls[0] || null,
       preview_urls: previewUrls.length ? previewUrls : null,
       youtube_url: yt || null,
@@ -472,9 +476,13 @@
     var path = folder + '/' + Date.now() + '-' + sanitizeFileName(file.name);
 
     if (!live()) {
+      var localUrl = (typeof URL !== 'undefined' && URL.createObjectURL)
+        ? URL.createObjectURL(file)
+        : '';
       return {
-        url: (typeof URL !== 'undefined' && URL.createObjectURL) ? URL.createObjectURL(file) : '',
+        url: path,
         path: path,
+        signedUrl: isPdf ? '' : localUrl,
         name: file.name,
       };
     }
@@ -505,8 +513,52 @@
     /*
      * Store storage path (pdf/… · preview/…) — bucket is private after 013.
      * FO signs preview on hydrate; PDF download uses sheet-download Edge.
+     * BO <img> needs signedUrl — raw path is not fetchable from a private bucket.
      */
-    return { url: path, path: path, name: file.name };
+    var signedUrl = '';
+    if (!isPdf) {
+      try {
+        var signed = await client.storage.from('sheets').createSignedUrl(path, 3600);
+        if (signed.error) {
+          console.warn('[CHODRUM] preview createSignedUrl after upload', signed.error);
+        } else if (signed.data) {
+          signedUrl = signed.data.signedUrl || signed.data.signedURL || '';
+        }
+      } catch (e) {
+        console.warn('[CHODRUM] preview createSignedUrl after upload failed', e);
+      }
+    }
+    return { url: path, path: path, signedUrl: signedUrl, name: file.name };
+  }
+
+  /**
+   * Resolve preview storage paths + signed display URLs for BO <img>.
+   * @param {string[]} urlsOrPaths
+   * @returns {Promise<{ path: string, displayUrl: string }[]>}
+   */
+  async function resolvePreviewDisplays(urlsOrPaths) {
+    var list = (urlsOrPaths || []).filter(Boolean).slice(0, 2);
+    if (!list.length) return [];
+    if (!live()) {
+      return list.map(function (u) {
+        var p = sheetsStoragePath(u, 'preview') || u;
+        var display = /^(https?:|blob:|data:)/i.test(String(u)) ? String(u) : '';
+        return { path: p, displayUrl: display };
+      });
+    }
+    var paths = list.map(function (u) {
+      return sheetsStoragePath(u, 'preview') || '';
+    });
+    var signedList = await signPreviewUrlsForSheets([{
+      previewUrls: paths.map(function (p, i) { return p || list[i]; }),
+    }]);
+    var signedUrls = (signedList[0] && signedList[0].previewUrls) || [];
+    return list.map(function (u, i) {
+      var p = paths[i] || sheetsStoragePath(u, 'preview') || u;
+      var display = signedUrls[i] || '';
+      if (!display && /^(https?:|blob:|data:)/i.test(String(u))) display = String(u);
+      return { path: p, displayUrl: display };
+    });
   }
 
   /** True when Storage reports the target bucket is missing (not RLS/MIME). */
@@ -1877,6 +1929,8 @@
       remove: deleteSheets,
       setStatus: setSheetStatus,
       uploadFile: uploadSheetFile,
+      resolvePreviewDisplays: resolvePreviewDisplays,
+      storagePath: sheetsStoragePath,
     },
     featured: { save: saveFeatured },
     homePromo: { save: saveHomePromo },

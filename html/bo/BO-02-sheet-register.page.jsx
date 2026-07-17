@@ -34,6 +34,11 @@ function revokeThumb(slot) {
   }
 }
 
+/** True when value is usable as <img src> (not a bare storage path). */
+function isImgSrc(url) {
+  return /^(https?:|blob:|data:)/i.test(String(url || ''));
+}
+
 function FileDrop({ icon, title, sub, fileName, accept, uploading, onFile }) {
   const inputRef = React.useRef(null);
   return (
@@ -84,7 +89,7 @@ function FileDrop({ icon, title, sub, fileName, accept, uploading, onFile }) {
 
 function PreviewSlot({ page, slot, uploading, onFile, onClear }) {
   const inputRef = React.useRef(null);
-  const src = slot.thumb || slot.url;
+  const src = isImgSrc(slot.thumb) ? slot.thumb : (isImgSrc(slot.url) ? slot.url : '');
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
@@ -187,47 +192,77 @@ function RegisterPage() {
 
   React.useEffect(() => {
     if (!editId) return;
-    const s = D.byId(editId);
-    if (!s) {
-      B.toast('해당 악보를 찾을 수 없어요');
+    let cancelled = false;
+    (async () => {
+      try {
+        if (window.ChodrumAPI && window.ChodrumAPI.ready) await window.ChodrumAPI.ready;
+      } catch (_) { /* ignore */ }
+      if (cancelled) return;
+      const s = D.byId(editId);
+      if (!s) {
+        B.toast('해당 악보를 찾을 수 없어요');
+        setHydrated(true);
+        return;
+      }
+      existingRef.current = s;
+      const urls = Array.isArray(s.previewUrls) && s.previewUrls.length
+        ? s.previewUrls.filter(Boolean).slice(0, 2)
+        : (s.previewUrl ? [s.previewUrl] : []);
+      let slots = [EMPTY_PREVIEW(), EMPTY_PREVIEW()];
+      try {
+        const resolved = window.ChodrumAPI && window.ChodrumAPI.sheets.resolvePreviewDisplays
+          ? await window.ChodrumAPI.sheets.resolvePreviewDisplays(urls)
+          : urls.map((u) => ({ path: u, displayUrl: isImgSrc(u) ? u : '' }));
+        slots = [
+          resolved[0]
+            ? { name: fileNameFromUrl(resolved[0].path || urls[0]), url: resolved[0].path || urls[0], thumb: resolved[0].displayUrl || '' }
+            : EMPTY_PREVIEW(),
+          resolved[1]
+            ? { name: fileNameFromUrl(resolved[1].path || urls[1]), url: resolved[1].path || urls[1], thumb: resolved[1].displayUrl || '' }
+            : EMPTY_PREVIEW(),
+        ];
+      } catch (e) {
+        console.warn(e);
+        slots = [
+          urls[0] ? { name: fileNameFromUrl(urls[0]), url: urls[0], thumb: isImgSrc(urls[0]) ? urls[0] : '' } : EMPTY_PREVIEW(),
+          urls[1] ? { name: fileNameFromUrl(urls[1]), url: urls[1], thumb: isImgSrc(urls[1]) ? urls[1] : '' } : EMPTY_PREVIEW(),
+        ];
+      }
+      if (cancelled) return;
+      const pdfPath = (window.ChodrumAPI && window.ChodrumAPI.sheets.storagePath)
+        ? (window.ChodrumAPI.sheets.storagePath(s.pdfUrl, 'pdf') || s.pdfUrl || '')
+        : (s.pdfUrl || '');
+      setPdf({
+        name: fileNameFromUrl(pdfPath) || (pdfPath ? '등록된 PDF' : ''),
+        url: pdfPath,
+      });
+      setPreviews(slots);
+      const filled = slots.filter((p) => p.url).length;
+      const previewCount = filled >= 2 ? '2페이지' : (filled === 1 ? '1페이지' : '2페이지');
+      setForm({
+        title: s.title || '',
+        artist: s.artist || '',
+        genre: s.genre || D.genres[0],
+        level: s.level || D.levels[1],
+        pages: s.pages != null ? String(s.pages) : '',
+        price: s.price != null ? String(s.price) : '',
+        orig: s.orig != null ? String(s.orig) : '',
+        status: s.status || '판매중',
+        preview: previewCount,
+        popular: !!s.popular,
+        youtubeUrl: s.youtubeUrl || '',
+      });
       setHydrated(true);
-      return;
-    }
-    existingRef.current = s;
-    const urls = Array.isArray(s.previewUrls) && s.previewUrls.length
-      ? s.previewUrls.filter(Boolean).slice(0, 2)
-      : (s.previewUrl ? [s.previewUrl] : []);
-    setPdf({
-      name: fileNameFromUrl(s.pdfUrl) || (s.pdfUrl ? '등록된 PDF' : ''),
-      url: s.pdfUrl || '',
-    });
-    setPreviews([
-      urls[0] ? { name: fileNameFromUrl(urls[0]), url: urls[0], thumb: urls[0] } : EMPTY_PREVIEW(),
-      urls[1] ? { name: fileNameFromUrl(urls[1]), url: urls[1], thumb: urls[1] } : EMPTY_PREVIEW(),
-    ]);
-    const previewCount = urls.length >= 2 ? '2페이지' : (urls.length === 1 ? '1페이지' : '2페이지');
-    setForm({
-      title: s.title || '',
-      artist: s.artist || '',
-      genre: s.genre || D.genres[0],
-      level: s.level || D.levels[1],
-      pages: s.pages != null ? String(s.pages) : '',
-      price: s.price != null ? String(s.price) : '',
-      orig: s.orig != null ? String(s.orig) : '',
-      status: s.status || '판매중',
-      preview: previewCount,
-      popular: !!s.popular,
-      youtubeUrl: s.youtubeUrl || '',
-    });
-    setHydrated(true);
-    document.title = 'CHODRUM Admin — 악보 수정';
+      document.title = 'CHODRUM Admin — 악보 수정';
+    })();
+    return () => { cancelled = true; };
   }, [editId]);
 
   const pickPdf = async (file) => {
     setBusy((b) => ({ ...b, pdf: true }));
     try {
       const r = await window.ChodrumAPI.sheets.uploadFile(file, 'pdf');
-      setPdf({ name: r.name || file.name, url: r.url });
+      setPdf({ name: r.name || file.name, url: r.path || r.url });
       B.toast(isEdit ? 'PDF 원본을 교체했어요' : 'PDF 원본을 올렸어요');
     } catch (e) {
       console.warn(e);
@@ -242,11 +277,13 @@ function RegisterPage() {
     setBusy((b) => ({ ...b, [key]: true }));
     try {
       const r = await window.ChodrumAPI.sheets.uploadFile(file, 'preview');
+      const storePath = r.path || r.url || '';
+      const thumb = r.signedUrl || (isImgSrc(r.url) ? r.url : '');
       setPreviews((prev) => {
         const next = prev.slice();
         revokeThumb(next[index]);
-        /* r.url is the watermarked image (canvas stamp before Storage upload) */
-        next[index] = { name: r.name || file.name, url: r.url, thumb: r.url };
+        /* url = storage path for DB; thumb = signed/blob URL for <img> */
+        next[index] = { name: r.name || file.name, url: storePath, thumb: thumb };
         return next;
       });
       B.toast('미리보기 ' + (index + 1) + '페이지를 올렸어요 (상단 일부만 공개)');
@@ -311,7 +348,7 @@ function RegisterPage() {
     }
   };
 
-  const filledPreviews = previews.filter((p) => p.thumb || p.url);
+  const filledPreviews = previews.filter((p) => p.url || isImgSrc(p.thumb));
   const pageTitle = isEdit ? '악보 수정' : '악보 등록';
   const saveLabel = busy.save
     ? (isEdit ? '저장 중…' : '등록 중…')
@@ -362,7 +399,7 @@ function RegisterPage() {
             {filledPreviews.length ? (
               <div style={{ display: 'grid', gridTemplateColumns: filledPreviews.length > 1 ? '1fr 1fr' : '1fr', gap: 10 }}>
                 {previews.map((p, i) => {
-                  const src = p.thumb || p.url;
+                  const src = isImgSrc(p.thumb) ? p.thumb : (isImgSrc(p.url) ? p.url : '');
                   if (!src) return null;
                   return (
                     <div key={i} style={{ borderRadius: 8, overflow: 'hidden', border: '1px solid var(--border-default)', position: 'relative', background: '#f6f6f6', aspectRatio: '5 / 6', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
