@@ -1,0 +1,9 @@
+User-agent: *
+Allow: /home
+Allow: /sheets
+Disallow: /bo/
+Disallow: /cart
+Disallow: /checkout
+Disallow: /mypage
+Disallow: /login
+Sitemap: https://renewal.chodrum.com/sitemap.xml
