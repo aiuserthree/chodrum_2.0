@@ -101,11 +101,11 @@
   "rewrites": [
     {
       "source": "/sheets/:slug",
-      "destination": "/sheets/:slug/index.html"
+      "destination": "/fo/FO-03-sheet-detail.html"
     },
     {
       "source": "/sheets/:slug/",
-      "destination": "/sheets/:slug/index.html"
+      "destination": "/fo/FO-03-sheet-detail.html"
     },
     {
       "source": "/sheets",

@@ -10,5 +10,8 @@
   },
   "devDependencies": {
     "esbuild": "^0.25.8"
+  },
+  "dependencies": {
+    "@vercel/functions": "^3.7.5"
   }
 }
