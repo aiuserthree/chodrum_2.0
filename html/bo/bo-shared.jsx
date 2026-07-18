@@ -46,9 +46,7 @@ function boQp(name) {
 function boSearchRoute(raw) {
   const q = String(raw || '').trim();
   if (!q) return null;
-  if (q.includes('@')) return '/bo/members?q=' + encodeURIComponent(q);
-  if (/^ORD/i.test(q)) return '/bo/orders?q=' + encodeURIComponent(q);
-  return '/bo/sheets?q=' + encodeURIComponent(q);
+  return '/bo/search?q=' + encodeURIComponent(q);
 }
 
 function boLogout() {

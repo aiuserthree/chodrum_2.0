@@ -246,6 +246,10 @@
     {
       "source": "/bo/featured",
       "destination": "/bo/BO-08-main-featured.html"
+    },
+    {
+      "source": "/bo/search",
+      "destination": "/bo/BO-09-search.html"
     }
   ]
 }
