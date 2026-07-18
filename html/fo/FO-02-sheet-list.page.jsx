@@ -3,6 +3,7 @@ const DS = window.DrumSheetStoreDesignSystem_3a2462;
 const { Button, Icon, Chip, Select, Input, Checkbox } = DS;
 const F = window.FO;
 const D = window.DrumData;
+const PAGE_SIZE = 20;
 
 function FilterGroup({ label, children }) {
   return (
@@ -18,9 +19,12 @@ function ListPage() {
   const [cat, setCat] = React.useState(F.qp('cat') || '전체');
   const [levels, setLevels] = React.useState([]);
   const [sort, setSort] = React.useState(F.qp('sort') || '인기순');
+  const [visibleCount, setVisibleCount] = React.useState(PAGE_SIZE);
+
+  React.useEffect(() => { setVisibleCount(PAGE_SIZE); }, [q, cat, levels, sort]);
 
   const toggleLevel = (l) => setLevels((p) => p.includes(l) ? p.filter((x) => x !== l) : [...p, l]);
-  const reset = () => { setQ(''); setCat('전체'); setLevels([]); setSort('인기순'); };
+  const reset = () => { setQ(''); setCat('전체'); setLevels([]); setSort('인기순'); setVisibleCount(PAGE_SIZE); };
 
   const catalog = D.visibleSheets ? D.visibleSheets() : D.sheets.filter((s) => !s.status || s.status === '판매중');
   let list = catalog
@@ -37,6 +41,8 @@ function ListPage() {
     /* 인기순: 관리자 「인기악보」 체크 우선, 같으면 판매량 */
     (Number(!!b.popular) - Number(!!a.popular)) || (b.sold - a.sold));
 
+  const visibleList = list.slice(0, visibleCount);
+  const hasMore = visibleCount < list.length;
   const reco = [...catalog].filter((s) => s.popular).slice(0, 4);
   const cats = ['전체', ...D.genres];
 
@@ -80,10 +86,12 @@ function ListPage() {
 
           {list.length ? (
             <React.Fragment>
-              <div className="fo-grid">{list.map((s) => <F.SheetCard key={s.id} s={s} />)}</div>
-              <div style={{ display: 'flex', justifyContent: 'center', paddingTop: 28 }}>
-                <Button variant="secondary" size="md" iconRight="chevron-down" onClick={() => F.toast('마지막 페이지예요')}>더보기</Button>
-              </div>
+              <div className="fo-grid">{visibleList.map((s) => <F.SheetCard key={s.id} s={s} />)}</div>
+              {hasMore ? (
+                <div style={{ display: 'flex', justifyContent: 'center', paddingTop: 28 }}>
+                  <Button variant="secondary" size="md" iconRight="chevron-down" onClick={() => setVisibleCount((n) => n + PAGE_SIZE)}>더보기</Button>
+                </div>
+              ) : null}
             </React.Fragment>
           ) : (
             <React.Fragment>
