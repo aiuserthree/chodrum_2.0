@@ -42,6 +42,49 @@ function env(name, fallback = '') {
 
 const SITE_URL = env('SITE_URL', 'https://renewal.chodrum.com').replace(/\/$/, '');
 
+/** Digital PDF store policies — aligned with html/shared/legal-docs.js & FO-11 guide. */
+function merchantReturnPolicy() {
+  return {
+    '@type': 'MerchantReturnPolicy',
+    applicableCountry: 'KR',
+    returnPolicyCategory: 'https://schema.org/MerchantReturnFiniteReturnWindow',
+    merchantReturnDays: 7,
+    returnFees: 'https://schema.org/FreeReturn',
+    merchantReturnLink: SITE_URL + '/guide',
+  };
+}
+
+/** No physical shipping; instant download after payment (legal-docs purchase §1). */
+function digitalShippingDetails() {
+  return {
+    '@type': 'OfferShippingDetails',
+    shippingRate: {
+      '@type': 'MonetaryAmount',
+      value: '0',
+      currency: 'KRW',
+    },
+    shippingDestination: {
+      '@type': 'DefinedRegion',
+      addressCountry: 'KR',
+    },
+    deliveryTime: {
+      '@type': 'ShippingDeliveryTime',
+      handlingTime: {
+        '@type': 'QuantitativeValue',
+        minValue: 0,
+        maxValue: 0,
+        unitCode: 'DAY',
+      },
+      transitTime: {
+        '@type': 'QuantitativeValue',
+        minValue: 0,
+        maxValue: 0,
+        unitCode: 'DAY',
+      },
+    },
+  };
+}
+
 function escapeHtml(s) {
   return String(s ?? '')
     .replace(/&/g, '&amp;')
@@ -121,7 +164,7 @@ async function fetchSheets() {
   }
 
   const select =
-    'id,slug,title,artist,genre,level,pages,price,code,status,seo_title,seo_description,og_image_path,preview_urls,preview_url,updated_at';
+    'id,slug,title,artist,genre,level,pages,price,code,status,seo_title,seo_description,og_image_path,preview_urls,preview_url,rating,updated_at';
   const url =
     base +
     '/rest/v1/sheets?select=' +
@@ -254,23 +297,94 @@ function sheetDescription(s) {
   return parts.join(' ').replace(/\s+/g, ' ').trim();
 }
 
-function buildJsonLd(s, canonical, imageUrl) {
+/**
+ * Product JSON-LD for sheet detail pages.
+ *
+ * aggregateRating / review — only when real user review data exists.
+ * sheets.rating is legacy seed/admin placeholder, not aggregated reviews.
+ */
+function offerPriceValidUntil() {
+  const d = new Date();
+  d.setUTCFullYear(d.getUTCFullYear() + 1);
+  return d.toISOString().slice(0, 10);
+}
+
+function buildAggregateRating(s) {
+  const rating = Number(s.rating);
+  const reviewCount = Number(s.review_count ?? s.reviewCount ?? 0);
+  if (!(rating > 0 && reviewCount >= 5)) return null;
   return {
+    '@type': 'AggregateRating',
+    ratingValue: String(rating),
+    reviewCount: String(reviewCount),
+    bestRating: '5',
+    worstRating: '1',
+  };
+}
+
+function buildReviews(reviews) {
+  if (!Array.isArray(reviews) || !reviews.length) return null;
+  const mapped = reviews
+    .slice(0, 10)
+    .map((r) => {
+      const body = String(r.body ?? r.reviewBody ?? '').trim();
+      const rating = Number(r.rating ?? r.ratingValue);
+      if (!body || !(rating > 0)) return null;
+      return {
+        '@type': 'Review',
+        author: {
+          '@type': 'Person',
+          name: String(r.author ?? r.authorName ?? 'Anonymous').trim() || 'Anonymous',
+        },
+        reviewBody: body,
+        reviewRating: {
+          '@type': 'Rating',
+          ratingValue: String(rating),
+          bestRating: '5',
+          worstRating: '1',
+        },
+      };
+    })
+    .filter(Boolean);
+  return mapped.length ? mapped : null;
+}
+
+function buildJsonLd(s, canonical, imageUrl) {
+  const product = {
     '@context': 'https://schema.org',
     '@type': 'Product',
     name: s.title || '',
     description: sheetDescription(s),
-    image: imageUrl ? [imageUrl] : [],
     brand: { '@type': 'Brand', name: s.artist || '' },
     sku: s.code || s.id || '',
+    category: 'Drum Sheet Music',
     offers: {
       '@type': 'Offer',
       url: canonical,
       priceCurrency: 'KRW',
       price: String(Number(s.price) || 0),
       availability: 'https://schema.org/InStock',
+      itemCondition: 'https://schema.org/NewCondition',
+      priceValidUntil: offerPriceValidUntil(),
+      seller: {
+        '@type': 'Organization',
+        name: 'CHODRUM',
+        url: SITE_URL,
+      },
+      hasMerchantReturnPolicy: merchantReturnPolicy(),
+      shippingDetails: digitalShippingDetails(),
     },
   };
+
+  if (imageUrl) product.image = [imageUrl];
+
+  const aggregateRating = buildAggregateRating(s);
+  if (aggregateRating) product.aggregateRating = aggregateRating;
+
+  const reviewList = buildReviews(s.reviews);
+  if (reviewList) product.review = reviewList;
+
+  return product;
 }
 
 function buildDetailHtml(s, signedImage) {
