@@ -266,18 +266,27 @@ function SignupPage() {
         {uiStep === 1 ? (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-              <div style={{ display: 'flex', gap: 8, alignItems: 'flex-end' }}>
-                <div style={{ flex: 1 }}><Input label="이메일" type="email" placeholder="you@example.com" value={email} onChange={(e) => onEmailChange(e.target.value)} error={emailErr || undefined} /></div>
+              <span style={{ fontSize: 13, fontWeight: 500, color: 'var(--text-primary)' }}>이메일</span>
+              <div style={{ display: 'flex', gap: 8, alignItems: 'flex-start' }}>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <Input
+                    type="email"
+                    placeholder="you@example.com"
+                    value={email}
+                    onChange={(e) => onEmailChange(e.target.value)}
+                    error={emailErr ? (
+                      <>
+                        {emailErr}{' '}
+                        <a href={F.PAGES.login} style={{ fontWeight: 600, textDecoration: 'underline' }}>로그인</a>
+                      </>
+                    ) : undefined}
+                  />
+                </div>
                 <Button variant="secondary" size="md" style={{ height: 44, flex: 'none' }} disabled={!emailOk || !!busy} onClick={sendCode}>{busy === 'otp' ? '발송 중…' : (sent ? '재발송' : '인증코드 받기')}</Button>
               </div>
-              {emailErr ? (
-                <span style={{ fontSize: 12.5, color: 'var(--status-danger, #c0392b)' }}>
-                  {emailErr}{' '}
-                  <a href={F.PAGES.login} style={{ fontWeight: 600, textDecoration: 'underline' }}>로그인</a>
-                </span>
-              ) : (
+              {!emailErr ? (
                 <span style={{ fontSize: 12, color: 'var(--text-secondary)' }}>인증한 이메일이 로그인 ID가 돼요. 메일에 온 6자리 코드를 입력하세요.</span>
-              )}
+              ) : null}
             </div>
             {sent ? (
               <React.Fragment>
