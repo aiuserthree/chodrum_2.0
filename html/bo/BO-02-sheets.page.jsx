@@ -7,6 +7,7 @@ const D = window.DrumData;
 
 const STATUS_TONE = { 판매중: 'success', 판매중지: 'warning', 숨김: 'neutral' };
 const PAGE_SIZE = 20;
+const SORT_OPTIONS = ['최신순', '이름 오름차순', '이름 내림차순'];
 
 function pageWindow(cur, total, span) {
   if (total <= 1) return [1];
@@ -30,6 +31,7 @@ function SheetsPage() {
   const [status, setStatus] = React.useState('전체');
   const [sel, setSel] = React.useState([]);
   const [bulk, setBulk] = React.useState('판매중');
+  const [sort, setSort] = React.useState('최신순');
   const [page, setPage] = React.useState(1);
 
   const sheetTime = (s) => {
@@ -45,14 +47,18 @@ function SheetsPage() {
     (genre === '전체' || s.genre === genre) &&
     (status === '전체' || s.status === status) &&
     (s.title + s.artist).toLowerCase().includes(q.toLowerCase())
-  ).sort((a, b) => sheetTime(b) - sheetTime(a));
+  ).sort((a, b) => {
+    if (sort === '이름 오름차순') return String(a.title || '').localeCompare(String(b.title || ''), 'ko');
+    if (sort === '이름 내림차순') return String(b.title || '').localeCompare(String(a.title || ''), 'ko');
+    return sheetTime(b) - sheetTime(a);
+  });
   const totalPages = Math.max(1, Math.ceil(list.length / PAGE_SIZE));
   const safePage = Math.min(page, totalPages);
   const pageRows = list.slice((safePage - 1) * PAGE_SIZE, safePage * PAGE_SIZE);
   const allOn = pageRows.length > 0 && pageRows.every((s) => sel.includes(s.id));
   const pages = pageWindow(safePage, totalPages, 5);
 
-  React.useEffect(() => { setPage(1); }, [q, genre, status]);
+  React.useEffect(() => { setPage(1); }, [q, genre, status, sort]);
   React.useEffect(() => { if (page !== safePage) setPage(safePage); }, [page, safePage]);
 
   const setRow = (id, patch) => setRows((rs) => rs.map((r) => r.id === id ? { ...r, ...patch } : r));
@@ -88,6 +94,7 @@ function SheetsPage() {
           <div style={{ width: 240, maxWidth: '100%' }}><Input size="sm" iconLeft="search" placeholder="곡명 / 아티스트" value={q} onChange={(e) => setQ(e.target.value)} /></div>
           <div style={{ width: 140 }}><Select size="sm" value={genre} onChange={(e) => setGenre(e.target.value)} options={['전체', ...D.genres]} /></div>
           <div style={{ width: 130 }}><Select size="sm" value={status} onChange={(e) => setStatus(e.target.value)} options={['전체', '판매중', '판매중지', '숨김']} /></div>
+          <div style={{ width: 140 }}><Select size="sm" value={sort} onChange={(e) => setSort(e.target.value)} options={SORT_OPTIONS} /></div>
           <span className="ds-mono" style={{ fontSize: 12, color: 'var(--text-secondary)', marginLeft: 'auto' }}>{list.length}개</span>
         </div>
 
