@@ -452,12 +452,30 @@
     return profile;
   }
 
+  /** Signup / OTP interstitials — skip members DB sync on auto-restore (keeps click path fast). */
+  function skipRestoreDbSync() {
+    try {
+      var p = location.pathname || '';
+      if (/\/(signup|password-reset|guest|oauth-terms)(\/|$)/i.test(p)) return true;
+      if (/FO-08-signup|FO-08-password-reset|FO-10-guest|FO-08-oauth-terms/i.test(p)) return true;
+      return false;
+    } catch (_) {
+      return false;
+    }
+  }
+
   async function restoreSession() {
     if (!live()) return null;
     var res = await client().auth.getSession();
     var session = res.data && res.data.session;
     if (session && session.user) {
       var profile = profileFromUser(session.user);
+      if (skipRestoreDbSync()) {
+        if (profile && profile.fromOAuth) setPendingProfile(profile);
+        var uSkip = window.Store && Store.user && Store.user.get();
+        if (uSkip) Store.user.clear();
+        return null;
+      }
       /*
        * Auth session alone ≠ app membership.
        * Email: OTP/password steps keep a session before step-3 terms — do not
@@ -513,17 +531,44 @@
    * opts.forSignup: block send when members row already exists (completed signup).
    * Password-reset must call without forSignup so existing emails still get OTP.
    */
+  async function clearMismatchedSignupSession(email) {
+    if (!live()) return;
+    try {
+      var sessionRes = await client().auth.getSession();
+      var user = sessionRes.data && sessionRes.data.session && sessionRes.data.session.user;
+      if (!user) return;
+      var cur = String(contactEmailFromUser(user) || user.email || '').trim().toLowerCase();
+      if (cur && cur !== String(email || '').trim().toLowerCase()) {
+        await client().auth.signOut();
+      }
+    } catch (e) { /* ignore */ }
+  }
+
   async function sendEmailOtp(email, opts) {
     opts = opts || {};
     if (!live()) {
       return { ok: false, error: 'Supabase가 설정되지 않았습니다. config.js를 확인해주세요.' };
     }
     var addr = String(email || '').trim();
+    var otpPromise = null;
     if (opts.forSignup) {
+      /* Overlap Auth OTP (~2s) with duplicate check (~0.5s) instead of awaiting both serially. */
+      otpPromise = client().auth.signInWithOtp({
+        email: addr,
+        options: {
+          shouldCreateUser: true,
+        },
+      });
+      clearMismatchedSignupSession(addr).catch(function () {});
       var existing = await findExistingMember(addr);
       if (existing) {
         return { ok: false, alreadyMember: true, error: ALREADY_MEMBER_MSG };
       }
+      var res = await otpPromise;
+      if (res.error) {
+        return { ok: false, error: res.error.message || '인증코드를 보내지 못했어요.' };
+      }
+      return { ok: true };
     }
     var res = await client().auth.signInWithOtp({
       email: addr,

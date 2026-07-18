@@ -268,7 +268,7 @@ function SignupPage() {
             <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
               <div style={{ display: 'flex', gap: 8, alignItems: 'flex-end' }}>
                 <div style={{ flex: 1 }}><Input label="이메일" type="email" placeholder="you@example.com" value={email} onChange={(e) => onEmailChange(e.target.value)} error={emailErr || undefined} /></div>
-                <Button variant="secondary" size="md" style={{ height: 44, flex: 'none' }} disabled={!emailOk || !!busy} onClick={sendCode}>{sent ? '재발송' : '인증코드 받기'}</Button>
+                <Button variant="secondary" size="md" style={{ height: 44, flex: 'none' }} disabled={!emailOk || !!busy} onClick={sendCode}>{busy === 'otp' ? '발송 중…' : (sent ? '재발송' : '인증코드 받기')}</Button>
               </div>
               {emailErr ? (
                 <span style={{ fontSize: 12.5, color: 'var(--status-danger, #c0392b)' }}>
