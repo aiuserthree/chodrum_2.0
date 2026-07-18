@@ -22,7 +22,7 @@
       code: s.code || "DS-" + (1042 - i),
       status: s.status || A.sheetStatus[s.id] || "\uD310\uB9E4\uC911"
     })));
-    const [q, setQ] = React.useState("");
+    const [q, setQ] = React.useState(B.qp("q"));
     const [genre, setGenre] = React.useState("\uC804\uCCB4");
     const [status, setStatus] = React.useState("\uC804\uCCB4");
     const [sel, setSel] = React.useState([]);

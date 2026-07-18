@@ -9,16 +9,28 @@ const M_TONE = { 정상: 'success', 정지: 'warning', 탈퇴: 'neutral' };
 const amountOf = (o) => o.items.reduce((n, it) => n + D.byId(it.id).price * it.qty, 0);
 
 function MembersPage() {
-  const [tab, setTab] = React.useState('회원 목록');
+  const urlQ = B.qp('q');
+  const emailQ = urlQ.includes('@') ? urlQ.trim().toLowerCase() : '';
+  const memberEmailHit = emailQ && A.members.some((m) => m.email.toLowerCase() === emailQ);
+  const [tab, setTab] = React.useState(emailQ && !memberEmailHit ? '비회원 주문 조회' : '회원 목록');
   const [members, setMembers] = React.useState(A.members);
+  const [q, setQ] = React.useState(urlQ);
   const [type, setType] = React.useState('전체');
   const [status, setStatus] = React.useState('전체');
   const [cur, setCur] = React.useState(null);
-  const [guestEmail, setGuestEmail] = React.useState('');
+  const [guestEmail, setGuestEmail] = React.useState(emailQ && !memberEmailHit ? urlQ : '');
   const [guestResult, setGuestResult] = React.useState(null);
 
+  React.useEffect(function () {
+    if (!emailQ || memberEmailHit) return;
+    const found = A.orders.filter((o) => !o.member && o.email.toLowerCase() === emailQ);
+    setGuestResult(found);
+  }, []);
+
+  const qLower = q.trim().toLowerCase();
   const rows = members.filter((m) =>
-    (type === '전체' || m.type === type) && (status === '전체' || m.status === status));
+    (type === '전체' || m.type === type) && (status === '전체' || m.status === status) &&
+    (!qLower || (m.name + m.email).toLowerCase().includes(qLower)));
 
   const memberOrderMatch = (o, m) => {
     if (!o || !m || o.email !== m.email) return false;
@@ -56,6 +68,7 @@ function MembersPage() {
         {tab === '회원 목록' ? (
           <React.Fragment>
             <div className="bo-toolbar">
+              <div style={{ width: 240, maxWidth: '100%' }}><Input size="sm" iconLeft="search" placeholder="이름 / 이메일" value={q} onChange={(e) => setQ(e.target.value)} /></div>
               <div style={{ width: 140 }}><Select size="sm" value={type} onChange={(e) => setType(e.target.value)} options={['전체', '이메일', '카카오', '네이버', '구글']} /></div>
               <div style={{ width: 120 }}><Select size="sm" value={status} onChange={(e) => setStatus(e.target.value)} options={['전체', '정상', '정지', '탈퇴']} /></div>
               <span className="ds-mono" style={{ fontSize: 12, color: 'var(--text-secondary)', marginLeft: 'auto' }}>{rows.length}명</span>

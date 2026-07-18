@@ -25,7 +25,7 @@ function SheetsPage() {
     code: s.code || ('DS-' + (1042 - i)),
     status: s.status || A.sheetStatus[s.id] || '판매중',
   })));
-  const [q, setQ] = React.useState('');
+  const [q, setQ] = React.useState(B.qp('q'));
   const [genre, setGenre] = React.useState('전체');
   const [status, setStatus] = React.useState('전체');
   const [sel, setSel] = React.useState([]);

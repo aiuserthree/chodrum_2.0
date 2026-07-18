@@ -13,6 +13,7 @@ const amountOf = (o) => o.items.reduce((n, it) => {
 
 function OrdersPage() {
   const [orders, setOrders] = React.useState(A.orders);
+  const [q, setQ] = React.useState(B.qp('q'));
   const [f, setF] = React.useState('전체');
   const [type, setType] = React.useState('전체');
   const [cur, setCur] = React.useState(null); /* 상세 모달 대상 */
@@ -20,9 +21,11 @@ function OrdersPage() {
   const [reason, setReason] = React.useState('');
   const [revoke, setRevoke] = React.useState(true);
 
+  const qLower = q.trim().toLowerCase();
   const rows = orders.filter((o) =>
     (f === '전체' || o.status === f) &&
-    (type === '전체' || (type === '회원' ? o.member : !o.member)));
+    (type === '전체' || (type === '회원' ? o.member : !o.member)) &&
+    (!qLower || [o.no, o.buyer, o.email].some((v) => String(v || '').toLowerCase().includes(qLower))));
 
   const openDetail = (o) => { setCur(o); setRefunding(false); setReason(''); setRevoke(true); };
   const setStatus = async (no, status) => {
@@ -41,10 +44,12 @@ function OrdersPage() {
     <B.Shell active="orders" title="주문 / 결제 관리">
       <div data-screen-label="BO-03 주문/결제 관리" style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
         <div className="bo-toolbar">
+          <div style={{ width: 240, maxWidth: '100%' }}><Input size="sm" iconLeft="search" placeholder="주문번호 / 주문자 / 이메일" value={q} onChange={(e) => setQ(e.target.value)} /></div>
           <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
             {['전체', '결제완료', '대기', '취소', '환불'].map((x) => <Chip key={x} selected={f === x} onClick={() => setF(x)}>{x}</Chip>)}
           </div>
           <div style={{ width: 130, marginLeft: 'auto' }}><Select size="sm" value={type} onChange={(e) => setType(e.target.value)} options={['전체', '회원', '비회원']} /></div>
+          <span className="ds-mono" style={{ fontSize: 12, color: 'var(--text-secondary)' }}>{rows.length}건</span>
         </div>
 
         <Card padding={0}>

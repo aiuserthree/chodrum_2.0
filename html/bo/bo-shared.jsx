@@ -39,6 +39,18 @@ function boToast(msg) {
   el._t = setTimeout(() => el.classList.remove('show'), 2000);
 }
 
+function boQp(name) {
+  return new URLSearchParams(location.search).get(name) || '';
+}
+
+function boSearchRoute(raw) {
+  const q = String(raw || '').trim();
+  if (!q) return null;
+  if (q.includes('@')) return '/bo/members?q=' + encodeURIComponent(q);
+  if (/^ORD/i.test(q)) return '/bo/orders?q=' + encodeURIComponent(q);
+  return '/bo/sheets?q=' + encodeURIComponent(q);
+}
+
 function boLogout() {
   var go = function () {
     location.href = (window.ChodrumBoAuth && window.ChodrumBoAuth.LOGIN_PAGE) || '/bo/login';
@@ -52,6 +64,12 @@ function boLogout() {
 
 function BOShell({ active, title, actions, children }) {
   const [open, setOpen] = React.useState(false);
+  const onGlobalSearch = (e) => {
+    e.preventDefault();
+    const q = new FormData(e.target).get('q');
+    const href = boSearchRoute(q);
+    if (href) location.href = href;
+  };
   React.useEffect(function () {
     if (window.ChodrumBoAuth && typeof window.ChodrumBoAuth.verifyAdminSession === 'function') {
       window.ChodrumBoAuth.verifyAdminSession();
@@ -110,7 +128,9 @@ function BOShell({ active, title, actions, children }) {
         <div className="bo-topbar">
           <span className="bo-menu-btn"><IconButton name="menu" variant="ghost" label="메뉴" onClick={() => setOpen(true)} /></span>
           <h4 style={{ fontSize: 19, fontWeight: 600, letterSpacing: '-0.5px', whiteSpace: 'nowrap' }}>{title}</h4>
-          <div className="bo-topsearch"><Input size="sm" iconLeft="search" placeholder="주문번호, 회원, 악보 검색" /></div>
+          <form className="bo-topsearch" onSubmit={onGlobalSearch}>
+            <Input size="sm" name="q" iconLeft="search" placeholder="주문번호, 회원, 악보 검색" defaultValue={boQp('q')} />
+          </form>
           <div className="bo-top-right">
             {actions}
             <span style={{ width: 34, height: 34, borderRadius: 9999, background: 'var(--surface-inverse)', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 13, fontWeight: 600, flex: 'none' }} title="관리자">관</span>
@@ -233,4 +253,4 @@ function KVRow({ k, v }) {
   );
 }
 
-window.BO = { NAV_MAIN: BO_NAV_MAIN, won: boWon, mono: boMono, toast: boToast, ORDER_TONE, ENT_TONE, ENT_LABEL, Shell: BOShell, StatCard, BarChart, Table: BOTable, Td, Thumb, Modal: BOModal, Labeled, CardHead, KVRow };
+window.BO = { NAV_MAIN: BO_NAV_MAIN, won: boWon, mono: boMono, toast: boToast, qp: boQp, searchRoute: boSearchRoute, ORDER_TONE, ENT_TONE, ENT_LABEL, Shell: BOShell, StatCard, BarChart, Table: BOTable, Td, Thumb, Modal: BOModal, Labeled, CardHead, KVRow };

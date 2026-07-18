@@ -42,6 +42,16 @@
     clearTimeout(el._t);
     el._t = setTimeout(() => el.classList.remove("show"), 2e3);
   }
+  function boQp(name) {
+    return new URLSearchParams(location.search).get(name) || "";
+  }
+  function boSearchRoute(raw) {
+    const q = String(raw || "").trim();
+    if (!q) return null;
+    if (q.includes("@")) return "/bo/members?q=" + encodeURIComponent(q);
+    if (/^ORD/i.test(q)) return "/bo/orders?q=" + encodeURIComponent(q);
+    return "/bo/sheets?q=" + encodeURIComponent(q);
+  }
   function boLogout() {
     var go = function() {
       location.href = window.ChodrumBoAuth && window.ChodrumBoAuth.LOGIN_PAGE || "/bo/login";
@@ -54,6 +64,12 @@
   }
   function BOShell({ active, title, actions, children }) {
     const [open, setOpen] = React.useState(false);
+    const onGlobalSearch = (e) => {
+      e.preventDefault();
+      const q = new FormData(e.target).get("q");
+      const href = boSearchRoute(q);
+      if (href) location.href = href;
+    };
     React.useEffect(function() {
       if (window.ChodrumBoAuth && typeof window.ChodrumBoAuth.verifyAdminSession === "function") {
         window.ChodrumBoAuth.verifyAdminSession();
@@ -79,7 +95,7 @@
       },
       /* @__PURE__ */ React.createElement(Icon, { name: "log-out", size: 16, style: { color: "var(--color-icon)" } }),
       "\uB85C\uADF8\uC544\uC6C3"
-    ))), /* @__PURE__ */ React.createElement("div", { className: "bo-scrim" + (open ? " open" : ""), onClick: () => setOpen(false) }), /* @__PURE__ */ React.createElement("div", { className: "bo-main" }, /* @__PURE__ */ React.createElement("div", { className: "bo-topbar" }, /* @__PURE__ */ React.createElement("span", { className: "bo-menu-btn" }, /* @__PURE__ */ React.createElement(IconButton, { name: "menu", variant: "ghost", label: "\uBA54\uB274", onClick: () => setOpen(true) })), /* @__PURE__ */ React.createElement("h4", { style: { fontSize: 19, fontWeight: 600, letterSpacing: "-0.5px", whiteSpace: "nowrap" } }, title), /* @__PURE__ */ React.createElement("div", { className: "bo-topsearch" }, /* @__PURE__ */ React.createElement(Input, { size: "sm", iconLeft: "search", placeholder: "\uC8FC\uBB38\uBC88\uD638, \uD68C\uC6D0, \uC545\uBCF4 \uAC80\uC0C9" })), /* @__PURE__ */ React.createElement("div", { className: "bo-top-right" }, actions, /* @__PURE__ */ React.createElement("span", { style: { width: 34, height: 34, borderRadius: 9999, background: "var(--surface-inverse)", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 13, fontWeight: 600, flex: "none" }, title: "\uAD00\uB9AC\uC790" }, "\uAD00"), /* @__PURE__ */ React.createElement(
+    ))), /* @__PURE__ */ React.createElement("div", { className: "bo-scrim" + (open ? " open" : ""), onClick: () => setOpen(false) }), /* @__PURE__ */ React.createElement("div", { className: "bo-main" }, /* @__PURE__ */ React.createElement("div", { className: "bo-topbar" }, /* @__PURE__ */ React.createElement("span", { className: "bo-menu-btn" }, /* @__PURE__ */ React.createElement(IconButton, { name: "menu", variant: "ghost", label: "\uBA54\uB274", onClick: () => setOpen(true) })), /* @__PURE__ */ React.createElement("h4", { style: { fontSize: 19, fontWeight: 600, letterSpacing: "-0.5px", whiteSpace: "nowrap" } }, title), /* @__PURE__ */ React.createElement("form", { className: "bo-topsearch", onSubmit: onGlobalSearch }, /* @__PURE__ */ React.createElement(Input, { size: "sm", name: "q", iconLeft: "search", placeholder: "\uC8FC\uBB38\uBC88\uD638, \uD68C\uC6D0, \uC545\uBCF4 \uAC80\uC0C9", defaultValue: boQp("q") })), /* @__PURE__ */ React.createElement("div", { className: "bo-top-right" }, actions, /* @__PURE__ */ React.createElement("span", { style: { width: 34, height: 34, borderRadius: 9999, background: "var(--surface-inverse)", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 13, fontWeight: 600, flex: "none" }, title: "\uAD00\uB9AC\uC790" }, "\uAD00"), /* @__PURE__ */ React.createElement(
       "button",
       {
         type: "button",
@@ -125,5 +141,5 @@
   function KVRow({ k, v }) {
     return /* @__PURE__ */ React.createElement("div", { style: { display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, fontSize: 14 } }, /* @__PURE__ */ React.createElement("span", { style: { color: "var(--text-secondary)" } }, k), v);
   }
-  window.BO = { NAV_MAIN: BO_NAV_MAIN, won: boWon, mono: boMono, toast: boToast, ORDER_TONE, ENT_TONE, ENT_LABEL, Shell: BOShell, StatCard, BarChart, Table: BOTable, Td, Thumb, Modal: BOModal, Labeled, CardHead, KVRow };
+  window.BO = { NAV_MAIN: BO_NAV_MAIN, won: boWon, mono: boMono, toast: boToast, qp: boQp, searchRoute: boSearchRoute, ORDER_TONE, ENT_TONE, ENT_LABEL, Shell: BOShell, StatCard, BarChart, Table: BOTable, Td, Thumb, Modal: BOModal, Labeled, CardHead, KVRow };
 })();
