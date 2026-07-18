@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" role="img" aria-label="CHODRUM">
+  <rect width="32" height="32" rx="6" fill="#fafafa"/>
+  <circle cx="16" cy="15" r="9.5" fill="none" stroke="#171717" stroke-width="2"/>
+  <circle cx="16" cy="15" r="5.5" fill="none" stroke="#171717" stroke-width="1.5"/>
+  <circle cx="16" cy="15" r="1.4" fill="#171717"/>
+  <line x1="10" y1="7.5" x2="7.5" y2="5" stroke="#171717" stroke-width="1.6" stroke-linecap="round"/>
+  <line x1="22" y1="7.5" x2="24.5" y2="5" stroke="#171717" stroke-width="1.6" stroke-linecap="round"/>
+</svg>
