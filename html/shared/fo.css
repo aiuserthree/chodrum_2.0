@@ -129,6 +129,10 @@ body.has-cta.has-tabbar main.fo-main { padding-bottom: 164px; }
 /* 상세/장바구니형 2단 */
 .fo-two { display: grid; grid-template-columns: minmax(0, 1fr); gap: 20px; align-items: start; }
 @media (min-width: 900px) { .fo-two { grid-template-columns: minmax(0, 1fr) 380px; gap: 28px; } .fo-side-sticky { position: sticky; top: 76px; } }
+/* FO-03 악보 상세 — 모바일에서 악보정보(우측)를 YouTube·미리보기 위로 */
+@media (max-width: 899px) {
+  .fo-two[data-screen-label="FO-03 악보 상세"] > .fo-side-sticky { order: -1; }
+}
 
 /* 마이페이지 서브페이지 — 좌측 메뉴 + 본문 */
 .fo-mypage-layout {
