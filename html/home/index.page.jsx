@@ -363,15 +363,36 @@ function HomeBanners() {
 }
 
 function HomePage() {
+  const [tick, setTick] = React.useState(0);
+  React.useEffect(() => {
+    const refresh = () => setTick((n) => n + 1);
+    window.addEventListener('chodrum:previews-signed', refresh);
+    return () => window.removeEventListener('chodrum:previews-signed', refresh);
+  }, []);
   const search = (e) => { e.preventDefault(); const q = new FormData(e.target).get('q'); location.href = F.PAGES.list + (q ? '?q=' + encodeURIComponent(q) : ''); };
-  const visible = (D.visibleSheets ? D.visibleSheets() : D.sheets.filter((s) => !s.status || s.status === '판매중'));
-  const reco = D.recommended.map(D.byId).filter(Boolean).filter((s) => !s.status || s.status === '판매중');
-  const fresh = visible
-    .filter((s) => s.isNew)
-    .sort((a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime())
-    .slice(0, 8);
-  const popular = [...visible].filter((s) => s.popular).sort((a, b) => b.sold - a.sold).slice(0, 8);
-  const bannerSheet = D.banner && D.banner.sheetId ? D.byId(D.banner.sheetId) : null;
+  const visible = React.useMemo(() => {
+    void tick;
+    return (D.visibleSheets ? D.visibleSheets() : D.sheets.filter((s) => !s.status || s.status === '판매중'));
+  }, [tick]);
+  const reco = React.useMemo(() => {
+    void tick;
+    return D.recommended.map(D.byId).filter(Boolean).filter((s) => !s.status || s.status === '판매중');
+  }, [tick]);
+  const fresh = React.useMemo(() => {
+    void tick;
+    return visible
+      .filter((s) => s.isNew)
+      .sort((a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime())
+      .slice(0, 8);
+  }, [tick, visible]);
+  const popular = React.useMemo(() => {
+    void tick;
+    return [...visible].filter((s) => s.popular).sort((a, b) => b.sold - a.sold).slice(0, 8);
+  }, [tick, visible]);
+  const bannerSheet = React.useMemo(() => {
+    void tick;
+    return D.banner && D.banner.sheetId ? D.byId(D.banner.sheetId) : null;
+  }, [tick]);
 
   return (
     <F.Scaffold tab="home">

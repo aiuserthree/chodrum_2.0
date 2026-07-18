@@ -489,7 +489,12 @@
     if (!addr || !window.ChodrumAPI || !ChodrumAPI.members) return null;
     try {
       /* Email signup only conflicts with email-password members — not Kakao/Naver */
-      var row = (await ChodrumAPI.members.getByEmail(addr, 'email')) || null;
+      var row = null;
+      if (ChodrumAPI.members.isRegisteredForSignup) {
+        row = await ChodrumAPI.members.isRegisteredForSignup(addr);
+      } else {
+        row = (await ChodrumAPI.members.getByEmail(addr, 'email')) || null;
+      }
       /* 약관 동의 전 고스트 행은 완료 회원이 아님 — 재가입 허용 */
       if (row && !ChodrumAPI.members.hasConsent(row)) return null;
       return row;

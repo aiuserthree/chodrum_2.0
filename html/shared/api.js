@@ -302,6 +302,45 @@
     }
   }
 
+  function isHomePage() {
+    try {
+      var p = location.pathname || '';
+      return /\/home\/?$/i.test(p) || p === '/' || p === '';
+    } catch (_) {
+      return false;
+    }
+  }
+
+  function setSheetsCatalog(D, sheets) {
+    D.sheets = sheets;
+    D.byId = function (id) {
+      var key = id == null ? '' : String(id);
+      return D.sheets.find(function (s) { return String(s.id) === key; });
+    };
+    D.bySlug = function (slug) { return findSheetBySlug(D.sheets, slug); };
+    D.visibleSheets = function () {
+      return D.sheets.filter(function (s) { return s.status === '판매중'; });
+    };
+  }
+
+  function mergeSignedSheets(D, signedSheets) {
+    if (!signedSheets || !signedSheets.length) return;
+    var byId = {};
+    signedSheets.forEach(function (s) { byId[s.id] = s; });
+    D.sheets = D.sheets.map(function (s) { return byId[s.id] || s; });
+  }
+
+  function schedulePreviewSigning(D, mappedSheets) {
+    signPreviewUrlsForSheets(mappedSheets)
+      .then(function (signed) {
+        mergeSignedSheets(D, signed);
+        window.dispatchEvent(new CustomEvent('chodrum:previews-signed'));
+      })
+      .catch(function (e) {
+        console.warn('[CHODRUM] background preview sign failed', e);
+      });
+  }
+
   function sheetToRow(s) {
     var previewUrls = normalizePreviewUrls(s).map(function (u) {
       return sheetsStoragePath(u, 'preview') || u;
@@ -710,17 +749,13 @@
     if (sheetsRes.error) throw sheetsRes.error;
     var mappedSheets = (sheetsRes.data || []).map(mapSheet);
     /* Catalog available before preview signing — slug detail lookup must not wait on signed URLs. */
-    D.sheets = mappedSheets;
-    D.byId = function (id) {
-      var key = id == null ? '' : String(id);
-      return D.sheets.find(function (s) { return String(s.id) === key; });
-    };
-    D.bySlug = function (slug) { return findSheetBySlug(D.sheets, slug); };
-    D.visibleSheets = function () {
-      return D.sheets.filter(function (s) { return s.status === '판매중'; });
-    };
-    var signPromise = signPreviewUrlsForSheets(mappedSheets);
-    var settled = await Promise.all([signPromise, metaPromise]);
+    setSheetsCatalog(D, mappedSheets);
+    var deferPreviewSigning = !bo && isHomePage();
+    var signPromise = deferPreviewSigning ? null : signPreviewUrlsForSheets(mappedSheets);
+    var settled = await Promise.all([
+      deferPreviewSigning ? Promise.resolve(mappedSheets) : signPromise,
+      metaPromise,
+    ]);
     var sheets = settled[0];
     var featRes = settled[1][0];
     var promoRes = settled[1][1];
@@ -730,15 +765,7 @@
     var memRes = settled[1][5];
     var dlRes = settled[1][6];
 
-    D.sheets = sheets;
-    D.byId = function (id) {
-      var key = id == null ? '' : String(id);
-      return D.sheets.find(function (s) { return String(s.id) === key; });
-    };
-    D.bySlug = function (slug) { return findSheetBySlug(D.sheets, slug); };
-    D.visibleSheets = function () {
-      return D.sheets.filter(function (s) { return s.status === '판매중'; });
-    };
+    setSheetsCatalog(D, sheets);
 
     A.sheetStatus = {};
     sheets.forEach(function (s) {
@@ -845,6 +872,10 @@
           _id: d.id,
         };
       });
+    }
+
+    if (deferPreviewSigning) {
+      schedulePreviewSigning(D, mappedSheets);
     }
 
     return { mode: 'live', error: null };
@@ -1653,6 +1684,38 @@
    * Lookup by contact email + provider.
    * Without provider, prefers email-password members (never treat Kakao as Naver).
    */
+  /**
+   * Signup duplicate check — minimal columns, email-password only.
+   * Faster than getByEmail(select *) before OTP send.
+   */
+  async function isRegisteredForSignup(email) {
+    if (!live() || !email) return null;
+    var addr = String(email).trim().toLowerCase();
+    var res = await sb()
+      .from('members')
+      .select('id, terms_agreed_at, privacy_agreed_at')
+      .eq('email', addr)
+      .eq('auth_provider', 'email')
+      .maybeSingle();
+    if (res.error) {
+      if (res.error.code === 'PGRST204' || /auth_provider/.test(res.error.message || '')) {
+        var legacy = await sb()
+          .from('members')
+          .select('id, terms_agreed_at, privacy_agreed_at')
+          .eq('email', addr)
+          .maybeSingle();
+        if (legacy.error) {
+          console.warn('[CHODRUM] signup member lookup', legacy.error);
+          return null;
+        }
+        return legacy.data || null;
+      }
+      console.warn('[CHODRUM] signup member lookup', res.error);
+      return null;
+    }
+    return res.data || null;
+  }
+
   async function getMemberByEmail(email, provider) {
     if (!live() || !email) return null;
     var q = sb().from('members').select('*').eq('email', email);
@@ -1952,6 +2015,7 @@
       getByEmail: getMemberByEmail,
       getByAuthUserId: getMemberByAuthUserId,
       getForProfile: getMemberForProfile,
+      isRegisteredForSignup: isRegisteredForSignup,
       hasConsent: memberHasConsent,
       updateStatus: updateMemberStatus,
       updateProfile: updateMemberProfile,

@@ -328,16 +328,37 @@
     );
   }
   function HomePage() {
+    const [tick, setTick] = React.useState(0);
+    React.useEffect(() => {
+      const refresh = () => setTick((n) => n + 1);
+      window.addEventListener("chodrum:previews-signed", refresh);
+      return () => window.removeEventListener("chodrum:previews-signed", refresh);
+    }, []);
     const search = (e) => {
       e.preventDefault();
       const q = new FormData(e.target).get("q");
       location.href = F.PAGES.list + (q ? "?q=" + encodeURIComponent(q) : "");
     };
-    const visible = D.visibleSheets ? D.visibleSheets() : D.sheets.filter((s) => !s.status || s.status === "\uD310\uB9E4\uC911");
-    const reco = D.recommended.map(D.byId).filter(Boolean).filter((s) => !s.status || s.status === "\uD310\uB9E4\uC911");
-    const fresh = visible.filter((s) => s.isNew).sort((a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime()).slice(0, 8);
-    const popular = [...visible].filter((s) => s.popular).sort((a, b) => b.sold - a.sold).slice(0, 8);
-    const bannerSheet = D.banner && D.banner.sheetId ? D.byId(D.banner.sheetId) : null;
+    const visible = React.useMemo(() => {
+      void tick;
+      return D.visibleSheets ? D.visibleSheets() : D.sheets.filter((s) => !s.status || s.status === "\uD310\uB9E4\uC911");
+    }, [tick]);
+    const reco = React.useMemo(() => {
+      void tick;
+      return D.recommended.map(D.byId).filter(Boolean).filter((s) => !s.status || s.status === "\uD310\uB9E4\uC911");
+    }, [tick]);
+    const fresh = React.useMemo(() => {
+      void tick;
+      return visible.filter((s) => s.isNew).sort((a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime()).slice(0, 8);
+    }, [tick, visible]);
+    const popular = React.useMemo(() => {
+      void tick;
+      return [...visible].filter((s) => s.popular).sort((a, b) => b.sold - a.sold).slice(0, 8);
+    }, [tick, visible]);
+    const bannerSheet = React.useMemo(() => {
+      void tick;
+      return D.banner && D.banner.sheetId ? D.byId(D.banner.sheetId) : null;
+    }, [tick]);
     return /* @__PURE__ */ React.createElement(F.Scaffold, { tab: "home" }, /* @__PURE__ */ React.createElement("section", { "data-screen-label": "FO-01 \uD648", style: { padding: "32px 0 6px", maxWidth: 620, margin: "0 auto", textAlign: "center" } }, /* @__PURE__ */ React.createElement("h2", { style: { fontSize: "clamp(24px, 4.4vw, 34px)", letterSpacing: "-1.4px", lineHeight: 1.2 } }, "\uB4DC\uB7FC \uC545\uBCF4, \uAC80\uC0C9\uD558\uACE0", /* @__PURE__ */ React.createElement("br", { className: "fo-mobile" }), " \uBC14\uB85C \uB2E4\uC6B4\uB85C\uB4DC"), /* @__PURE__ */ React.createElement("p", { style: { fontSize: 14, color: "var(--text-secondary)", marginTop: 10 } }, "\uACB0\uC81C\uC77C\uB85C\uBD80\uD130 7\uC77C\uAC04 PDF\uB85C \uB2E4\uC6B4\uB85C\uB4DC\uD560 \uC218 \uC788\uC5B4\uC694."), /* @__PURE__ */ React.createElement("form", { onSubmit: search, style: { marginTop: 18, maxWidth: 480, marginLeft: "auto", marginRight: "auto" } }, /* @__PURE__ */ React.createElement(Input, { name: "q", iconLeft: "search", placeholder: "\uACE1\uBA85, \uC544\uD2F0\uC2A4\uD2B8 \uAC80\uC0C9" }))), /* @__PURE__ */ React.createElement("div", { className: "fo-chips", style: { padding: "16px 0 6px", justifyContent: "safe center" } }, /* @__PURE__ */ React.createElement(Chip, { onClick: () => location.href = F.PAGES.list }, "\uC804\uCCB4"), D.genres.map((c) => /* @__PURE__ */ React.createElement(Chip, { key: c, onClick: () => location.href = F.PAGES.list + "?cat=" + encodeURIComponent(c) }, c))), /* @__PURE__ */ React.createElement(HomeBanners, null), bannerSheet ? /* @__PURE__ */ React.createElement("section", { style: { marginTop: 24 } }, /* @__PURE__ */ React.createElement(Card, { interactive: true, padding: 0, onClick: () => location.href = F.sheetUrl(bannerSheet), style: { overflow: "hidden" } }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "stretch" } }, /* @__PURE__ */ React.createElement("div", { style: { flex: 1, padding: "22px 20px", display: "flex", flexDirection: "column", gap: 8, justifyContent: "center" } }, /* @__PURE__ */ React.createElement("span", { className: "ds-mono", style: { fontSize: 11, letterSpacing: "1.2px", textTransform: "uppercase", color: "var(--text-tertiary)" } }, D.banner.label), /* @__PURE__ */ React.createElement("h3", { style: { fontSize: "clamp(19px, 2.6vw, 24px)", letterSpacing: "-0.7px" } }, D.banner.title), /* @__PURE__ */ React.createElement("p", { style: { fontSize: 13.5, color: "var(--text-secondary)", lineHeight: 1.5, maxWidth: 420 } }, D.banner.copy), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 10, marginTop: 6 } }, /* @__PURE__ */ React.createElement(F.Money, { value: bannerSheet.price, size: 18 }), bannerSheet.orig ? /* @__PURE__ */ React.createElement(F.Money, { value: bannerSheet.orig, size: 13, strike: true }) : null, /* @__PURE__ */ React.createElement("span", { style: { marginLeft: "auto" } })), /* @__PURE__ */ React.createElement("div", { style: { marginTop: 4 } }, /* @__PURE__ */ React.createElement(Button, { variant: "secondary", size: "sm", iconRight: "chevron-right" }, "\uC545\uBCF4 \uBCF4\uB7EC\uAC00\uAE30"))), /* @__PURE__ */ React.createElement("div", { style: { width: 150, flex: "none", borderLeft: "1px solid var(--border-default)", alignSelf: "stretch" }, className: "fo-desktop" }, /* @__PURE__ */ React.createElement(F.StaffThumb, { fill: true, icon: "music", size: 34, src: F.sheetCoverUrl(bannerSheet) || void 0, alt: bannerSheet.title, watermark: F.sheetCoverUrl(bannerSheet) ? "light" : false }))))) : null, /* @__PURE__ */ React.createElement("section", { style: { marginTop: 36 } }, /* @__PURE__ */ React.createElement(F.SectionHeader, { title: "\uCD94\uCC9C \uC545\uBCF4", action: "\uC804\uCCB4\uBCF4\uAE30", href: F.PAGES.list }), /* @__PURE__ */ React.createElement("div", { className: "fo-grid" }, reco.map((s) => /* @__PURE__ */ React.createElement(F.SheetCard, { key: s.id, s })))), /* @__PURE__ */ React.createElement("section", { style: { marginTop: 36 } }, /* @__PURE__ */ React.createElement(F.SectionHeader, { title: "\uC2E0\uADDC \uC545\uBCF4", action: "\uC804\uCCB4\uBCF4\uAE30", href: F.PAGES.list + "?sort=" + encodeURIComponent("\uCD5C\uC2E0\uC21C") }), /* @__PURE__ */ React.createElement("div", { className: "fo-grid" }, fresh.map((s) => /* @__PURE__ */ React.createElement(F.SheetCard, { key: s.id, s })))), /* @__PURE__ */ React.createElement("section", { style: { marginTop: 36 } }, /* @__PURE__ */ React.createElement(F.SectionHeader, { title: "\uC778\uAE30 \uC545\uBCF4", action: "\uC804\uCCB4\uBCF4\uAE30", href: F.PAGES.list + "?sort=" + encodeURIComponent("\uC778\uAE30\uC21C") }), /* @__PURE__ */ React.createElement("div", { className: "fo-grid" }, popular.map((s) => /* @__PURE__ */ React.createElement(F.SheetCard, { key: s.id, s })))), /* @__PURE__ */ React.createElement("section", { style: { marginTop: 40 } }, /* @__PURE__ */ React.createElement(F.SectionHeader, { title: "\uCE74\uD14C\uACE0\uB9AC \uBC14\uB85C\uAC00\uAE30" }), /* @__PURE__ */ React.createElement("div", { style: { display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(150px, 1fr))", gap: 10 } }, D.genres.map((g) => {
       const n = visible.filter((s) => s.genre === g).length;
       return /* @__PURE__ */ React.createElement(Card, { key: g, interactive: true, padding: 14, onClick: () => location.href = F.PAGES.list + "?cat=" + encodeURIComponent(g) }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "center", justifyContent: "space-between" } }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 3 } }, /* @__PURE__ */ React.createElement("span", { style: { fontSize: 14, fontWeight: 600, letterSpacing: "-0.3px" } }, g), /* @__PURE__ */ React.createElement("span", { className: "ds-mono", style: { fontSize: 11, color: "var(--text-tertiary)" } }, n, "\uACE1")), /* @__PURE__ */ React.createElement(Icon, { name: "chevron-right", size: 16, style: { color: "var(--color-icon)" } })));
