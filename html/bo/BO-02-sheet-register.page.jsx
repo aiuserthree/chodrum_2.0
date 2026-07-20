@@ -8,6 +8,14 @@ const D = window.DrumData;
 const EMPTY_PREVIEW = () => ({ name: '', url: '', thumb: '' });
 const PREVIEW_ACCEPT = 'image/png,image/jpeg,image/webp,image/gif,.png,.jpg,.jpeg,.webp,.gif';
 
+/** Required preview image count from 「미리보기 범위」 (1페이지 | 2페이지). */
+function previewRangeCount(label) {
+  const n = parseInt(String(label || '').replace(/\D/g, ''), 10);
+  if (n === 1) return 1;
+  if (n >= 2) return 2;
+  return 2;
+}
+
 function queryEditId() {
   try {
     const p = new URLSearchParams(location.search);
@@ -183,8 +191,20 @@ function RegisterPage() {
   const [busy, setBusy] = React.useState({ pdf: false, img0: false, img1: false, save: false });
   const [form, setForm] = React.useState({ title: '', artist: '', genre: D.genres[0], level: D.levels[1], pages: '', price: '', orig: '', status: '판매중', preview: '2페이지', popular: false, youtubeUrl: '' });
   const set = (k) => (e) => setForm({ ...form, [k]: e.target.value });
-  const imgBusy = busy.img0 || busy.img1;
-  const canSave = hydrated && pdf.url && form.title.trim() && form.artist.trim() && form.price && !busy.pdf && !imgBusy && !busy.save;
+  const requiredPreviews = previewRangeCount(form.preview);
+  const filledPreviewCount = previews
+    .slice(0, requiredPreviews)
+    .filter((p) => p.url || isImgSrc(p.thumb)).length;
+  const imgBusy = busy.img0 || (requiredPreviews > 1 && busy.img1);
+  const canSave = hydrated
+    && pdf.url
+    && form.title.trim()
+    && form.artist.trim()
+    && form.price
+    && filledPreviewCount >= requiredPreviews
+    && !busy.pdf
+    && !imgBusy
+    && !busy.save;
 
   React.useEffect(() => () => {
     previews.forEach(revokeThumb);
@@ -307,8 +327,15 @@ function RegisterPage() {
 
   const save = async () => {
     if (!canSave) return;
+    if (filledPreviewCount < requiredPreviews) {
+      B.toast('미리보기 이미지를 ' + requiredPreviews + '장 올려 주세요');
+      return;
+    }
     setBusy((b) => ({ ...b, save: true }));
-    const previewUrls = previews.map((p) => p.url).filter(Boolean).slice(0, 2);
+    const previewUrls = previews
+      .slice(0, requiredPreviews)
+      .map((p) => p.url)
+      .filter(Boolean);
     const prev = existingRef.current || {};
     const sheet = {
       id: isEdit ? editId : ('s' + Date.now()),
@@ -348,11 +375,13 @@ function RegisterPage() {
     }
   };
 
-  const filledPreviews = previews.filter((p) => p.url || isImgSrc(p.thumb));
+  const rangePreviews = previews.slice(0, requiredPreviews);
+  const filledPreviews = rangePreviews.filter((p) => p.url || isImgSrc(p.thumb));
   const pageTitle = isEdit ? '악보 수정' : '악보 등록';
   const saveLabel = busy.save
     ? (isEdit ? '저장 중…' : '등록 중…')
     : (isEdit ? '저장하기' : '등록하기');
+  const previewHint = requiredPreviews + '장 필요 · 상단 일부만 공개되도록 처리돼요';
 
   return (
     <B.Shell active={isEdit ? 'sheets' : 'register'} title={pageTitle}
@@ -375,30 +404,26 @@ function RegisterPage() {
           <Card padding={18} style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
             <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 8, flexWrap: 'wrap' }}>
               <span style={{ fontSize: 15, fontWeight: 600 }}>미리보기 이미지</span>
-              <span style={{ fontSize: 12, color: 'var(--text-secondary)' }}>최대 2장 · 상단 일부만 공개되도록 처리돼요</span>
+              <span style={{ fontSize: 12, color: 'var(--text-secondary)' }}>{previewHint}</span>
             </div>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-              <PreviewSlot
-                page={1}
-                slot={previews[0]}
-                uploading={busy.img0}
-                onFile={pickPreview(0)}
-                onClear={() => clearPreview(0)}
-              />
-              <PreviewSlot
-                page={2}
-                slot={previews[1]}
-                uploading={busy.img1}
-                onFile={pickPreview(1)}
-                onClear={() => clearPreview(1)}
-              />
+            <div style={{ display: 'grid', gridTemplateColumns: requiredPreviews > 1 ? '1fr 1fr' : '1fr', gap: 12 }}>
+              {rangePreviews.map((_, i) => (
+                <PreviewSlot
+                  key={i}
+                  page={i + 1}
+                  slot={previews[i]}
+                  uploading={busy[i === 0 ? 'img0' : 'img1']}
+                  onFile={pickPreview(i)}
+                  onClear={() => clearPreview(i)}
+                />
+              ))}
             </div>
           </Card>
           <Card padding={18} style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
             <span style={{ fontSize: 15, fontWeight: 600 }}>미리보기 확인</span>
             {filledPreviews.length ? (
               <div style={{ display: 'grid', gridTemplateColumns: filledPreviews.length > 1 ? '1fr 1fr' : '1fr', gap: 10 }}>
-                {previews.map((p, i) => {
+                {rangePreviews.map((p, i) => {
                   const src = isImgSrc(p.thumb) ? p.thumb : (isImgSrc(p.url) ? p.url : '');
                   if (!src) return null;
                   return (
@@ -424,7 +449,7 @@ function RegisterPage() {
             <span style={{ fontSize: 12, color: 'var(--text-secondary)' }}>
               {filledPreviews.length
                 ? '업로드한 ' + filledPreviews.length + '장이 스토어 상세에 노출돼요. 하단은 가려져 전체 악보가 보이지 않아요.'
-                : '스토어 상세에 노출돼요. 하단 가림 + 은은한 워터마크로 일부만 보이게 처리됩니다. (최대 2장)'}
+                : '스토어 상세에 노출돼요. 하단 가림 + 은은한 워터마크로 일부만 보이게 처리됩니다. (' + requiredPreviews + '장 필요)'}
             </span>
           </Card>
         </div>
@@ -440,7 +465,9 @@ function RegisterPage() {
           </div>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
             <Input label="페이지 수" type="number" placeholder="6" value={form.pages} onChange={set('pages')} />
-            <B.Labeled label="미리보기 범위" hint="일부만 보이도록 처리되는 페이지 수"><Select value={form.preview} onChange={set('preview')} options={['1페이지', '2페이지']} /></B.Labeled>
+            <B.Labeled label="미리보기 범위" hint={'올릴 미리보기 이미지 수 · ' + requiredPreviews + '장 필요'}>
+              <Select value={form.preview} onChange={set('preview')} options={['1페이지', '2페이지']} />
+            </B.Labeled>
           </div>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
             <Input label="판매가 (₩)" type="number" placeholder="4500" value={form.price} onChange={set('price')} />

@@ -5,6 +5,12 @@
   const D = window.DrumData;
   const EMPTY_PREVIEW = () => ({ name: "", url: "", thumb: "" });
   const PREVIEW_ACCEPT = "image/png,image/jpeg,image/webp,image/gif,.png,.jpg,.jpeg,.webp,.gif";
+  function previewRangeCount(label) {
+    const n = parseInt(String(label || "").replace(/\D/g, ""), 10);
+    if (n === 1) return 1;
+    if (n >= 2) return 2;
+    return 2;
+  }
   function queryEditId() {
     try {
       const p = new URLSearchParams(location.search);
@@ -155,8 +161,10 @@
     const [busy, setBusy] = React.useState({ pdf: false, img0: false, img1: false, save: false });
     const [form, setForm] = React.useState({ title: "", artist: "", genre: D.genres[0], level: D.levels[1], pages: "", price: "", orig: "", status: "\uD310\uB9E4\uC911", preview: "2\uD398\uC774\uC9C0", popular: false, youtubeUrl: "" });
     const set = (k) => (e) => setForm({ ...form, [k]: e.target.value });
-    const imgBusy = busy.img0 || busy.img1;
-    const canSave = hydrated && pdf.url && form.title.trim() && form.artist.trim() && form.price && !busy.pdf && !imgBusy && !busy.save;
+    const requiredPreviews = previewRangeCount(form.preview);
+    const filledPreviewCount = previews.slice(0, requiredPreviews).filter((p) => p.url || isImgSrc(p.thumb)).length;
+    const imgBusy = busy.img0 || requiredPreviews > 1 && busy.img1;
+    const canSave = hydrated && pdf.url && form.title.trim() && form.artist.trim() && form.price && filledPreviewCount >= requiredPreviews && !busy.pdf && !imgBusy && !busy.save;
     React.useEffect(() => () => {
       previews.forEach(revokeThumb);
     }, []);
@@ -265,8 +273,12 @@
     };
     const save = async () => {
       if (!canSave) return;
+      if (filledPreviewCount < requiredPreviews) {
+        B.toast("\uBBF8\uB9AC\uBCF4\uAE30 \uC774\uBBF8\uC9C0\uB97C " + requiredPreviews + "\uC7A5 \uC62C\uB824 \uC8FC\uC138\uC694");
+        return;
+      }
       setBusy((b) => ({ ...b, save: true }));
-      const previewUrls = previews.map((p) => p.url).filter(Boolean).slice(0, 2);
+      const previewUrls = previews.slice(0, requiredPreviews).map((p) => p.url).filter(Boolean);
       const prev = existingRef.current || {};
       const sheet = {
         id: isEdit ? editId : "s" + Date.now(),
@@ -303,9 +315,11 @@
         setBusy((b) => ({ ...b, save: false }));
       }
     };
-    const filledPreviews = previews.filter((p) => p.url || isImgSrc(p.thumb));
+    const rangePreviews = previews.slice(0, requiredPreviews);
+    const filledPreviews = rangePreviews.filter((p) => p.url || isImgSrc(p.thumb));
     const pageTitle = isEdit ? "\uC545\uBCF4 \uC218\uC815" : "\uC545\uBCF4 \uB4F1\uB85D";
     const saveLabel = busy.save ? isEdit ? "\uC800\uC7A5 \uC911\u2026" : "\uB4F1\uB85D \uC911\u2026" : isEdit ? "\uC800\uC7A5\uD558\uAE30" : "\uB4F1\uB85D\uD558\uAE30";
+    const previewHint = requiredPreviews + "\uC7A5 \uD544\uC694 \xB7 \uC0C1\uB2E8 \uC77C\uBD80\uB9CC \uACF5\uAC1C\uB418\uB3C4\uB85D \uCC98\uB9AC\uB3FC\uC694";
     return /* @__PURE__ */ React.createElement(
       B.Shell,
       {
@@ -324,25 +338,17 @@
           uploading: busy.pdf,
           onFile: pickPdf
         }
-      )), /* @__PURE__ */ React.createElement(Card, { padding: 18, style: { display: "flex", flexDirection: "column", gap: 14 } }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 8, flexWrap: "wrap" } }, /* @__PURE__ */ React.createElement("span", { style: { fontSize: 15, fontWeight: 600 } }, "\uBBF8\uB9AC\uBCF4\uAE30 \uC774\uBBF8\uC9C0"), /* @__PURE__ */ React.createElement("span", { style: { fontSize: 12, color: "var(--text-secondary)" } }, "\uCD5C\uB300 2\uC7A5 \xB7 \uC0C1\uB2E8 \uC77C\uBD80\uB9CC \uACF5\uAC1C\uB418\uB3C4\uB85D \uCC98\uB9AC\uB3FC\uC694")), /* @__PURE__ */ React.createElement("div", { style: { display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 } }, /* @__PURE__ */ React.createElement(
+      )), /* @__PURE__ */ React.createElement(Card, { padding: 18, style: { display: "flex", flexDirection: "column", gap: 14 } }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 8, flexWrap: "wrap" } }, /* @__PURE__ */ React.createElement("span", { style: { fontSize: 15, fontWeight: 600 } }, "\uBBF8\uB9AC\uBCF4\uAE30 \uC774\uBBF8\uC9C0"), /* @__PURE__ */ React.createElement("span", { style: { fontSize: 12, color: "var(--text-secondary)" } }, previewHint)), /* @__PURE__ */ React.createElement("div", { style: { display: "grid", gridTemplateColumns: requiredPreviews > 1 ? "1fr 1fr" : "1fr", gap: 12 } }, rangePreviews.map((_, i) => /* @__PURE__ */ React.createElement(
         PreviewSlot,
         {
-          page: 1,
-          slot: previews[0],
-          uploading: busy.img0,
-          onFile: pickPreview(0),
-          onClear: () => clearPreview(0)
+          key: i,
+          page: i + 1,
+          slot: previews[i],
+          uploading: busy[i === 0 ? "img0" : "img1"],
+          onFile: pickPreview(i),
+          onClear: () => clearPreview(i)
         }
-      ), /* @__PURE__ */ React.createElement(
-        PreviewSlot,
-        {
-          page: 2,
-          slot: previews[1],
-          uploading: busy.img1,
-          onFile: pickPreview(1),
-          onClear: () => clearPreview(1)
-        }
-      ))), /* @__PURE__ */ React.createElement(Card, { padding: 18, style: { display: "flex", flexDirection: "column", gap: 10 } }, /* @__PURE__ */ React.createElement("span", { style: { fontSize: 15, fontWeight: 600 } }, "\uBBF8\uB9AC\uBCF4\uAE30 \uD655\uC778"), filledPreviews.length ? /* @__PURE__ */ React.createElement("div", { style: { display: "grid", gridTemplateColumns: filledPreviews.length > 1 ? "1fr 1fr" : "1fr", gap: 10 } }, previews.map((p, i) => {
+      )))), /* @__PURE__ */ React.createElement(Card, { padding: 18, style: { display: "flex", flexDirection: "column", gap: 10 } }, /* @__PURE__ */ React.createElement("span", { style: { fontSize: 15, fontWeight: 600 } }, "\uBBF8\uB9AC\uBCF4\uAE30 \uD655\uC778"), filledPreviews.length ? /* @__PURE__ */ React.createElement("div", { style: { display: "grid", gridTemplateColumns: filledPreviews.length > 1 ? "1fr 1fr" : "1fr", gap: 10 } }, rangePreviews.map((p, i) => {
         const src = isImgSrc(p.thumb) ? p.thumb : isImgSrc(p.url) ? p.url : "";
         if (!src) return null;
         return /* @__PURE__ */ React.createElement("div", { key: i, style: { borderRadius: 8, overflow: "hidden", border: "1px solid var(--border-default)", position: "relative", background: "#f6f6f6", aspectRatio: "5 / 6", display: "flex", alignItems: "center", justifyContent: "center" } }, /* @__PURE__ */ React.createElement(
@@ -353,7 +359,7 @@
             style: { position: "relative", zIndex: 1, width: "100%", height: "100%", objectFit: "contain", background: "#fff" }
           }
         ), /* @__PURE__ */ React.createElement("div", { style: { position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", transform: "rotate(-16deg)", fontFamily: "var(--font-mono)", fontSize: 14, fontWeight: 500, letterSpacing: 2, color: "rgba(0,0,0,0.06)", whiteSpace: "nowrap", pointerEvents: "none", zIndex: 2 } }, "PREVIEW"), /* @__PURE__ */ React.createElement("span", { style: { position: "absolute", top: 8, left: 8, zIndex: 3, fontSize: 11, fontWeight: 600, background: "rgba(255,255,255,0.92)", padding: "2px 6px", borderRadius: 4 } }, i + 1, "\uD398\uC774\uC9C0"));
-      })) : /* @__PURE__ */ React.createElement("div", { style: { borderRadius: 8, overflow: "hidden", border: "1px solid var(--border-default)", position: "relative", background: "#f6f6f6", aspectRatio: "5 / 6", display: "flex", alignItems: "center", justifyContent: "center" } }, /* @__PURE__ */ React.createElement("div", { style: { position: "absolute", inset: 0, backgroundImage: "repeating-linear-gradient(180deg, transparent 0 15px, #e7e7e7 15px 16px)", backgroundPosition: "0 14px" } }), /* @__PURE__ */ React.createElement(Icon, { name: "music", size: 40, style: { color: "#cccccc", position: "relative" } }), /* @__PURE__ */ React.createElement("div", { style: { position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", transform: "rotate(-16deg)", fontFamily: "var(--font-mono)", fontSize: 16, fontWeight: 500, letterSpacing: 3, color: "rgba(0,0,0,0.06)", whiteSpace: "nowrap", pointerEvents: "none", zIndex: 2 } }, "PREVIEW")), /* @__PURE__ */ React.createElement("span", { style: { fontSize: 12, color: "var(--text-secondary)" } }, filledPreviews.length ? "\uC5C5\uB85C\uB4DC\uD55C " + filledPreviews.length + "\uC7A5\uC774 \uC2A4\uD1A0\uC5B4 \uC0C1\uC138\uC5D0 \uB178\uCD9C\uB3FC\uC694. \uD558\uB2E8\uC740 \uAC00\uB824\uC838 \uC804\uCCB4 \uC545\uBCF4\uAC00 \uBCF4\uC774\uC9C0 \uC54A\uC544\uC694." : "\uC2A4\uD1A0\uC5B4 \uC0C1\uC138\uC5D0 \uB178\uCD9C\uB3FC\uC694. \uD558\uB2E8 \uAC00\uB9BC + \uC740\uC740\uD55C \uC6CC\uD130\uB9C8\uD06C\uB85C \uC77C\uBD80\uB9CC \uBCF4\uC774\uAC8C \uCC98\uB9AC\uB429\uB2C8\uB2E4. (\uCD5C\uB300 2\uC7A5)"))), /* @__PURE__ */ React.createElement(Card, { padding: 18, style: { display: "flex", flexDirection: "column", gap: 14 } }, /* @__PURE__ */ React.createElement("span", { style: { fontSize: 15, fontWeight: 600 } }, "\uC545\uBCF4 \uC815\uBCF4"), /* @__PURE__ */ React.createElement(Input, { label: "\uACE1\uBA85", placeholder: "\uC608: Snare Groove No.8", value: form.title, onChange: set("title") }), /* @__PURE__ */ React.createElement(Input, { label: "\uC544\uD2F0\uC2A4\uD2B8", placeholder: "\uC608: The Metronomes", value: form.artist, onChange: set("artist") }), /* @__PURE__ */ React.createElement("div", { style: { display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 } }, /* @__PURE__ */ React.createElement(B.Labeled, { label: "\uC7A5\uB974" }, /* @__PURE__ */ React.createElement(Select, { value: form.genre, onChange: set("genre"), options: D.genres })), /* @__PURE__ */ React.createElement(B.Labeled, { label: "\uB09C\uC774\uB3C4" }, /* @__PURE__ */ React.createElement(Select, { value: form.level, onChange: set("level"), options: D.levels }))), /* @__PURE__ */ React.createElement("div", { style: { display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 } }, /* @__PURE__ */ React.createElement(Input, { label: "\uD398\uC774\uC9C0 \uC218", type: "number", placeholder: "6", value: form.pages, onChange: set("pages") }), /* @__PURE__ */ React.createElement(B.Labeled, { label: "\uBBF8\uB9AC\uBCF4\uAE30 \uBC94\uC704", hint: "\uC77C\uBD80\uB9CC \uBCF4\uC774\uB3C4\uB85D \uCC98\uB9AC\uB418\uB294 \uD398\uC774\uC9C0 \uC218" }, /* @__PURE__ */ React.createElement(Select, { value: form.preview, onChange: set("preview"), options: ["1\uD398\uC774\uC9C0", "2\uD398\uC774\uC9C0"] }))), /* @__PURE__ */ React.createElement("div", { style: { display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 } }, /* @__PURE__ */ React.createElement(Input, { label: "\uD310\uB9E4\uAC00 (\u20A9)", type: "number", placeholder: "4500", value: form.price, onChange: set("price") }), /* @__PURE__ */ React.createElement(Input, { label: "\uC815\uAC00 (\u20A9 \xB7 \uC120\uD0DD)", type: "number", placeholder: "\uD560\uC778 \uC2DC\uC5D0\uB9CC \uC785\uB825", value: form.orig, onChange: set("orig") })), /* @__PURE__ */ React.createElement(
+      })) : /* @__PURE__ */ React.createElement("div", { style: { borderRadius: 8, overflow: "hidden", border: "1px solid var(--border-default)", position: "relative", background: "#f6f6f6", aspectRatio: "5 / 6", display: "flex", alignItems: "center", justifyContent: "center" } }, /* @__PURE__ */ React.createElement("div", { style: { position: "absolute", inset: 0, backgroundImage: "repeating-linear-gradient(180deg, transparent 0 15px, #e7e7e7 15px 16px)", backgroundPosition: "0 14px" } }), /* @__PURE__ */ React.createElement(Icon, { name: "music", size: 40, style: { color: "#cccccc", position: "relative" } }), /* @__PURE__ */ React.createElement("div", { style: { position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", transform: "rotate(-16deg)", fontFamily: "var(--font-mono)", fontSize: 16, fontWeight: 500, letterSpacing: 3, color: "rgba(0,0,0,0.06)", whiteSpace: "nowrap", pointerEvents: "none", zIndex: 2 } }, "PREVIEW")), /* @__PURE__ */ React.createElement("span", { style: { fontSize: 12, color: "var(--text-secondary)" } }, filledPreviews.length ? "\uC5C5\uB85C\uB4DC\uD55C " + filledPreviews.length + "\uC7A5\uC774 \uC2A4\uD1A0\uC5B4 \uC0C1\uC138\uC5D0 \uB178\uCD9C\uB3FC\uC694. \uD558\uB2E8\uC740 \uAC00\uB824\uC838 \uC804\uCCB4 \uC545\uBCF4\uAC00 \uBCF4\uC774\uC9C0 \uC54A\uC544\uC694." : "\uC2A4\uD1A0\uC5B4 \uC0C1\uC138\uC5D0 \uB178\uCD9C\uB3FC\uC694. \uD558\uB2E8 \uAC00\uB9BC + \uC740\uC740\uD55C \uC6CC\uD130\uB9C8\uD06C\uB85C \uC77C\uBD80\uB9CC \uBCF4\uC774\uAC8C \uCC98\uB9AC\uB429\uB2C8\uB2E4. (" + requiredPreviews + "\uC7A5 \uD544\uC694)"))), /* @__PURE__ */ React.createElement(Card, { padding: 18, style: { display: "flex", flexDirection: "column", gap: 14 } }, /* @__PURE__ */ React.createElement("span", { style: { fontSize: 15, fontWeight: 600 } }, "\uC545\uBCF4 \uC815\uBCF4"), /* @__PURE__ */ React.createElement(Input, { label: "\uACE1\uBA85", placeholder: "\uC608: Snare Groove No.8", value: form.title, onChange: set("title") }), /* @__PURE__ */ React.createElement(Input, { label: "\uC544\uD2F0\uC2A4\uD2B8", placeholder: "\uC608: The Metronomes", value: form.artist, onChange: set("artist") }), /* @__PURE__ */ React.createElement("div", { style: { display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 } }, /* @__PURE__ */ React.createElement(B.Labeled, { label: "\uC7A5\uB974" }, /* @__PURE__ */ React.createElement(Select, { value: form.genre, onChange: set("genre"), options: D.genres })), /* @__PURE__ */ React.createElement(B.Labeled, { label: "\uB09C\uC774\uB3C4" }, /* @__PURE__ */ React.createElement(Select, { value: form.level, onChange: set("level"), options: D.levels }))), /* @__PURE__ */ React.createElement("div", { style: { display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 } }, /* @__PURE__ */ React.createElement(Input, { label: "\uD398\uC774\uC9C0 \uC218", type: "number", placeholder: "6", value: form.pages, onChange: set("pages") }), /* @__PURE__ */ React.createElement(B.Labeled, { label: "\uBBF8\uB9AC\uBCF4\uAE30 \uBC94\uC704", hint: "\uC62C\uB9B4 \uBBF8\uB9AC\uBCF4\uAE30 \uC774\uBBF8\uC9C0 \uC218 \xB7 " + requiredPreviews + "\uC7A5 \uD544\uC694" }, /* @__PURE__ */ React.createElement(Select, { value: form.preview, onChange: set("preview"), options: ["1\uD398\uC774\uC9C0", "2\uD398\uC774\uC9C0"] }))), /* @__PURE__ */ React.createElement("div", { style: { display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 } }, /* @__PURE__ */ React.createElement(Input, { label: "\uD310\uB9E4\uAC00 (\u20A9)", type: "number", placeholder: "4500", value: form.price, onChange: set("price") }), /* @__PURE__ */ React.createElement(Input, { label: "\uC815\uAC00 (\u20A9 \xB7 \uC120\uD0DD)", type: "number", placeholder: "\uD560\uC778 \uC2DC\uC5D0\uB9CC \uC785\uB825", value: form.orig, onChange: set("orig") })), /* @__PURE__ */ React.createElement(
         Input,
         {
           label: "YouTube URL (\uC120\uD0DD)",
