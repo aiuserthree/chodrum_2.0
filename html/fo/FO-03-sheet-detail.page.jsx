@@ -200,31 +200,7 @@ function DetailPage() {
   return (
     <F.Scaffold title="악보 상세" back={F.PAGES.list} cta={<CtaButtons />}>
       <div data-screen-label="FO-03 악보 상세" className="fo-two" style={{ paddingTop: 20 }}>
-        {/* 왼쪽: YouTube(있을 때) → 미리보기 */}
-        <div>
-          {ytId ? (
-            <div style={{ marginBottom: 16 }}>
-              <Card padding={0} style={{ overflow: 'hidden' }}>
-                <YouTubePlayer url={ytUrl} title={s.title} />
-              </Card>
-              <p className="fo-caption" style={{ marginTop: 10, display: 'flex', alignItems: 'center', gap: 6 }}>
-                <Icon name="play" size={13} style={{ color: 'var(--color-icon)' }} />페이지에서 바로 재생하거나, 안 되면 YouTube에서 열 수 있어요.
-              </p>
-            </div>
-          ) : null}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-            {(previewUrls.length ? previewUrls : [null]).map((url, i) => (
-              <Card key={i} padding={0} style={{ overflow: 'hidden' }}>
-                <F.StaffThumb ratio="5 / 4" size={44} watermark="strong" fit="cover" src={url || undefined} alt={url ? ('미리보기 ' + (i + 1) + '페이지') : ''} />
-              </Card>
-            ))}
-          </div>
-          <p className="fo-caption" style={{ marginTop: 10, display: 'flex', alignItems: 'center', gap: 6 }}>
-            <Icon name="eye" size={13} style={{ color: 'var(--color-icon)' }} />미리보기는 1–2페이지만 제공되며, 일부만 보이도록 처리돼요.
-          </p>
-        </div>
-
-        {/* 정보 + CTA */}
+        {/* 정보 + CTA (DOM 먼저 → 모바일 상단; 데스크톱은 fo.css grid-column으로 우측) */}
         <div className="fo-side-sticky" style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
           <div style={{ display: 'flex', gap: 6 }}>
             {s.popular ? <Badge variant="solid" size="sm">인기</Badge> : null}
@@ -251,6 +227,30 @@ function DetailPage() {
           <div className="fo-desktop" style={{ display: 'flex', gap: 10, marginTop: 6 }}><CtaButtons /></div>
           <p className="fo-caption" style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
             <Icon name="info" size={13} style={{ color: 'var(--color-icon)' }} />결제는 장바구니에서 진행돼요. 바로 결제는 지원하지 않아요.
+          </p>
+        </div>
+
+        {/* YouTube(있을 때) → 미리보기 */}
+        <div className="fo-detail-main">
+          {ytId ? (
+            <div style={{ marginBottom: 16 }}>
+              <Card padding={0} style={{ overflow: 'hidden' }}>
+                <YouTubePlayer url={ytUrl} title={s.title} />
+              </Card>
+              <p className="fo-caption" style={{ marginTop: 10, display: 'flex', alignItems: 'center', gap: 6 }}>
+                <Icon name="play" size={13} style={{ color: 'var(--color-icon)' }} />페이지에서 바로 재생하거나, 안 되면 YouTube에서 열 수 있어요.
+              </p>
+            </div>
+          ) : null}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+            {(previewUrls.length ? previewUrls : [null]).map((url, i) => (
+              <Card key={i} padding={0} style={{ overflow: 'hidden' }}>
+                <F.StaffThumb ratio="5 / 4" size={44} watermark="strong" fit="cover" src={url || undefined} alt={url ? ('미리보기 ' + (i + 1) + '페이지') : ''} />
+              </Card>
+            ))}
+          </div>
+          <p className="fo-caption" style={{ marginTop: 10, display: 'flex', alignItems: 'center', gap: 6 }}>
+            <Icon name="eye" size={13} style={{ color: 'var(--color-icon)' }} />미리보기는 1–2페이지만 제공되며, 일부만 보이도록 처리돼요.
           </p>
         </div>
       </div>
