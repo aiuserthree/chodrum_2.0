@@ -4,6 +4,17 @@
   const B = window.BO;
   const A = window.AdminData;
   const D = window.DrumData;
+  const PAGE_SIZE = 20;
+  function pageWindow(cur, total, span) {
+    if (total <= 1) return [1];
+    const half = Math.floor(span / 2);
+    let start = Math.max(1, cur - half);
+    let end = Math.min(total, start + span - 1);
+    start = Math.max(1, end - span + 1);
+    const pages = [];
+    for (let n = start; n <= end; n++) pages.push(n);
+    return pages;
+  }
   const amountOf = (o) => o.items.reduce((n, it) => {
     const sheet = D.byId(it.id);
     const unit = it.price != null ? it.price : sheet ? sheet.price : 0;
@@ -14,12 +25,23 @@
     const [q, setQ] = React.useState(B.qp("q"));
     const [f, setF] = React.useState("\uC804\uCCB4");
     const [type, setType] = React.useState("\uC804\uCCB4");
+    const [page, setPage] = React.useState(1);
     const [cur, setCur] = React.useState(null);
     const [refunding, setRefunding] = React.useState(false);
     const [reason, setReason] = React.useState("");
     const [revoke, setRevoke] = React.useState(true);
     const qLower = q.trim().toLowerCase();
     const rows = orders.filter((o) => (f === "\uC804\uCCB4" || o.status === f) && (type === "\uC804\uCCB4" || (type === "\uD68C\uC6D0" ? o.member : !o.member)) && (!qLower || [o.no, o.buyer, o.email].some((v) => String(v || "").toLowerCase().includes(qLower))));
+    const totalPages = Math.max(1, Math.ceil(rows.length / PAGE_SIZE));
+    const safePage = Math.min(page, totalPages);
+    const pageRows = rows.slice((safePage - 1) * PAGE_SIZE, safePage * PAGE_SIZE);
+    const pages = pageWindow(safePage, totalPages, 5);
+    React.useEffect(() => {
+      setPage(1);
+    }, [q, f, type]);
+    React.useEffect(() => {
+      if (page !== safePage) setPage(safePage);
+    }, [page, safePage]);
     const openDetail = (o) => {
       setCur(o);
       setRefunding(false);
@@ -41,7 +63,45 @@
       B.toast("\uD658\uBD88 \uC644\uB8CC" + (revoke ? " \xB7 \uB2E4\uC6B4\uB85C\uB4DC \uAD8C\uD55C\uC744 \uD68C\uC218\uD588\uC5B4\uC694" : ""));
       setRefunding(false);
     };
-    return /* @__PURE__ */ React.createElement(B.Shell, { active: "orders", title: "\uC8FC\uBB38 / \uACB0\uC81C \uAD00\uB9AC" }, /* @__PURE__ */ React.createElement("div", { "data-screen-label": "BO-03 \uC8FC\uBB38/\uACB0\uC81C \uAD00\uB9AC", style: { display: "flex", flexDirection: "column", gap: 16 } }, /* @__PURE__ */ React.createElement("div", { className: "bo-toolbar" }, /* @__PURE__ */ React.createElement("div", { style: { width: 240, maxWidth: "100%" } }, /* @__PURE__ */ React.createElement(Input, { size: "sm", iconLeft: "search", placeholder: "\uC8FC\uBB38\uBC88\uD638 / \uC8FC\uBB38\uC790 / \uC774\uBA54\uC77C", value: q, onChange: (e) => setQ(e.target.value) })), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 8, flexWrap: "wrap" } }, ["\uC804\uCCB4", "\uACB0\uC81C\uC644\uB8CC", "\uB300\uAE30", "\uCDE8\uC18C", "\uD658\uBD88"].map((x) => /* @__PURE__ */ React.createElement(Chip, { key: x, selected: f === x, onClick: () => setF(x) }, x))), /* @__PURE__ */ React.createElement("div", { style: { width: 130, marginLeft: "auto" } }, /* @__PURE__ */ React.createElement(Select, { size: "sm", value: type, onChange: (e) => setType(e.target.value), options: ["\uC804\uCCB4", "\uD68C\uC6D0", "\uBE44\uD68C\uC6D0"] })), /* @__PURE__ */ React.createElement("span", { className: "ds-mono", style: { fontSize: 12, color: "var(--text-secondary)" } }, rows.length, "\uAC74")), /* @__PURE__ */ React.createElement(Card, { padding: 0 }, /* @__PURE__ */ React.createElement("div", { style: { padding: 6 } }, /* @__PURE__ */ React.createElement(B.Table, { minWidth: 860, head: ["\uC8FC\uBB38\uBC88\uD638", "\uC8FC\uBB38\uC790", "\uC720\uD615", "\uC0C1\uD488", "\uACB0\uC81C\uC218\uB2E8", { l: "\uAE08\uC561", r: true }, "\uC0C1\uD0DC", { l: "\uC2DC\uAC04", r: true }] }, rows.map((o) => /* @__PURE__ */ React.createElement("tr", { key: o.no, onClick: () => openDetail(o), style: { cursor: "pointer" } }, /* @__PURE__ */ React.createElement(B.Td, null, /* @__PURE__ */ React.createElement("span", { style: { ...B.mono, fontSize: 12 } }, o.no)), /* @__PURE__ */ React.createElement(B.Td, null, /* @__PURE__ */ React.createElement("div", { style: { fontWeight: 500 } }, o.buyer), /* @__PURE__ */ React.createElement("div", { style: { ...B.mono, fontSize: 11, color: "var(--text-secondary)" } }, o.email)), /* @__PURE__ */ React.createElement(B.Td, null, /* @__PURE__ */ React.createElement(Badge, { variant: o.member ? "outline" : "neutral", size: "sm" }, o.member ? "\uD68C\uC6D0" : "\uBE44\uD68C\uC6D0")), /* @__PURE__ */ React.createElement(B.Td, null, /* @__PURE__ */ React.createElement("span", { style: { color: "var(--text-secondary)" } }, (D.byId(o.items[0].id) || { title: o.items[0].id }).title, o.items.length > 1 ? " \uC678 " + (o.items.length - 1) + "\uAC74" : "")), /* @__PURE__ */ React.createElement(B.Td, null, o.method), /* @__PURE__ */ React.createElement(B.Td, { r: true }, /* @__PURE__ */ React.createElement("span", { style: B.mono }, B.won(amountOf(o)))), /* @__PURE__ */ React.createElement(B.Td, null, /* @__PURE__ */ React.createElement(Badge, { variant: B.ORDER_TONE[o.status], size: "sm" }, o.status)), /* @__PURE__ */ React.createElement(B.Td, { r: true }, /* @__PURE__ */ React.createElement("span", { style: { ...B.mono, fontSize: 12, color: "var(--text-secondary)" } }, o.date))))))), /* @__PURE__ */ React.createElement("p", { style: { fontSize: 12, color: "var(--text-secondary)" } }, "\uD589\uC744 \uD074\uB9AD\uD558\uBA74 \uC8FC\uBB38 \uC0C1\uC138\uC640 \uD658\uBD88 \uCC98\uB9AC\uB97C \uC9C4\uD589\uD560 \uC218 \uC788\uC5B4\uC694. \uACB0\uC81C \uC2E4\uD328 \uC8FC\uBB38\uC740 \uC7A5\uBC14\uAD6C\uB2C8\uAC00 \uC720\uC9C0\uB41C \uC0C1\uD0DC\uB85C \uC7AC\uACB0\uC81C\uB97C \uC720\uB3C4\uD574\uC694.")), /* @__PURE__ */ React.createElement(
+    return /* @__PURE__ */ React.createElement(B.Shell, { active: "orders", title: "\uC8FC\uBB38 / \uACB0\uC81C \uAD00\uB9AC" }, /* @__PURE__ */ React.createElement("div", { "data-screen-label": "BO-03 \uC8FC\uBB38/\uACB0\uC81C \uAD00\uB9AC", style: { display: "flex", flexDirection: "column", gap: 16 } }, /* @__PURE__ */ React.createElement("div", { className: "bo-toolbar" }, /* @__PURE__ */ React.createElement("div", { style: { width: 240, maxWidth: "100%" } }, /* @__PURE__ */ React.createElement(Input, { size: "sm", iconLeft: "search", placeholder: "\uC8FC\uBB38\uBC88\uD638 / \uC8FC\uBB38\uC790 / \uC774\uBA54\uC77C", value: q, onChange: (e) => setQ(e.target.value) })), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 8, flexWrap: "wrap" } }, ["\uC804\uCCB4", "\uACB0\uC81C\uC644\uB8CC", "\uB300\uAE30", "\uCDE8\uC18C", "\uD658\uBD88"].map((x) => /* @__PURE__ */ React.createElement(Chip, { key: x, selected: f === x, onClick: () => setF(x) }, x))), /* @__PURE__ */ React.createElement("div", { style: { width: 130, marginLeft: "auto" } }, /* @__PURE__ */ React.createElement(Select, { size: "sm", value: type, onChange: (e) => setType(e.target.value), options: ["\uC804\uCCB4", "\uD68C\uC6D0", "\uBE44\uD68C\uC6D0"] })), /* @__PURE__ */ React.createElement("span", { className: "ds-mono", style: { fontSize: 12, color: "var(--text-secondary)" } }, rows.length, "\uAC74")), /* @__PURE__ */ React.createElement(Card, { padding: 0 }, /* @__PURE__ */ React.createElement("div", { style: { padding: 6 } }, /* @__PURE__ */ React.createElement(B.Table, { minWidth: 860, head: ["\uC8FC\uBB38\uBC88\uD638", "\uC8FC\uBB38\uC790", "\uC720\uD615", "\uC0C1\uD488", "\uACB0\uC81C\uC218\uB2E8", { l: "\uAE08\uC561", r: true }, "\uC0C1\uD0DC", { l: "\uC2DC\uAC04", r: true }] }, pageRows.map((o) => /* @__PURE__ */ React.createElement("tr", { key: o.no, onClick: () => openDetail(o), style: { cursor: "pointer" } }, /* @__PURE__ */ React.createElement(B.Td, null, /* @__PURE__ */ React.createElement("span", { style: { ...B.mono, fontSize: 12 } }, o.no)), /* @__PURE__ */ React.createElement(B.Td, null, /* @__PURE__ */ React.createElement("div", { style: { fontWeight: 500 } }, o.buyer), /* @__PURE__ */ React.createElement("div", { style: { ...B.mono, fontSize: 11, color: "var(--text-secondary)" } }, o.email)), /* @__PURE__ */ React.createElement(B.Td, null, /* @__PURE__ */ React.createElement(Badge, { variant: o.member ? "outline" : "neutral", size: "sm" }, o.member ? "\uD68C\uC6D0" : "\uBE44\uD68C\uC6D0")), /* @__PURE__ */ React.createElement(B.Td, null, /* @__PURE__ */ React.createElement("span", { style: { color: "var(--text-secondary)" } }, (D.byId(o.items[0].id) || { title: o.items[0].id }).title, o.items.length > 1 ? " \uC678 " + (o.items.length - 1) + "\uAC74" : "")), /* @__PURE__ */ React.createElement(B.Td, null, o.method), /* @__PURE__ */ React.createElement(B.Td, { r: true }, /* @__PURE__ */ React.createElement("span", { style: B.mono }, B.won(amountOf(o)))), /* @__PURE__ */ React.createElement(B.Td, null, /* @__PURE__ */ React.createElement(Badge, { variant: B.ORDER_TONE[o.status], size: "sm" }, o.status)), /* @__PURE__ */ React.createElement(B.Td, { r: true }, /* @__PURE__ */ React.createElement("span", { style: { ...B.mono, fontSize: 12, color: "var(--text-secondary)" } }, o.date)))))), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "center", justifyContent: "flex-end", padding: "12px 18px", borderTop: "1px solid var(--border-default)" } }, /* @__PURE__ */ React.createElement("div", { className: "ds-mono", style: { fontSize: 12, color: "var(--text-secondary)", display: "flex", gap: 12, alignItems: "center", userSelect: "none" } }, /* @__PURE__ */ React.createElement(
+      "span",
+      {
+        role: "button",
+        tabIndex: 0,
+        "aria-label": "\uC774\uC804 \uD398\uC774\uC9C0",
+        style: { cursor: safePage > 1 ? "pointer" : "default", opacity: safePage > 1 ? 1 : 0.35 },
+        onClick: () => safePage > 1 && setPage(safePage - 1),
+        onKeyDown: (e) => e.key === "Enter" && safePage > 1 && setPage(safePage - 1)
+      },
+      "\u2039"
+    ), pages.map((n) => /* @__PURE__ */ React.createElement(
+      "span",
+      {
+        key: n,
+        role: "button",
+        tabIndex: 0,
+        "aria-current": n === safePage ? "page" : void 0,
+        style: {
+          cursor: "pointer",
+          fontWeight: n === safePage ? 600 : 400,
+          color: n === safePage ? "var(--color-ink)" : void 0
+        },
+        onClick: () => setPage(n),
+        onKeyDown: (e) => e.key === "Enter" && setPage(n)
+      },
+      n
+    )), /* @__PURE__ */ React.createElement(
+      "span",
+      {
+        role: "button",
+        tabIndex: 0,
+        "aria-label": "\uB2E4\uC74C \uD398\uC774\uC9C0",
+        style: { cursor: safePage < totalPages ? "pointer" : "default", opacity: safePage < totalPages ? 1 : 0.35 },
+        onClick: () => safePage < totalPages && setPage(safePage + 1),
+        onKeyDown: (e) => e.key === "Enter" && safePage < totalPages && setPage(safePage + 1)
+      },
+      "\u203A"
+    )))), /* @__PURE__ */ React.createElement("p", { style: { fontSize: 12, color: "var(--text-secondary)" } }, "\uD589\uC744 \uD074\uB9AD\uD558\uBA74 \uC8FC\uBB38 \uC0C1\uC138\uC640 \uD658\uBD88 \uCC98\uB9AC\uB97C \uC9C4\uD589\uD560 \uC218 \uC788\uC5B4\uC694. \uACB0\uC81C \uC2E4\uD328 \uC8FC\uBB38\uC740 \uC7A5\uBC14\uAD6C\uB2C8\uAC00 \uC720\uC9C0\uB41C \uC0C1\uD0DC\uB85C \uC7AC\uACB0\uC81C\uB97C \uC720\uB3C4\uD574\uC694.")), /* @__PURE__ */ React.createElement(
       B.Modal,
       {
         open: !!cur,
