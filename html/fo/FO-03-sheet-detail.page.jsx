@@ -5,22 +5,21 @@ const F = window.FO;
 const D = window.DrumData;
 const A = window.ChodrumAPI;
 
-/** YouTube iframe, or thumbnail + open-on-YouTube when embed is blocked. */
+/** Thumbnail + open-on-YouTube when embed is blocked (whole surface is tappable). */
 function YouTubeFallback({ id, title }) {
   const thumb = A.youtubeThumbUrl(id);
   const watch = A.youtubeWatchUrl(id);
   const label = title ? (title + ' — YouTube에서 보기') : 'YouTube에서 보기';
   return (
-    <div className="fo-yt fo-yt-fallback" role="region" aria-label={label}>
+    <a className="fo-yt fo-yt-fallback" href={watch} target="_blank" rel="noopener noreferrer" aria-label={label}>
       {thumb ? <img className="fo-yt-fallback-img" src={thumb} alt="" decoding="async" /> : null}
       <div className="fo-yt-fallback-scrim" aria-hidden="true" />
-      <a className="fo-yt-open" href={watch} target="_blank" rel="noopener noreferrer">
-        YouTube에서 보기
-      </a>
-    </div>
+      <span className="fo-yt-open">YouTube에서 보기</span>
+    </a>
   );
 }
 
+/** Eager YouTube iframe (no autoplay). User taps YouTube's own play control. */
 function YouTubePlayer({ url, title }) {
   const id = A && A.parseYouTubeId ? A.parseYouTubeId(url) : '';
   const [mode, setMode] = React.useState(() => {
@@ -234,7 +233,7 @@ function DetailPage() {
         <div className="fo-detail-main">
           {ytId ? (
             <div style={{ marginBottom: 16 }}>
-              <Card padding={0} style={{ overflow: 'hidden' }}>
+              <Card padding={0} style={{ overflow: 'visible' }}>
                 <YouTubePlayer url={ytUrl} title={s.title} />
               </Card>
               <p className="fo-caption" style={{ marginTop: 10, display: 'flex', alignItems: 'center', gap: 6 }}>

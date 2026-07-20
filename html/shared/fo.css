@@ -211,7 +211,7 @@ a.fo-mypage-nav-item.on {
   }
 }
 
-/* YouTube 인페이지 플레이어 (FO-03) — plain iframe, no overlay */
+/* YouTube 인페이지 플레이어 (FO-03) — eager iframe; YouTube handles play UI */
 .fo-yt {
   position: relative;
   display: block;
@@ -231,10 +231,13 @@ a.fo-mypage-nav-item.on {
   border: 0;
   z-index: 1;
 }
-.fo-yt-fallback {
+.fo-yt.fo-yt-fallback {
   display: flex;
   align-items: center;
   justify-content: center;
+  text-decoration: none;
+  color: inherit;
+  cursor: pointer;
 }
 .fo-yt-fallback-img {
   position: absolute;
@@ -242,12 +245,14 @@ a.fo-mypage-nav-item.on {
   width: 100%;
   height: 100%;
   object-fit: cover;
+  pointer-events: none;
 }
 .fo-yt-fallback-scrim {
   position: absolute;
   inset: 0;
-  background: linear-gradient(180deg, rgba(15, 15, 15, 0.25) 0%, rgba(15, 15, 15, 0.72) 100%);
+  background: linear-gradient(180deg, rgba(15, 15, 15, 0.2) 0%, rgba(15, 15, 15, 0.55) 100%);
   z-index: 1;
+  pointer-events: none;
 }
 .fo-yt-open {
   position: relative;
@@ -265,9 +270,10 @@ a.fo-mypage-nav-item.on {
   letter-spacing: -0.2px;
   text-decoration: none;
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+  pointer-events: none;
 }
-.fo-yt-open:hover { background: #f2f2f2; }
-.fo-yt-open:focus-visible {
+.fo-yt-fallback:hover .fo-yt-open { background: #f2f2f2; }
+.fo-yt-fallback:focus-visible {
   outline: 2px solid var(--color-brand, #c45c26);
   outline-offset: 3px;
 }
