@@ -260,7 +260,7 @@ function Button({
     };
   } else if (variant === 'ghost') {
     look = {
-      background: hover ? 'rgba(0,0,0,0.04)' : 'transparent',
+      background: hover ? 'var(--hover-fill, rgba(0,0,0,0.04))' : 'transparent',
       color: hover ? 'var(--action-ghost-hover)' : 'var(--action-ghost-text)'
     };
   } else {
@@ -365,7 +365,7 @@ function IconButton({
     };
   } else {
     look = {
-      background: hover ? 'rgba(0,0,0,0.04)' : 'transparent',
+      background: hover ? 'var(--hover-fill, rgba(0,0,0,0.04))' : 'transparent',
       color: hover ? 'var(--color-ink)' : 'var(--color-icon)'
     };
   }
@@ -398,7 +398,7 @@ Object.assign(__ds_scope, { IconButton });
 try { (() => {
 const TONES = {
   neutral: {
-    bg: '#f1f1f1',
+    bg: 'var(--badge-neutral-bg, #f1f1f1)',
     color: 'var(--text-secondary)',
     border: 'transparent'
   },
