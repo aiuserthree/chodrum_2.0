@@ -5,15 +5,36 @@ const B = window.BO;
 const A = window.AdminData;
 const D = window.DrumData;
 
+const PAGE_SIZE = 20;
+
+function pageWindow(cur, total, span) {
+  if (total <= 1) return [1];
+  const half = Math.floor(span / 2);
+  let start = Math.max(1, cur - half);
+  let end = Math.min(total, start + span - 1);
+  start = Math.max(1, end - span + 1);
+  const pages = [];
+  for (let n = start; n <= end; n++) pages.push(n);
+  return pages;
+}
+
 function DownloadsPage() {
   const [rows, setRows] = React.useState(A.downloads);
   const [f, setF] = React.useState('전체');
+  const [page, setPage] = React.useState(1);
   const [days, setDays] = React.useState('7');
   const [target, setTarget] = React.useState(null); /* 재부여 대상 */
   const [reDays, setReDays] = React.useState('7');
   const [reason, setReason] = React.useState('');
 
   const list = rows.filter((r) => f === '전체' || r.status === f);
+  const totalPages = Math.max(1, Math.ceil(list.length / PAGE_SIZE));
+  const safePage = Math.min(page, totalPages);
+  const pageRows = list.slice((safePage - 1) * PAGE_SIZE, safePage * PAGE_SIZE);
+  const pages = pageWindow(safePage, totalPages, 5);
+
+  React.useEffect(() => { setPage(1); }, [f]);
+  React.useEffect(() => { if (page !== safePage) setPage(safePage); }, [page, safePage]);
 
   const regrant = () => {
     setRows((rs) => rs.map((r) => r === target ? { ...r, status: 'ACTIVE', dday: Number(reDays) || 7 } : r));
@@ -47,8 +68,8 @@ function DownloadsPage() {
         <Card padding={0}>
           <div style={{ padding: 6 }}>
             <B.Table minWidth={880} head={[{ l: '일시' }, '사용자', '악보', '주문번호', '상태', { l: '잔여', r: true }, '']}>
-              {list.map((r, i) => (
-                <tr key={i}>
+              {pageRows.map((r, i) => (
+                <tr key={(safePage - 1) * PAGE_SIZE + i}>
                   <B.Td><span style={{ ...B.mono, fontSize: 12, color: 'var(--text-secondary)' }}>{r.at}</span></B.Td>
                   <B.Td>
                     <div style={{ ...B.mono, fontSize: 12 }}>{r.email}</div>
@@ -70,6 +91,41 @@ function DownloadsPage() {
                 </tr>
               ))}
             </B.Table>
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', padding: '12px 18px', borderTop: '1px solid var(--border-default)' }}>
+            <div className="ds-mono" style={{ fontSize: 12, color: 'var(--text-secondary)', display: 'flex', gap: 12, alignItems: 'center', userSelect: 'none' }}>
+              <span
+                role="button"
+                tabIndex={0}
+                aria-label="이전 페이지"
+                style={{ cursor: safePage > 1 ? 'pointer' : 'default', opacity: safePage > 1 ? 1 : 0.35 }}
+                onClick={() => safePage > 1 && setPage(safePage - 1)}
+                onKeyDown={(e) => e.key === 'Enter' && safePage > 1 && setPage(safePage - 1)}
+              >‹</span>
+              {pages.map((n) => (
+                <span
+                  key={n}
+                  role="button"
+                  tabIndex={0}
+                  aria-current={n === safePage ? 'page' : undefined}
+                  style={{
+                    cursor: 'pointer',
+                    fontWeight: n === safePage ? 600 : 400,
+                    color: n === safePage ? 'var(--color-ink)' : undefined,
+                  }}
+                  onClick={() => setPage(n)}
+                  onKeyDown={(e) => e.key === 'Enter' && setPage(n)}
+                >{n}</span>
+              ))}
+              <span
+                role="button"
+                tabIndex={0}
+                aria-label="다음 페이지"
+                style={{ cursor: safePage < totalPages ? 'pointer' : 'default', opacity: safePage < totalPages ? 1 : 0.35 }}
+                onClick={() => safePage < totalPages && setPage(safePage + 1)}
+                onKeyDown={(e) => e.key === 'Enter' && safePage < totalPages && setPage(safePage + 1)}
+              >›</span>
+            </div>
           </div>
         </Card>
         <p style={{ fontSize: 12, color: 'var(--text-secondary)' }}>재부여는 예외 처리이며 반드시 사유가 기록돼요. 환불로 회수(REVOKED)된 권한도 정책에 따라 재부여할 수 있어요.</p>

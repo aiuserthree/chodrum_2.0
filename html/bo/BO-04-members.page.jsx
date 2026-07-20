@@ -6,7 +6,19 @@ const A = window.AdminData;
 const D = window.DrumData;
 
 const M_TONE = { 정상: 'success', 정지: 'warning', 탈퇴: 'neutral' };
+const PAGE_SIZE = 20;
 const amountOf = (o) => o.items.reduce((n, it) => n + D.byId(it.id).price * it.qty, 0);
+
+function pageWindow(cur, total, span) {
+  if (total <= 1) return [1];
+  const half = Math.floor(span / 2);
+  let start = Math.max(1, cur - half);
+  let end = Math.min(total, start + span - 1);
+  start = Math.max(1, end - span + 1);
+  const pages = [];
+  for (let n = start; n <= end; n++) pages.push(n);
+  return pages;
+}
 
 function MembersPage() {
   const urlQ = B.qp('q');
@@ -17,6 +29,7 @@ function MembersPage() {
   const [q, setQ] = React.useState(urlQ);
   const [type, setType] = React.useState('전체');
   const [status, setStatus] = React.useState('전체');
+  const [page, setPage] = React.useState(1);
   const [cur, setCur] = React.useState(null);
   const [guestEmail, setGuestEmail] = React.useState(emailQ && !memberEmailHit ? urlQ : '');
   const [guestResult, setGuestResult] = React.useState(null);
@@ -31,6 +44,13 @@ function MembersPage() {
   const rows = members.filter((m) =>
     (type === '전체' || m.type === type) && (status === '전체' || m.status === status) &&
     (!qLower || (m.name + m.email).toLowerCase().includes(qLower)));
+  const totalPages = Math.max(1, Math.ceil(rows.length / PAGE_SIZE));
+  const safePage = Math.min(page, totalPages);
+  const pageRows = rows.slice((safePage - 1) * PAGE_SIZE, safePage * PAGE_SIZE);
+  const pages = pageWindow(safePage, totalPages, 5);
+
+  React.useEffect(() => { setPage(1); }, [q, type, status]);
+  React.useEffect(() => { if (page !== safePage) setPage(safePage); }, [page, safePage]);
 
   const memberOrderMatch = (o, m) => {
     if (!o || !m || o.email !== m.email) return false;
@@ -76,7 +96,7 @@ function MembersPage() {
             <Card padding={0}>
               <div style={{ padding: 6 }}>
                 <B.Table minWidth={760} head={['회원', '이메일', '가입유형', '가입일', { l: '주문', r: true }, '상태']}>
-                  {rows.map((m) => (
+                  {pageRows.map((m) => (
                     <tr key={m.email} onClick={() => setCur(m)} style={{ cursor: 'pointer' }}>
                       <B.Td>
                         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
@@ -92,6 +112,41 @@ function MembersPage() {
                     </tr>
                   ))}
                 </B.Table>
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', padding: '12px 18px', borderTop: '1px solid var(--border-default)' }}>
+                <div className="ds-mono" style={{ fontSize: 12, color: 'var(--text-secondary)', display: 'flex', gap: 12, alignItems: 'center', userSelect: 'none' }}>
+                  <span
+                    role="button"
+                    tabIndex={0}
+                    aria-label="이전 페이지"
+                    style={{ cursor: safePage > 1 ? 'pointer' : 'default', opacity: safePage > 1 ? 1 : 0.35 }}
+                    onClick={() => safePage > 1 && setPage(safePage - 1)}
+                    onKeyDown={(e) => e.key === 'Enter' && safePage > 1 && setPage(safePage - 1)}
+                  >‹</span>
+                  {pages.map((n) => (
+                    <span
+                      key={n}
+                      role="button"
+                      tabIndex={0}
+                      aria-current={n === safePage ? 'page' : undefined}
+                      style={{
+                        cursor: 'pointer',
+                        fontWeight: n === safePage ? 600 : 400,
+                        color: n === safePage ? 'var(--color-ink)' : undefined,
+                      }}
+                      onClick={() => setPage(n)}
+                      onKeyDown={(e) => e.key === 'Enter' && setPage(n)}
+                    >{n}</span>
+                  ))}
+                  <span
+                    role="button"
+                    tabIndex={0}
+                    aria-label="다음 페이지"
+                    style={{ cursor: safePage < totalPages ? 'pointer' : 'default', opacity: safePage < totalPages ? 1 : 0.35 }}
+                    onClick={() => safePage < totalPages && setPage(safePage + 1)}
+                    onKeyDown={(e) => e.key === 'Enter' && safePage < totalPages && setPage(safePage + 1)}
+                  >›</span>
+                </div>
               </div>
             </Card>
             <p style={{ fontSize: 12, color: 'var(--text-secondary)' }}>소셜 회원(카카오/네이버/구글)은 비밀번호가 없는 계정이에요. 행을 클릭하면 상세와 상태 관리를 볼 수 있어요.</p>

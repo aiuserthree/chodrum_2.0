@@ -4,6 +4,19 @@ const { Button, Card, Badge, Input, Checkbox } = DS;
 const B = window.BO;
 const D = window.DrumData;
 
+const PAGE_SIZE = 20;
+
+function pageWindow(cur, total, span) {
+  if (total <= 1) return [1];
+  const half = Math.floor(span / 2);
+  let start = Math.max(1, cur - half);
+  let end = Math.min(total, start + span - 1);
+  start = Math.max(1, end - span + 1);
+  const pages = [];
+  for (let n = start; n <= end; n++) pages.push(n);
+  return pages;
+}
+
 function priceInput(value, onChange) {
   return (
     <input type="number" value={value} onChange={onChange}
@@ -17,8 +30,17 @@ function PricingPage() {
   const [rows, setRows] = React.useState(D.sheets.map((s) => ({ id: s.id, title: s.title, artist: s.artist, orig: s.orig || s.price, price: s.price })));
   const [sel, setSel] = React.useState([]);
   const [pct, setPct] = React.useState('10');
+  const [page, setPage] = React.useState(1);
+
+  const totalPages = Math.max(1, Math.ceil(rows.length / PAGE_SIZE));
+  const safePage = Math.min(page, totalPages);
+  const pageRows = rows.slice((safePage - 1) * PAGE_SIZE, safePage * PAGE_SIZE);
+  const allOn = pageRows.length > 0 && pageRows.every((r) => sel.includes(r.id));
+  const pages = pageWindow(safePage, totalPages, 5);
+
+  React.useEffect(() => { if (page !== safePage) setPage(safePage); }, [page, safePage]);
+
   const setRow = (id, patch) => setRows((rs) => rs.map((r) => r.id === id ? { ...r, ...patch } : r));
-  const allOn = rows.length > 0 && sel.length === rows.length;
 
   const applyDiscount = () => {
     const p = Math.min(90, Math.max(0, Number(pct) || 0));
@@ -43,7 +65,7 @@ function PricingPage() {
         <Card padding={0}>
           <div style={{ padding: 6 }}>
             <B.Table minWidth={720} head={[{ l: '' }, '곡명 / 아티스트', { l: '정가', r: true }, { l: '판매가', r: true }, { l: '할인율', r: true }, '표시']}>
-              {rows.map((r) => {
+              {pageRows.map((r) => {
                 const disc = r.orig > r.price ? Math.round((1 - r.price / r.orig) * 100) : 0;
                 return (
                   <tr key={r.id}>
@@ -67,10 +89,52 @@ function PricingPage() {
             </B.Table>
           </div>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 18px', borderTop: '1px solid var(--border-default)' }}>
-            <Checkbox checked={allOn} indeterminate={sel.length > 0 && !allOn} label="전체 선택" onChange={(on) => setSel(on ? rows.map((r) => r.id) : [])} />
-            <span style={{ fontSize: 12, color: 'var(--text-secondary)' }}>할인 중인 악보는 스토어에 정가와 할인가가 함께 표시돼요.</span>
+            <Checkbox
+              checked={allOn}
+              indeterminate={pageRows.some((r) => sel.includes(r.id)) && !allOn}
+              label="전체 선택"
+              onChange={(on) => {
+                const ids = pageRows.map((r) => r.id);
+                setSel(on ? Array.from(new Set([...sel, ...ids])) : sel.filter((id) => !ids.includes(id)));
+              }}
+            />
+            <div className="ds-mono" style={{ fontSize: 12, color: 'var(--text-secondary)', display: 'flex', gap: 12, alignItems: 'center', userSelect: 'none' }}>
+              <span
+                role="button"
+                tabIndex={0}
+                aria-label="이전 페이지"
+                style={{ cursor: safePage > 1 ? 'pointer' : 'default', opacity: safePage > 1 ? 1 : 0.35 }}
+                onClick={() => safePage > 1 && setPage(safePage - 1)}
+                onKeyDown={(e) => e.key === 'Enter' && safePage > 1 && setPage(safePage - 1)}
+              >‹</span>
+              {pages.map((n) => (
+                <span
+                  key={n}
+                  role="button"
+                  tabIndex={0}
+                  aria-current={n === safePage ? 'page' : undefined}
+                  style={{
+                    cursor: 'pointer',
+                    fontWeight: n === safePage ? 600 : 400,
+                    color: n === safePage ? 'var(--color-ink)' : undefined,
+                  }}
+                  onClick={() => setPage(n)}
+                  onKeyDown={(e) => e.key === 'Enter' && setPage(n)}
+                >{n}</span>
+              ))}
+              <span
+                role="button"
+                tabIndex={0}
+                aria-label="다음 페이지"
+                style={{ cursor: safePage < totalPages ? 'pointer' : 'default', opacity: safePage < totalPages ? 1 : 0.35 }}
+                onClick={() => safePage < totalPages && setPage(safePage + 1)}
+                onKeyDown={(e) => e.key === 'Enter' && safePage < totalPages && setPage(safePage + 1)}
+              >›</span>
+            </div>
           </div>
         </Card>
+
+        <p style={{ fontSize: 12, color: 'var(--text-secondary)' }}>할인 중인 악보는 스토어에 정가와 할인가가 함께 표시돼요.</p>
       </div>
     </B.Shell>
   );
