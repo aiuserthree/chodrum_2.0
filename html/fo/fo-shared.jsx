@@ -254,8 +254,45 @@ function CartIcon() {
   return (
     <a href={PAGES.cart} style={{ position: 'relative', display: 'inline-flex' }} aria-label="장바구니">
       <IconButton name="shopping-cart" variant="ghost" label="장바구니" />
-      {n ? <span className="ds-mono" style={{ position: 'absolute', top: 2, right: 2, minWidth: 16, height: 16, padding: '0 4px', borderRadius: 9999, background: 'var(--color-ink)', color: '#fff', fontSize: 10, fontWeight: 600, display: 'flex', alignItems: 'center', justifyContent: 'center', pointerEvents: 'none' }}>{n}</span> : null}
+      {n ? <span className="ds-mono" style={{ position: 'absolute', top: 2, right: 2, minWidth: 16, height: 16, padding: '0 4px', borderRadius: 9999, background: 'var(--color-ink)', color: 'var(--color-paper-white)', fontSize: 10, fontWeight: 600, display: 'flex', alignItems: 'center', justifyContent: 'center', pointerEvents: 'none' }}>{n}</span> : null}
     </a>
+  );
+}
+
+function FoLogo({ size = 32, alt = 'CHODRUM 로고' }) {
+  return (
+    <span className="fo-logo" style={{ width: size, height: size }} aria-hidden={alt ? undefined : true}>
+      <img className="fo-logo-img fo-logo-light" src="/shared/logo.png" alt={alt || ''} width={size} height={size} />
+      <img className="fo-logo-img fo-logo-dark" src="/shared/logo-white.png" alt="" width={size} height={size} />
+    </span>
+  );
+}
+
+function ThemeToggle() {
+  const [theme, setTheme] = React.useState(() =>
+    window.FoTheme && typeof window.FoTheme.get === 'function' ? window.FoTheme.get() : 'light'
+  );
+  React.useEffect(() => {
+    const on = (e) => {
+      if (e && e.detail && e.detail.theme) setTheme(e.detail.theme);
+    };
+    document.addEventListener('chodrum-theme', on);
+    if (window.FoTheme && typeof window.FoTheme.get === 'function') setTheme(window.FoTheme.get());
+    return () => document.removeEventListener('chodrum-theme', on);
+  }, []);
+  const isDark = theme === 'dark';
+  return (
+    <span className="fo-theme-toggle" style={{ display: 'inline-flex', flex: 'none' }}>
+      <IconButton
+        name={isDark ? 'sun' : 'moon'}
+        variant="ghost"
+        label={isDark ? '라이트 모드' : '다크 모드'}
+        style={{ color: 'var(--color-ink)' }}
+        onClick={() => {
+          if (window.FoTheme && typeof window.FoTheme.toggle === 'function') window.FoTheme.toggle();
+        }}
+      />
+    </span>
   );
 }
 
@@ -409,7 +446,7 @@ function Header({ tab, title, back }) {
             </span>
           ) : null}
           <a href={PAGES.home} className={'fo-wordmark' + (isHome ? '' : ' fo-desktop')}>
-            <img src="/shared/logo.png" alt="CHODRUM 로고" style={{ width: 32, height: 32, objectFit: 'contain', display: 'block', flex: 'none' }} />
+            <FoLogo size={32} alt="CHODRUM 로고" />
             CHODRUM
           </a>
           {!isHome && pageTitle ? <span className="fo-header-title">{pageTitle}</span> : null}
@@ -434,6 +471,7 @@ function Header({ tab, title, back }) {
                 ? <UserMenu user={user} />
                 : <Button variant="secondary" size="sm" onClick={() => location.href = PAGES.login}>로그인</Button>}
             </span>
+            <ThemeToggle />
             <span className="fo-mobile fo-mnav-toggle" style={{ display: 'inline-flex' }}>
               <IconButton
                 name={menuOpen ? 'x' : 'menu'}
@@ -533,7 +571,7 @@ function Footer() {
       <div className="fo-footer-in">
         <div className="fo-footer-top">
           <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
-            <img src="/shared/logo.png" alt="CHODRUM 로고" style={{ width: 24, height: 24, objectFit: 'contain', display: 'block' }} />
+            <FoLogo size={24} alt="CHODRUM 로고" />
             <span style={{ fontSize: 15, fontWeight: 600, letterSpacing: '-0.3px' }}>CHODRUM</span>
           </span>
           <div className="fo-footer-links">

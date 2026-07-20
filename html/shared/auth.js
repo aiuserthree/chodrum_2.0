@@ -127,6 +127,57 @@
   }
 
   /**
+   * Map Supabase/Auth English errors to Korean product copy.
+   * Pass through messages that already contain Hangul.
+   */
+  function mapAuthError(err, fallback) {
+    var msg = '';
+    var code = '';
+    if (typeof err === 'string') {
+      msg = err;
+    } else if (err) {
+      msg = String(err.message || err.error_description || err.msg || '');
+      code = String(err.code || err.error || '');
+    }
+    if (/[가-힣]/.test(msg)) return msg;
+
+    var lower = (msg + ' ' + code).toLowerCase();
+    if (
+      code === 'invalid_credentials' ||
+      /invalid login credentials|invalid.*(email|password)|wrong password|email.*password|invalid_grant/.test(lower)
+    ) {
+      return '이메일 또는 비밀번호를 확인해주세요.';
+    }
+    if (/email not confirmed|confirm.*email|not.*confirmed/.test(lower)) {
+      return '이메일 인증이 완료되지 않았어요. 메일함을 확인해주세요.';
+    }
+    if (/user not found|no user found|user_not_found/.test(lower)) {
+      return '가입된 계정을 찾을 수 없어요.';
+    }
+    if (/user already registered|already.*registered|email.*already|already.*exists/.test(lower)) {
+      return '이미 가입된 이메일이에요.';
+    }
+    if (/too many requests|rate limit|over_request_rate_limit/.test(lower)) {
+      return '요청이 너무 많아요. 잠시 후 다시 시도해주세요.';
+    }
+    if (/network|fetch failed|failed to fetch/.test(lower)) {
+      return '네트워크 오류가 났어요. 연결을 확인한 뒤 다시 시도해주세요.';
+    }
+    if (
+      /\botp\b|verification code|one.?time/.test(lower) ||
+      (/expired/.test(lower) && /\b(token|code|link)\b/.test(lower)) ||
+      /invalid.?token|token.*invalid|invalid.?otp/.test(lower)
+    ) {
+      if (/expired/.test(lower)) return '인증코드가 만료되었어요. 다시 요청해주세요.';
+      return '인증코드가 올바르지 않아요.';
+    }
+    if (/password/.test(lower) && (/weak|least|characters|short/.test(lower))) {
+      return '비밀번호는 영문+숫자+특수문자 조합 8자 이상으로 입력해주세요.';
+    }
+    return fallback || '요청을 처리하지 못했어요. 잠시 후 다시 시도해주세요.';
+  }
+
+  /**
    * Password: English letters + numbers + special chars, min 8.
    * Returns { ok, error } with Korean message.
    */
@@ -566,7 +617,7 @@
       }
       var res = await otpPromise;
       if (res.error) {
-        return { ok: false, error: res.error.message || '인증코드를 보내지 못했어요.' };
+        return { ok: false, error: mapAuthError(res.error, '인증코드를 보내지 못했어요.') };
       }
       return { ok: true };
     }
@@ -577,7 +628,7 @@
       },
     });
     if (res.error) {
-      return { ok: false, error: res.error.message || '인증코드를 보내지 못했어요.' };
+      return { ok: false, error: mapAuthError(res.error, '인증코드를 보내지 못했어요.') };
     }
     return { ok: true };
   }
@@ -622,7 +673,7 @@
     }
     if (lastErr || !session || !session.user) {
       /* Do not treat a pre-existing browser session as OTP success */
-      return { ok: false, error: (lastErr && lastErr.message) || '인증코드가 올바르지 않아요.' };
+      return { ok: false, error: mapAuthError(lastErr, '인증코드가 올바르지 않아요.') };
     }
     if (String(session.user.email || '').toLowerCase() !== addr.toLowerCase()) {
       try { await client().auth.signOut(); } catch (e) { /* ignore */ }
@@ -720,7 +771,7 @@
       password: String(password || ''),
     });
     if (res.error) {
-      return { ok: false, error: res.error.message || '이메일 또는 비밀번호를 확인해주세요.' };
+      return { ok: false, error: mapAuthError(res.error, '이메일 또는 비밀번호를 확인해주세요.') };
     }
     var profile = profileFromUser(res.data.session && res.data.session.user);
     await applyProfile(profile);
@@ -736,7 +787,7 @@
       redirectTo: callbackUrl(),
     });
     if (res.error) {
-      return { ok: false, error: res.error.message || '인증코드를 보내지 못했어요.' };
+      return { ok: false, error: mapAuthError(res.error, '인증코드를 보내지 못했어요.') };
     }
     return { ok: true };
   }
@@ -752,7 +803,7 @@
       type: 'recovery',
     });
     if (res.error) {
-      return { ok: false, error: res.error.message || '인증코드가 올바르지 않아요.' };
+      return { ok: false, error: mapAuthError(res.error, '인증코드가 올바르지 않아요.') };
     }
     return { ok: true };
   }
@@ -794,7 +845,7 @@
     if (!pwCheck.ok) return { ok: false, error: pwCheck.error };
     var res = await client().auth.updateUser({ password: newPassword });
     if (res.error) {
-      return { ok: false, error: res.error.message || '비밀번호를 변경하지 못했어요.' };
+      return { ok: false, error: mapAuthError(res.error, '비밀번호를 변경하지 못했어요.') };
     }
     return { ok: true };
   }

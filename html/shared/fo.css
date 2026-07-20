@@ -111,8 +111,11 @@ html[data-theme="dark"] .fo-logo-dark { display: block; }
 a.fo-wordmark { display: inline-flex; align-items: center; gap: 8px; font-size: 16.5px; font-weight: 600; letter-spacing: -0.4px; color: var(--color-onyx); white-space: nowrap; padding: 0 6px; }
 a.fo-wordmark:hover { text-decoration: none; color: var(--color-onyx); }
 /* 좌측 [뒤로][홈] · 우측 [검색][메뉴] 아이콘 클러스터와 겹치지 않도록 여백 */
-.fo-header-title { position: absolute; left: 0; right: 0; text-align: center; font-size: 16px; font-weight: 600; letter-spacing: -0.3px; pointer-events: none; padding: 0 108px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+/* Right cluster: search + theme + menu (~3×38) — keep title clear of icons */
+.fo-header-title { position: absolute; left: 0; right: 0; text-align: center; font-size: 16px; font-weight: 600; letter-spacing: -0.3px; pointer-events: none; padding: 0 132px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 @media (min-width: 768px) { .fo-header-title { display: none; } }
+.fo-theme-toggle { display: inline-flex; flex: none; align-items: center; }
+.fo-theme-toggle button { color: var(--color-ink); }
 .fo-nav { display: none; }
 @media (min-width: 768px) { .fo-nav { display: flex; align-items: center; gap: 2px; } }
 .fo-nav a { font-size: 14px; font-weight: 500; color: var(--text-secondary); padding: 7px 12px; border-radius: 8px; }

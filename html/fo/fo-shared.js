@@ -250,14 +250,15 @@
       return () => document.removeEventListener("chodrum-theme", on);
     }, []);
     const isDark = theme === "dark";
-    return /* @__PURE__ */ React.createElement(IconButton, {
+    return /* @__PURE__ */ React.createElement("span", { className: "fo-theme-toggle", style: { display: "inline-flex", flex: "none" } }, /* @__PURE__ */ React.createElement(IconButton, {
       name: isDark ? "sun" : "moon",
       variant: "ghost",
       label: isDark ? "\uB77C\uC774\uD2B8 \uBAA8\uB4DC" : "\uB2E4\uD06C \uBAA8\uB4DC",
+      style: { color: "var(--color-ink)" },
       onClick: () => {
         if (window.FoTheme && typeof window.FoTheme.toggle === "function") window.FoTheme.toggle();
       }
-    });
+    }));
   }
   async function foSignOut() {
     if (window.ChodrumAuth && typeof window.ChodrumAuth.signOut === "function") {
