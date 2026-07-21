@@ -694,9 +694,161 @@
     return mm + '.' + dd + ' ' + hh + ':' + mi;
   }
 
+  /* -------- last-good FO catalog cache (survive idle / tab discard) -------- */
+  var CATALOG_CACHE_KEY = 'chodrum_catalog_cache';
+  var CATALOG_CACHE_VERSION = 1;
+  var CATALOG_CACHE_TTL_MS = 7 * 24 * 60 * 60 * 1000; /* 7 days */
+
+  /** Persist preview as storage path (never short-lived signed URLs). */
+  function sheetForCatalogCache(s) {
+    if (!s) return null;
+    var previewUrls = normalizePreviewUrls(s).map(function (u) {
+      var p = sheetsStoragePath(u, 'preview');
+      if (p) return p;
+      return String(u || '').split('?')[0];
+    }).filter(Boolean).slice(0, 2);
+    return {
+      id: s.id,
+      code: s.code || '',
+      title: s.title,
+      artist: s.artist,
+      genre: s.genre,
+      level: s.level,
+      pages: s.pages || 0,
+      price: s.price || 0,
+      orig: s.orig == null ? undefined : s.orig,
+      popular: !!s.popular,
+      isNew: isSheetNew(s),
+      createdAt: s.createdAt || s.created_at || undefined,
+      rating: Number(s.rating) || 0,
+      sold: s.sold || 0,
+      status: s.status || '판매중',
+      pdfUrl: '',
+      previewUrl: previewUrls[0] || '',
+      previewUrls: previewUrls,
+      youtubeUrl: s.youtubeUrl || s.youtube_url || '',
+      slug: s.slug || '',
+      seoTitle: s.seoTitle || s.seo_title || '',
+      seoDescription: s.seoDescription || s.seo_description || '',
+      ogImagePath: s.ogImagePath || s.og_image_path || '',
+    };
+  }
+
+  function bannerForCatalogCache(b) {
+    if (!b) return null;
+    return {
+      id: b.id,
+      title: b.title,
+      link: b.link || '',
+      period: b.period || '상시',
+      img: b.img || b.image_name || '',
+      imgUrl: b.imgUrl || b.image_url || '',
+      imgMobile: b.imgMobile || b.image_name_mobile || '',
+      imgUrlMobile: b.imgUrlMobile || b.image_url_mobile || '',
+      sheetId: b.sheetId || b.sheet_id || '',
+      on: b.on == null ? !!b.is_on : !!b.on,
+    };
+  }
+
+  function persistCatalogCache() {
+    var D = window.DrumData;
+    var A = window.AdminData;
+    if (!D || !D.sheets || !D.sheets.length) return;
+    try {
+      var payload = {
+        v: CATALOG_CACHE_VERSION,
+        savedAt: Date.now(),
+        sheets: D.sheets.map(sheetForCatalogCache).filter(Boolean),
+        recommended: Array.isArray(D.recommended) ? D.recommended.slice() : [],
+        banner: D.banner ? {
+          sheetId: D.banner.sheetId || '',
+          label: D.banner.label || '',
+          title: D.banner.title || '',
+          copy: D.banner.copy || '',
+        } : { sheetId: '', label: '', title: '', copy: '' },
+        homeBanners: (D.homeBanners || []).map(bannerForCatalogCache).filter(Boolean),
+        genres: Array.isArray(D.genres) ? D.genres.slice() : [],
+        levels: Array.isArray(D.levels) ? D.levels.slice() : [],
+        sheetStatus: (A && A.sheetStatus) ? Object.assign({}, A.sheetStatus) : {},
+      };
+      if (!payload.sheets.length) return;
+      localStorage.setItem(CATALOG_CACHE_KEY, JSON.stringify(payload));
+    } catch (e) {
+      console.warn('[CHODRUM] catalog cache save failed', e);
+    }
+  }
+
+  function readCatalogCache() {
+    try {
+      var raw = localStorage.getItem(CATALOG_CACHE_KEY);
+      if (!raw) return null;
+      var data = JSON.parse(raw);
+      if (!data || data.v !== CATALOG_CACHE_VERSION) return null;
+      if (!data.savedAt || (Date.now() - Number(data.savedAt)) > CATALOG_CACHE_TTL_MS) return null;
+      if (!Array.isArray(data.sheets) || !data.sheets.length) return null;
+      return data;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  /** Apply last-good catalog into DrumData. Returns true if sheets restored. */
+  function applyCatalogCache(cache) {
+    var D = window.DrumData;
+    var A = window.AdminData;
+    if (!D || !cache || !cache.sheets || !cache.sheets.length) return false;
+    var sheets = cache.sheets.map(function (s) {
+      var copy = Object.assign({}, s);
+      copy.isNew = isSheetNew(copy);
+      copy.pdfUrl = '';
+      var urls = normalizePreviewUrls(copy);
+      copy.previewUrls = urls;
+      copy.previewUrl = urls[0] || '';
+      return copy;
+    });
+    setSheetsCatalog(D, sheets);
+    if (Array.isArray(cache.recommended)) D.recommended = cache.recommended.slice();
+    if (cache.banner && typeof cache.banner === 'object') {
+      D.banner = {
+        sheetId: cache.banner.sheetId || '',
+        label: cache.banner.label || '',
+        title: cache.banner.title || '',
+        copy: cache.banner.copy || '',
+      };
+    }
+    var banners = Array.isArray(cache.homeBanners)
+      ? cache.homeBanners.map(bannerForCatalogCache).filter(Boolean)
+      : [];
+    D.homeBanners = banners;
+    if (A) {
+      A.banners = banners.slice();
+      A.sheetStatus = cache.sheetStatus && typeof cache.sheetStatus === 'object'
+        ? Object.assign({}, cache.sheetStatus)
+        : {};
+    }
+    if (Array.isArray(cache.genres) && cache.genres.length) D.genres = cache.genres.slice();
+    if (Array.isArray(cache.levels) && cache.levels.length) D.levels = cache.levels.slice();
+    return true;
+  }
+
+  function tryRestoreCatalogCache(reason) {
+    var D = window.DrumData;
+    if (D && D.sheets && D.sheets.length) return false;
+    var cache = readCatalogCache();
+    if (!cache || !applyCatalogCache(cache)) return false;
+    console.info('[CHODRUM] catalog restored from cache', reason || '', '(' + cache.sheets.length + ' sheets)');
+    if (live() && !isLightHydratePage()) {
+      schedulePreviewSigning(D, D.sheets.slice());
+    }
+    return true;
+  }
+
   function hydrateLocalFallback() {
     var D = window.DrumData;
     var A = window.AdminData;
+    if (tryRestoreCatalogCache('fallback')) {
+      return { mode: 'cache', error: null, fromCache: true };
+    }
     if (D && D.sheets) {
       D.sheets.forEach(function (s) {
         if (!s.status) s.status = (A && A.sheetStatus && A.sheetStatus[s.id]) || '판매중';
@@ -878,6 +1030,7 @@
       schedulePreviewSigning(D, mappedSheets);
     }
 
+    persistCatalogCache();
     return { mode: 'live', error: null };
   }
 
@@ -886,10 +1039,10 @@
     try {
       return await hydrateFromSupabase();
     } catch (e) {
-      console.warn('[CHODRUM] Supabase hydrate 실패 → 로컬 데모 데이터 사용', e);
+      console.warn('[CHODRUM] Supabase hydrate 실패 → 캐시/로컬 폴백', e);
       var fb = hydrateLocalFallback();
       fb.error = e;
-      fb.mode = 'demo';
+      if (!fb.fromCache) fb.mode = 'demo';
       return fb;
     }
   }
@@ -1963,11 +2116,59 @@
 
   /* -------- boot -------- */
   var state = { mode: 'demo', error: null, ready: false };
-  var readyPromise = hydrate().then(function (r) {
+  var catalogRetryInFlight = false;
+
+  function applyHydrateResult(r) {
     state.mode = r.mode;
     state.error = r.error || null;
     state.ready = true;
     window.dispatchEvent(new CustomEvent('chodrum:ready', { detail: state }));
+    return state;
+  }
+
+  /** Soft rehydrate after idle/tab wake when catalog is empty or last boot used cache/demo-with-error. */
+  function catalogNeedsRetry() {
+    if (!live() || isLightHydratePage()) return false;
+    var sheets = (window.DrumData && window.DrumData.sheets) || [];
+    if (!sheets.length) return true;
+    return !!(state.error && (state.mode === 'demo' || state.mode === 'cache'));
+  }
+
+  async function maybeRetryCatalogHydrate(reason) {
+    if (catalogRetryInFlight || !catalogNeedsRetry()) return;
+    catalogRetryInFlight = true;
+    try {
+      var r = await hydrateFromSupabase();
+      applyHydrateResult(r);
+      console.info('[CHODRUM] catalog rehydrate ok', reason || '');
+    } catch (e) {
+      console.warn('[CHODRUM] catalog rehydrate failed', reason || '', e);
+      /* Keep existing DrumData (cache/seed) — do not wipe. */
+    } finally {
+      catalogRetryInFlight = false;
+    }
+  }
+
+  function bindCatalogRetryListeners() {
+    if (typeof window === 'undefined' || typeof document === 'undefined') return;
+    var onWake = function (reason) {
+      try {
+        if (document.visibilityState && document.visibilityState !== 'visible') return;
+      } catch (_) { /* continue */ }
+      maybeRetryCatalogHydrate(reason);
+    };
+    document.addEventListener('visibilitychange', function () {
+      if (document.visibilityState === 'visible') onWake('visibilitychange');
+    });
+    window.addEventListener('pageshow', function (ev) {
+      if (ev && ev.persisted) onWake('pageshow');
+    });
+    window.addEventListener('online', function () { onWake('online'); });
+  }
+
+  var readyPromise = hydrate().then(function (r) {
+    applyHydrateResult(r);
+    bindCatalogRetryListeners();
     return state;
   });
 

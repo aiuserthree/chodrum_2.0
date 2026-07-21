@@ -331,8 +331,12 @@
     const [tick, setTick] = React.useState(0);
     React.useEffect(() => {
       const refresh = () => setTick((n) => n + 1);
+      window.addEventListener("chodrum:ready", refresh);
       window.addEventListener("chodrum:previews-signed", refresh);
-      return () => window.removeEventListener("chodrum:previews-signed", refresh);
+      return () => {
+        window.removeEventListener("chodrum:ready", refresh);
+        window.removeEventListener("chodrum:previews-signed", refresh);
+      };
     }, []);
     const search = (e) => {
       e.preventDefault();
