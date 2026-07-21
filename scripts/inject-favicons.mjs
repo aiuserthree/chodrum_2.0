@@ -12,7 +12,7 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const HTML_ROOT = path.join(__dirname, '..', 'html');
 
 /** Bump when apple-touch / favicon binaries change (Safari caches hard). */
-const ICON_V = '20260720';
+const ICON_V = '20260721';
 
 const MARKER_START = '<!-- chodrum-favicon:start -->';
 const MARKER_END = '<!-- chodrum-favicon:end -->';
