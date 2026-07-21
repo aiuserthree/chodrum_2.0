@@ -39,8 +39,9 @@
       if (typeof s.id === "string" && /^s\d+$/.test(s.id)) return Number(s.id.slice(1)) || 0;
       return 0;
     };
+    const qCompact = String(q || "").toLowerCase().replace(/\s+/g, "");
     const list = rows.filter(
-      (s) => (genre === "\uC804\uCCB4" || s.genre === genre) && (status === "\uC804\uCCB4" || s.status === status) && (s.title + s.artist).toLowerCase().includes(q.toLowerCase())
+      (s) => (genre === "\uC804\uCCB4" || s.genre === genre) && (status === "\uC804\uCCB4" || s.status === status) && (!qCompact || (s.title + s.artist).toLowerCase().replace(/\s+/g, "").includes(qCompact))
     ).sort((a, b) => {
       if (sort === "\uC774\uB984 \uC624\uB984\uCC28\uC21C") return String(a.title || "").localeCompare(String(b.title || ""), "ko");
       if (sort === "\uC774\uB984 \uB0B4\uB9BC\uCC28\uC21C") return String(b.title || "").localeCompare(String(a.title || ""), "ko");

@@ -43,10 +43,11 @@ function SheetsPage() {
     if (typeof s.id === 'string' && /^s\d+$/.test(s.id)) return Number(s.id.slice(1)) || 0;
     return 0;
   };
+  const qCompact = String(q || '').toLowerCase().replace(/\s+/g, '');
   const list = rows.filter((s) =>
     (genre === '전체' || s.genre === genre) &&
     (status === '전체' || s.status === status) &&
-    (s.title + s.artist).toLowerCase().includes(q.toLowerCase())
+    (!qCompact || (s.title + s.artist).toLowerCase().replace(/\s+/g, '').includes(qCompact))
   ).sort((a, b) => {
     if (sort === '이름 오름차순') return String(a.title || '').localeCompare(String(b.title || ''), 'ko');
     if (sort === '이름 내림차순') return String(b.title || '').localeCompare(String(a.title || ''), 'ko');

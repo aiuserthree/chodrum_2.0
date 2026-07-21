@@ -27,10 +27,11 @@ function ListPage() {
   const reset = () => { setQ(''); setCat('전체'); setLevels([]); setSort('인기순'); setVisibleCount(PAGE_SIZE); };
 
   const catalog = D.visibleSheets ? D.visibleSheets() : D.sheets.filter((s) => !s.status || s.status === '판매중');
+  const qCompact = String(q || '').toLowerCase().replace(/\s+/g, '');
   let list = catalog
     .filter((s) => cat === '전체' || s.genre === cat)
     .filter((s) => !levels.length || levels.includes(s.level))
-    .filter((s) => !q || (s.title + s.artist).toLowerCase().includes(q.toLowerCase()));
+    .filter((s) => !qCompact || (s.title + s.artist).toLowerCase().replace(/\s+/g, '').includes(qCompact));
   list = [...list].sort((a, b) =>
     sort === '가격순' ? a.price - b.price :
     sort === '이름순' ? a.title.localeCompare(b.title, 'ko') :

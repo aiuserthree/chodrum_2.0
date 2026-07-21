@@ -25,7 +25,8 @@
       setVisibleCount(PAGE_SIZE);
     };
     const catalog = D.visibleSheets ? D.visibleSheets() : D.sheets.filter((s) => !s.status || s.status === "\uD310\uB9E4\uC911");
-    let list = catalog.filter((s) => cat === "\uC804\uCCB4" || s.genre === cat).filter((s) => !levels.length || levels.includes(s.level)).filter((s) => !q || (s.title + s.artist).toLowerCase().includes(q.toLowerCase()));
+    const qCompact = String(q || "").toLowerCase().replace(/\s+/g, "");
+    let list = catalog.filter((s) => cat === "\uC804\uCCB4" || s.genre === cat).filter((s) => !levels.length || levels.includes(s.level)).filter((s) => !qCompact || (s.title + s.artist).toLowerCase().replace(/\s+/g, "").includes(qCompact));
     list = [...list].sort((a, b) => sort === "\uAC00\uACA9\uC21C" ? a.price - b.price : sort === "\uC774\uB984\uC21C" ? a.title.localeCompare(b.title, "ko") : sort === "\uCD5C\uC2E0\uC21C" ? (
       /* 최신순: created_at 내림차순 (NEW 배지와 별개) */
       new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime()

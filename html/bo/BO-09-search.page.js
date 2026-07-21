@@ -6,7 +6,8 @@
   const D = window.DrumData;
   const STATUS_TONE = { \uD310\uB9E4\uC911: "success", \uD310\uB9E4\uC911\uC9C0: "warning", \uC228\uAE40: "neutral" };
   const M_TONE = { \uC815\uC0C1: "success", \uC815\uC9C0: "warning", \uD0C8\uD1F4: "neutral" };
-  const matchQ = (value, qLower) => String(value || "").toLowerCase().includes(qLower);
+  const compactQ = (s) => String(s || "").toLowerCase().replace(/\s+/g, "");
+  const matchQ = (value, qCompact) => compactQ(value).includes(qCompact);
   const amountOf = (o) => o.items.reduce((n, it) => {
     const sheet = D.byId(it.id);
     const unit = it.price != null ? it.price : sheet ? sheet.price : 0;
@@ -14,20 +15,21 @@
   }, 0);
   function searchAll(raw) {
     const qLower = String(raw || "").trim().toLowerCase();
-    if (!qLower) {
+    const qCompact = compactQ(qLower);
+    if (!qCompact) {
       return { qLower: "", sheets: [], memberOrders: [], members: [], guestOrders: [] };
     }
     const sheets = D.sheets.filter((s, i) => {
       const code = s.code || "DS-" + (1042 - i);
-      return matchQ(s.title, qLower) || matchQ(s.artist, qLower) || matchQ(s.id, qLower) || matchQ(code, qLower);
+      return matchQ(s.title, qCompact) || matchQ(s.artist, qCompact) || matchQ(s.id, qCompact) || matchQ(code, qCompact);
     }).map((s, i) => ({
       ...s,
       code: s.code || "DS-" + (1042 - i),
       status: s.status || A.sheetStatus[s.id] || "\uD310\uB9E4\uC911"
     }));
-    const memberOrders = A.orders.filter((o) => o.member && [o.no, o.buyer, o.email].some((v) => matchQ(v, qLower)));
-    const members = A.members.filter((m) => matchQ(m.name, qLower) || matchQ(m.email, qLower));
-    const guestOrders = A.orders.filter((o) => !o.member && [o.no, o.buyer, o.email].some((v) => matchQ(v, qLower)));
+    const memberOrders = A.orders.filter((o) => o.member && [o.no, o.buyer, o.email].some((v) => matchQ(v, qCompact)));
+    const members = A.members.filter((m) => matchQ(m.name, qCompact) || matchQ(m.email, qCompact));
+    const guestOrders = A.orders.filter((o) => !o.member && [o.no, o.buyer, o.email].some((v) => matchQ(v, qCompact)));
     return { qLower, sheets, memberOrders, members, guestOrders };
   }
   function SectionEmpty({ text }) {

@@ -8,7 +8,9 @@ const D = window.DrumData;
 const STATUS_TONE = { 판매중: 'success', 판매중지: 'warning', 숨김: 'neutral' };
 const M_TONE = { 정상: 'success', 정지: 'warning', 탈퇴: 'neutral' };
 
-const matchQ = (value, qLower) => String(value || '').toLowerCase().includes(qLower);
+/** 공백 무시 매칭: '잘지내자' ↔ '잘 지내자, 우리' */
+const compactQ = (s) => String(s || '').toLowerCase().replace(/\s+/g, '');
+const matchQ = (value, qCompact) => compactQ(value).includes(qCompact);
 
 const amountOf = (o) => o.items.reduce((n, it) => {
   const sheet = D.byId(it.id);
@@ -18,14 +20,15 @@ const amountOf = (o) => o.items.reduce((n, it) => {
 
 function searchAll(raw) {
   const qLower = String(raw || '').trim().toLowerCase();
-  if (!qLower) {
+  const qCompact = compactQ(qLower);
+  if (!qCompact) {
     return { qLower: '', sheets: [], memberOrders: [], members: [], guestOrders: [] };
   }
 
   const sheets = D.sheets.filter((s, i) => {
     const code = s.code || ('DS-' + (1042 - i));
-    return matchQ(s.title, qLower) || matchQ(s.artist, qLower) ||
-      matchQ(s.id, qLower) || matchQ(code, qLower);
+    return matchQ(s.title, qCompact) || matchQ(s.artist, qCompact) ||
+      matchQ(s.id, qCompact) || matchQ(code, qCompact);
   }).map((s, i) => ({
     ...s,
     code: s.code || ('DS-' + (1042 - i)),
@@ -33,13 +36,13 @@ function searchAll(raw) {
   }));
 
   const memberOrders = A.orders.filter((o) =>
-    o.member && [o.no, o.buyer, o.email].some((v) => matchQ(v, qLower)));
+    o.member && [o.no, o.buyer, o.email].some((v) => matchQ(v, qCompact)));
 
   const members = A.members.filter((m) =>
-    matchQ(m.name, qLower) || matchQ(m.email, qLower));
+    matchQ(m.name, qCompact) || matchQ(m.email, qCompact));
 
   const guestOrders = A.orders.filter((o) =>
-    !o.member && [o.no, o.buyer, o.email].some((v) => matchQ(v, qLower)));
+    !o.member && [o.no, o.buyer, o.email].some((v) => matchQ(v, qCompact)));
 
   return { qLower, sheets, memberOrders, members, guestOrders };
 }
