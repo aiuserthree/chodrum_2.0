@@ -12,7 +12,7 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const HTML_ROOT = path.join(__dirname, '..', 'html');
 
 /** Bump when apple-touch / favicon binaries change (Safari caches hard). */
-const ICON_V = '20260721';
+const ICON_V = '20260721c';
 
 const MARKER_START = '<!-- chodrum-favicon:start -->';
 const MARKER_END = '<!-- chodrum-favicon:end -->';
@@ -25,7 +25,7 @@ const FO_BLOCK = `${MARKER_START}
 <link rel="apple-touch-icon" href="/apple-touch-icon-120x120.png?v=${ICON_V}" sizes="120x120">
 <link rel="apple-touch-icon" href="/shared/apple-touch-icon-fo.png?v=${ICON_V}" sizes="180x180">
 <link rel="apple-touch-icon-precomposed" href="/apple-touch-icon-precomposed.png?v=${ICON_V}">
-<link rel="icon" href="/shared/favicon-fo.svg" type="image/svg+xml">
+<link rel="icon" href="/shared/favicon-fo.svg?v=${ICON_V}" type="image/svg+xml">
 <link rel="icon" href="/shared/favicon-fo-32.png?v=${ICON_V}" type="image/png" sizes="32x32">
 <link rel="icon" href="/shared/favicon-fo-16.png?v=${ICON_V}" type="image/png" sizes="16x16">
 <link rel="shortcut icon" href="/favicon.ico?v=${ICON_V}">
@@ -36,7 +36,7 @@ const BO_BLOCK = `${MARKER_START}
 <link rel="apple-touch-icon" href="/shared/apple-touch-icon-bo.png?v=${ICON_V}" sizes="180x180">
 <link rel="apple-touch-icon" href="/apple-touch-icon.png?v=${ICON_V}" sizes="180x180">
 <link rel="apple-touch-icon-precomposed" href="/apple-touch-icon-precomposed.png?v=${ICON_V}">
-<link rel="icon" href="/shared/favicon-bo.svg" type="image/svg+xml">
+<link rel="icon" href="/shared/favicon-bo.svg?v=${ICON_V}" type="image/svg+xml">
 <link rel="icon" href="/shared/favicon-bo-32.png?v=${ICON_V}" type="image/png" sizes="32x32">
 <link rel="icon" href="/shared/favicon-bo-16.png?v=${ICON_V}" type="image/png" sizes="16x16">
 <link rel="shortcut icon" href="/favicon.ico?v=${ICON_V}">
