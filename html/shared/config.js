@@ -52,7 +52,7 @@ window.CHODRUM_CONFIG = {
    * Live 키를 넣는 순간 TOSS_CONFIRM_URL(또는 자동 유도 URL) confirm 이 필수입니다.
    * 테스트 키 예: test_ck_D5GePWvyJnrK0W0k6q8gLzN9 (공식 샘플 · 변경될 수 있음)
    */
-  TOSS_CLIENT_KEY: '', // 토스 가입 후 테스트/라이브 Client Key
+  TOSS_CLIENT_KEY: 'test_gck_KNbdOvk5rkoL9Mj9nMaorn07xlzm', // 토스 가입 후 테스트/라이브 Client Key
   /* 'auto' = 키 있으면 토스 SDK / 없으면 데모 · 'demo' = 항상 데모 · 'live' = 항상 SDK */
   TOSS_MODE: 'auto',
   /* 비우면 SUPABASE_URL + /functions/v1/toss-confirm 으로 자동 유도 (함수 배포 후) */
