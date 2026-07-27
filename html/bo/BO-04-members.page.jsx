@@ -9,6 +9,13 @@ const M_TONE = { 정상: 'success', 정지: 'warning', 탈퇴: 'neutral' };
 const PAGE_SIZE = 20;
 const amountOf = (o) => o.items.reduce((n, it) => n + D.byId(it.id).price * it.qty, 0);
 
+/** members.birth (YYYYMMDD) → YYYY.MM.DD · 없으면 — */
+function formatBirth(birth) {
+  const s = String(birth || '').replace(/\D/g, '');
+  if (s.length !== 8) return '—';
+  return s.slice(0, 4) + '.' + s.slice(4, 6) + '.' + s.slice(6, 8);
+}
+
 function pageWindow(cur, total, span) {
   if (total <= 1) return [1];
   const half = Math.floor(span / 2);
@@ -205,6 +212,7 @@ function MembersPage() {
                 <div style={{ ...B.mono, fontSize: 12, color: 'var(--text-secondary)', marginTop: 3 }}>{cur.email} · 가입 {cur.joined}</div>
               </div>
             </div>
+            <B.KVRow k="생년월일" v={<span style={{ ...B.mono, fontSize: 12.5 }}>{formatBirth(cur.birth)}</span>} />
             <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
               <span style={{ fontSize: 13, color: 'var(--text-secondary)', flex: 'none' }}>회원 상태</span>
               <div style={{ width: 130 }}><Select size="sm" value={cur.status} onChange={(e) => setMemberStatus(cur.email, e.target.value)} options={['정상', '정지', '탈퇴']} /></div>
