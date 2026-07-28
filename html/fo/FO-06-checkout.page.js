@@ -26,6 +26,20 @@
     const [doc, setDoc] = React.useState(null);
     const [paying, setPaying] = React.useState(false);
     const pgDemo = window.ChodrumPayments && ChodrumPayments.isDemoMode();
+    React.useEffect(() => {
+      if (!window.ChodrumPayments || typeof ChodrumPayments.reclaimAbandonedPending !== "function") return;
+      ChodrumPayments.reclaimAbandonedPending({ minAgeMs: 0 });
+      const onShow = () => {
+        ChodrumPayments.reclaimAbandonedPending({ minAgeMs: 90 * 1e3 });
+        setPaying(false);
+      };
+      window.addEventListener("pageshow", onShow);
+      document.addEventListener("visibilitychange", onShow);
+      return () => {
+        window.removeEventListener("pageshow", onShow);
+        document.removeEventListener("visibilitychange", onShow);
+      };
+    }, []);
     if (!items.length) {
       return /* @__PURE__ */ React.createElement(F.Scaffold, { title: "\uC8FC\uBB38 / \uACB0\uC81C", back: F.PAGES.cart }, /* @__PURE__ */ React.createElement("div", { "data-screen-label": "FO-06 \uC8FC\uBB38/\uACB0\uC81C (\uC9C4\uC785 \uCC28\uB2E8)" }, /* @__PURE__ */ React.createElement(F.Empty, { icon: "shopping-cart", title: "\uC7A5\uBC14\uAD6C\uB2C8\uB97C \uD1B5\uD574 \uACB0\uC81C\uB97C \uC9C4\uD589\uD574\uC8FC\uC138\uC694", sub: "\uACB0\uC81C\uD560 \uC0C1\uD488\uC774 \uC120\uD0DD\uB418\uC9C0 \uC54A\uC558\uC5B4\uC694. \uBAA8\uB4E0 \uACB0\uC81C\uB294 \uC7A5\uBC14\uAD6C\uB2C8\uB97C \uAC70\uCCD0\uC57C \uD574\uC694.", action: "\uC7A5\uBC14\uAD6C\uB2C8\uB85C \uC774\uB3D9", href: F.PAGES.cart })));
     }
@@ -69,6 +83,7 @@
       } catch (e) {
         console.warn(e);
         F.toast(e && e.message || "\uACB0\uC81C \uC694\uCCAD\uC5D0 \uC2E4\uD328\uD588\uC5B4\uC694");
+      } finally {
         setPaying(false);
       }
     };

@@ -315,18 +315,17 @@
 
     try {
       await payment.requestPayment(payload);
+      /* redirect 성공 시 이 페이지는 보통 unload. resolve만 되면 abandon watcher가 회수 */
     } catch (err) {
-      /* 사용자가 창을 닫거나 SDK 오류 */
+      /* 사용자가 창을 닫거나 SDK 오류 / USER_CANCEL / PAY_PROCESS_CANCELED */
       var code = (err && (err.code || err.errorCode)) || 'PAY_ERROR';
       var message = (err && (err.message || err.msg)) || '결제 요청에 실패했어요';
+      clearPending();
+      markPendingCanceled(order.no);
       if (code === 'USER_CANCEL' || code === 'PAY_PROCESS_CANCELED' || /cancel/i.test(String(code))) {
-        clearPending();
-        markPendingCanceled(order.no);
         toast('결제를 취소했어요. 장바구니는 그대로 유지돼요.');
         return;
       }
-      clearPending();
-      markPendingCanceled(order.no);
       location.href =
         pages().fail +
         '?code=' +
@@ -562,6 +561,64 @@
     }
   }
 
+  function isPaymentCallbackPath() {
+    var path = (location.pathname || '') + (location.hash || '');
+    return /payment\/(success|fail)/i.test(path);
+  }
+
+  /**
+   * Toss redirect 창을 닫으면 failUrl을 안 타서 DB 대기가 남을 수 있음.
+   * 체크아웃 등으로 돌아오면 로컬 pending을 회수하고 DB를 취소.
+   * @param {{ force?: boolean, minAgeMs?: number }} opts
+   */
+  function reclaimAbandonedPending(opts) {
+    opts = opts || {};
+    if (isPaymentCallbackPath()) return false;
+
+    var pending = getPending();
+    if (!pending || !pending.no) {
+      /* 로컬 pending 없어도 DB에 오래된 대기가 쌓일 수 있음 */
+      try {
+        if (window.ChodrumAPI && ChodrumAPI.orders
+            && typeof ChodrumAPI.orders.cancelStalePending === 'function') {
+          Promise.resolve(ChodrumAPI.orders.cancelStalePending(45)).catch(function () {});
+        }
+      } catch (_) { /* ignore */ }
+      return false;
+    }
+
+    var minAge = opts.minAgeMs != null ? opts.minAgeMs : 90 * 1000;
+    var age = Date.now() - (Number(pending.pendingAt) || 0);
+    if (!opts.force && age < minAge) return false;
+
+    clearPending();
+    markPendingCanceled(pending.no);
+    return true;
+  }
+
+  function bindAbandonWatchers() {
+    if (bindAbandonWatchers._done) return;
+    bindAbandonWatchers._done = true;
+
+    window.addEventListener('pageshow', function (ev) {
+      /* bfcache 복원 = Toss에서 뒤로가기 / 창 닫았다가 복귀 패턴 */
+      reclaimAbandonedPending({ force: !!ev.persisted, minAgeMs: ev.persisted ? 0 : 90 * 1000 });
+    });
+
+    document.addEventListener('visibilitychange', function () {
+      if (document.visibilityState !== 'visible') return;
+      reclaimAbandonedPending({ minAgeMs: 90 * 1000 });
+    });
+
+    window.addEventListener('focus', function () {
+      reclaimAbandonedPending({ minAgeMs: 2 * 60 * 1000 });
+    });
+  }
+
+  try {
+    bindAbandonWatchers();
+  } catch (_) { /* ignore */ }
+
   function handleFail(params) {
     /* 실패 시 pending 제거 — 장바구니는 건드리지 않음. DB 대기는 취소로 마킹 */
     var pending = getPending();
@@ -584,6 +641,7 @@
     getPending: getPending,
     setPending: setPending,
     clearPending: clearPending,
+    reclaimAbandonedPending: reclaimAbandonedPending,
     requestCheckout: requestCheckout,
     handleSuccess: handleSuccess,
     handleFail: handleFail,

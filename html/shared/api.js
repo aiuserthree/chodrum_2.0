@@ -1392,6 +1392,9 @@
 
   /** Checkout: insert status=대기 (+ items). Paid + downloads via toss-confirm Edge. */
   async function createPendingOrder(order) {
+    /* Soft expiry + same-buyer siblings so abandoned Toss redirects don't pile up as 대기 */
+    try { await cancelStalePendingOrders(45); } catch (_) { /* best-effort */ }
+    try { await cancelSiblingPendingOrders(order && order.email, order && order.no); } catch (_) { /* best-effort */ }
     return createOrder(Object.assign({}, order, {
       status: '대기',
       skipDownloads: true,
@@ -1490,6 +1493,59 @@
       return false;
     }
     return true;
+  }
+
+  /** 대기 주문 soft expiry (migration 017). minutes 기본 45, 최소 5. */
+  async function cancelStalePendingOrders(minutes) {
+    var mins = Math.max(5, Number(minutes) || 45);
+    if (!live()) {
+      var cutoff = Date.now() - mins * 60 * 1000;
+      var n = 0;
+      (window.AdminData.orders || []).forEach(function (o) {
+        if (o.status !== '대기') return;
+        var t = o.createdAt || o.created_at || 0;
+        if (typeof t === 'string') t = Date.parse(t) || 0;
+        if (t && t < cutoff) {
+          o.status = '취소';
+          n += 1;
+        }
+      });
+      return n;
+    }
+    var client = sb();
+    var rpc = await client.rpc('cancel_stale_pending_orders', { p_older_than_minutes: mins });
+    if (rpc.error) {
+      console.warn('[CHODRUM] cancel_stale_pending_orders', rpc.error);
+      return 0;
+    }
+    return Number(rpc.data) || 0;
+  }
+
+  /** 같은 이메일의 다른 대기 주문 취소 (새 결제 시작 시). */
+  async function cancelSiblingPendingOrders(email, exceptOrderNo) {
+    email = String(email || '').trim().toLowerCase();
+    if (!email || email.indexOf('@') < 1) return 0;
+    if (!live()) {
+      var n = 0;
+      (window.AdminData.orders || []).forEach(function (o) {
+        if (o.status === '대기' && String(o.email || '').toLowerCase() === email
+            && o.no !== exceptOrderNo) {
+          o.status = '취소';
+          n += 1;
+        }
+      });
+      return n;
+    }
+    var client = sb();
+    var rpc = await client.rpc('cancel_sibling_pending_orders', {
+      p_email: email,
+      p_except_order_no: exceptOrderNo || null,
+    });
+    if (rpc.error) {
+      console.warn('[CHODRUM] cancel_sibling_pending_orders', rpc.error);
+      return 0;
+    }
+    return Number(rpc.data) || 0;
   }
 
   /** Guest lookup (FO-10) — RPC lookup_guest_orders (014); fallback open select if RPC missing */
@@ -2249,6 +2305,8 @@
       createPending: createPendingOrder,
       updateStatus: updateOrderStatus,
       cancelPending: cancelPendingOrder,
+      cancelStalePending: cancelStalePendingOrders,
+      cancelSiblingPending: cancelSiblingPendingOrders,
       forEmail: ordersForEmail,
       forMember: ordersForMember,
       purchasesForEmail: purchasesForEmail,

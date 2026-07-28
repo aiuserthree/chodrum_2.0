@@ -98,7 +98,11 @@ function GuestLookupPage() {
     setBusy(false);
   };
 
-  const resetLookup = () => {
+  const resetLookup = async () => {
+    /* Drop any leftover OTP session before starting another lookup */
+    try {
+      if (Auth && Auth.live && Auth.live() && Auth.signOut) await Auth.signOut();
+    } catch (e) { /* ignore */ }
     setStep(1);
     setCode('');
     setCodeErr('');
@@ -175,6 +179,7 @@ function GuestLookupPage() {
                 </Card>
               ))}
               <p className="fo-caption">다운로드는 결제일로부터 7일간 가능해요. 만료된 악보는 고객센터에서 재발급을 요청할 수 있어요.</p>
+              <Button variant="ghost" size="md" fullWidth onClick={resetLookup}>다른 이메일로 조회</Button>
             </div>
           ) : (
             <div>

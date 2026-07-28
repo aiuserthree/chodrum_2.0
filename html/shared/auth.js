@@ -157,7 +157,10 @@
     if (/user already registered|already.*registered|email.*already|already.*exists/.test(lower)) {
       return '이미 가입된 이메일이에요.';
     }
-    if (/too many requests|rate limit|over_request_rate_limit/.test(lower)) {
+    if (
+      /too many requests|rate limit|over_request_rate_limit/.test(lower) ||
+      /for security purposes|only request this after|after \d+ seconds/.test(lower)
+    ) {
       return '요청이 너무 많아요. 잠시 후 다시 시도해주세요.';
     }
     if (/network|fetch failed|failed to fetch/.test(lower)) {
@@ -812,8 +815,12 @@
    * Guest order lookup (FO-10) — same 6-digit email OTP as signup
    * (Confirm sign up / Magic Link templates with {{ .Token }}).
    * Always sends; does not reveal whether orders exist for the email.
+   *
+   * Must not run under an existing Auth session: a leftover verify session
+   * (same or other email) blocks / confuses the next signInWithOtp.
    */
   async function sendGuestLookupOtp(email) {
+    try { await signOut(); } catch (e) { /* ignore */ }
     return sendEmailOtp(email, { forSignup: false });
   }
 
@@ -821,19 +828,10 @@
     var r = await verifyEmailOtp(email, token, { forSignup: false });
     if (!r.ok) return r;
     /*
-     * Email ownership only for download lookup.
-     * Incomplete auth users must not stay signed in; consented members keep session.
+     * Email ownership only for download lookup (RPC / signed URL use email+orderNo).
+     * Always drop the temporary OTP session so the next code request is not blocked.
      */
-    try {
-      var consented = await fetchConsentForEmail(String(email || '').trim());
-      if (consented) {
-        await restoreSession();
-      } else {
-        await signOut();
-      }
-    } catch (e) {
-      try { await signOut(); } catch (e2) { /* ignore */ }
-    }
+    try { await signOut(); } catch (e) { /* ignore */ }
     return { ok: true };
   }
 

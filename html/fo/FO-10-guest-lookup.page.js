@@ -99,7 +99,11 @@
       }
       setBusy(false);
     };
-    const resetLookup = () => {
+    const resetLookup = async () => {
+      try {
+        if (Auth && Auth.live && Auth.live() && Auth.signOut) await Auth.signOut();
+      } catch (e) {
+      }
       setStep(1);
       setCode("");
       setCodeErr("");
@@ -127,7 +131,7 @@
         },
         expired ? "\uB9CC\uB8CC" : "PDF"
       ));
-    })))), /* @__PURE__ */ React.createElement("p", { className: "fo-caption" }, "\uB2E4\uC6B4\uB85C\uB4DC\uB294 \uACB0\uC81C\uC77C\uB85C\uBD80\uD130 7\uC77C\uAC04 \uAC00\uB2A5\uD574\uC694. \uB9CC\uB8CC\uB41C \uC545\uBCF4\uB294 \uACE0\uAC1D\uC13C\uD130\uC5D0\uC11C \uC7AC\uBC1C\uAE09\uC744 \uC694\uCCAD\uD560 \uC218 \uC788\uC5B4\uC694.")) : /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement(F.Empty, { icon: "mail", title: "\uD574\uB2F9 \uC774\uBA54\uC77C\uB85C \uC8FC\uBB38 \uB0B4\uC5ED\uC774 \uC5C6\uC2B5\uB2C8\uB2E4", sub: "\uC8FC\uBB38 \uC2DC \uC785\uB825\uD55C \uC774\uBA54\uC77C\uC774 \uB9DE\uB294\uC9C0 \uB2E4\uC2DC \uD655\uC778\uD574\uC8FC\uC138\uC694. \uC774\uBA54\uC77C\uC774 \uB2E4\uB974\uBA74 \uC870\uD68C\uD560 \uC218 \uC5C6\uC5B4\uC694.", action: "\uB2E4\uB978 \uC774\uBA54\uC77C\uB85C \uC870\uD68C", onAction: resetLookup })) : null));
+    })))), /* @__PURE__ */ React.createElement("p", { className: "fo-caption" }, "\uB2E4\uC6B4\uB85C\uB4DC\uB294 \uACB0\uC81C\uC77C\uB85C\uBD80\uD130 7\uC77C\uAC04 \uAC00\uB2A5\uD574\uC694. \uB9CC\uB8CC\uB41C \uC545\uBCF4\uB294 \uACE0\uAC1D\uC13C\uD130\uC5D0\uC11C \uC7AC\uBC1C\uAE09\uC744 \uC694\uCCAD\uD560 \uC218 \uC788\uC5B4\uC694."), /* @__PURE__ */ React.createElement(Button, { variant: "ghost", size: "md", fullWidth: true, onClick: resetLookup }, "\uB2E4\uB978 \uC774\uBA54\uC77C\uB85C \uC870\uD68C")) : /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement(F.Empty, { icon: "mail", title: "\uD574\uB2F9 \uC774\uBA54\uC77C\uB85C \uC8FC\uBB38 \uB0B4\uC5ED\uC774 \uC5C6\uC2B5\uB2C8\uB2E4", sub: "\uC8FC\uBB38 \uC2DC \uC785\uB825\uD55C \uC774\uBA54\uC77C\uC774 \uB9DE\uB294\uC9C0 \uB2E4\uC2DC \uD655\uC778\uD574\uC8FC\uC138\uC694. \uC774\uBA54\uC77C\uC774 \uB2E4\uB974\uBA74 \uC870\uD68C\uD560 \uC218 \uC5C6\uC5B4\uC694.", action: "\uB2E4\uB978 \uC774\uBA54\uC77C\uB85C \uC870\uD68C", onAction: resetLookup })) : null));
   }
   window.ChodrumBoot.whenReady(() => {
     ReactDOM.createRoot(document.getElementById("app")).render(/* @__PURE__ */ React.createElement(GuestLookupPage, null));

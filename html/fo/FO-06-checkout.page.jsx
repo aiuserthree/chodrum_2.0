@@ -31,6 +31,22 @@ function CheckoutPage() {
   const [paying, setPaying] = React.useState(false);
   const pgDemo = window.ChodrumPayments && ChodrumPayments.isDemoMode();
 
+  /* Toss 창 닫고 failUrl을 안 탄 채 복귀하면 로컬/DB 대기 회수 */
+  React.useEffect(() => {
+    if (!window.ChodrumPayments || typeof ChodrumPayments.reclaimAbandonedPending !== 'function') return;
+    ChodrumPayments.reclaimAbandonedPending({ minAgeMs: 0 });
+    const onShow = () => {
+      ChodrumPayments.reclaimAbandonedPending({ minAgeMs: 90 * 1000 });
+      setPaying(false);
+    };
+    window.addEventListener('pageshow', onShow);
+    document.addEventListener('visibilitychange', onShow);
+    return () => {
+      window.removeEventListener('pageshow', onShow);
+      document.removeEventListener('visibilitychange', onShow);
+    };
+  }, []);
+
   /* S-07: 장바구니 미경유(결제 대상 없음) → 진입 차단 */
   if (!items.length) {
     return (
@@ -80,6 +96,8 @@ function CheckoutPage() {
     } catch (e) {
       console.warn(e);
       F.toast((e && e.message) || '결제 요청에 실패했어요');
+    } finally {
+      /* USER_CANCEL 등으로 체크아웃에 남으면 버튼 잠금 해제 */
       setPaying(false);
     }
   };
