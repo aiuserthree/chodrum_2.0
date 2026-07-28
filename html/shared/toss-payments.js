@@ -291,6 +291,7 @@
         return;
       }
       clearPending();
+      markPendingCanceled(order.no);
       location.href =
         pages().fail +
         '?code=PAY_PROCESS_CANCELED&message=' +
@@ -320,10 +321,12 @@
       var message = (err && (err.message || err.msg)) || '결제 요청에 실패했어요';
       if (code === 'USER_CANCEL' || code === 'PAY_PROCESS_CANCELED' || /cancel/i.test(String(code))) {
         clearPending();
+        markPendingCanceled(order.no);
         toast('결제를 취소했어요. 장바구니는 그대로 유지돼요.');
         return;
       }
       clearPending();
+      markPendingCanceled(order.no);
       location.href =
         pages().fail +
         '?code=' +
@@ -348,10 +351,13 @@
 
     var pending = getPending();
     if (!pending || pending.no !== orderId) {
+      /* pending 로컬 유실이어도 DB 대기가 남을 수 있음 */
+      markPendingCanceled(orderId);
       return { ok: false, error: '결제 대기 주문을 찾을 수 없어요. 장바구니에서 다시 시도해주세요.' };
     }
     if (Number(pending.total) !== amount) {
       clearPending();
+      markPendingCanceled(orderId);
       return {
         ok: false,
         error: '결제 금액이 주문과 달라요. 보안을 위해 결제를 중단했어요. (금액 위변조 방지)',
@@ -366,6 +372,8 @@
       order: pending,
     });
     if (!confirmed.ok) {
+      clearPending();
+      markPendingCanceled(orderId);
       return { ok: false, error: confirmed.error || '결제 승인에 실패했어요' };
     }
 
@@ -540,16 +548,32 @@
     if (ids && ids.length) Store.cart.remove(ids);
   }
 
+  /** DB 대기 주문 → 취소 (FO 구매내역에 stub 남지 않도록). fire-and-forget */
+  function markPendingCanceled(orderNo) {
+    if (!orderNo) return;
+    try {
+      if (window.ChodrumAPI && ChodrumAPI.orders && typeof ChodrumAPI.orders.cancelPending === 'function') {
+        Promise.resolve(ChodrumAPI.orders.cancelPending(orderNo)).catch(function (e) {
+          console.warn('[CHODRUM PG] cancelPending', e);
+        });
+      }
+    } catch (e) {
+      console.warn('[CHODRUM PG] cancelPending', e);
+    }
+  }
+
   function handleFail(params) {
-    /* 실패 시 pending 제거 — 장바구니는 건드리지 않음 */
+    /* 실패 시 pending 제거 — 장바구니는 건드리지 않음. DB 대기는 취소로 마킹 */
     var pending = getPending();
+    var orderId = params.orderId || (pending && pending.no) || '';
     if (pending && (!params.orderId || pending.no === params.orderId)) {
       clearPending();
     }
+    if (orderId) markPendingCanceled(orderId);
     return {
       code: params.code || 'UNKNOWN',
       message: params.message || '결제에 실패했어요',
-      orderId: params.orderId || (pending && pending.no) || '',
+      orderId: orderId,
     };
   }
 

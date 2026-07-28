@@ -1252,8 +1252,10 @@
       byOrder[d.order_no][d.sheet_id] = d;
     });
     return (orderRows || []).map(function (o) {
+      var paid = o.status === '결제완료' || !o.status;
       return {
         orderNo: o.order_no,
+        status: o.status || null,
         date: fmtOrderDate(o.created_at),
         createdAt: o.created_at ? new Date(o.created_at).getTime() : Date.now(),
         items: (o.order_items || []).map(function (it) {
@@ -1261,11 +1263,15 @@
           var sheet = (window.DrumData && typeof window.DrumData.byId === 'function')
             ? window.DrumData.byId(it.sheet_id)
             : null;
+          /* 미결제(대기/취소/환불)는 다운로드 권한 없음 — dday 가짜 7일 금지 */
+          var dday = d
+            ? ddayFromExpires(d.expires_at, d.status)
+            : (paid ? 7 : null);
           return {
             id: it.sheet_id,
             sheetId: it.sheet_id,
             title: (sheet && sheet.title) || '',
-            dday: d ? ddayFromExpires(d.expires_at, d.status) : 7,
+            dday: dday,
           };
         }),
       };
@@ -1453,6 +1459,39 @@
     }
   }
 
+  /**
+   * 결제 실패/취소 시 대기 주문 → 취소.
+   * FO는 orders UPDATE RLS가 없어 security definer RPC(cancel_pending_order) 사용.
+   */
+  async function cancelPendingOrder(orderNo) {
+    if (!orderNo) return false;
+    if (!live()) {
+      var hit = false;
+      (window.AdminData.orders || []).forEach(function (o) {
+        if (o.no === orderNo && o.status === '대기') {
+          o.status = '취소';
+          hit = true;
+        }
+      });
+      return hit;
+    }
+    var client = sb();
+    var rpc = await client.rpc('cancel_pending_order', { p_order_no: orderNo });
+    if (!rpc.error) return !!rpc.data;
+    console.warn('[CHODRUM] cancel_pending_order', rpc.error);
+    /* migration 016 미적용 시 — RLS로 막힐 수 있음 */
+    var res = await client
+      .from('orders')
+      .update({ status: '취소' })
+      .eq('order_no', orderNo)
+      .eq('status', '대기');
+    if (res.error) {
+      console.warn('[CHODRUM] cancelPending fallback', res.error);
+      return false;
+    }
+    return true;
+  }
+
   /** Guest lookup (FO-10) — RPC lookup_guest_orders (014); fallback open select if RPC missing */
   async function ordersForEmail(email) {
     email = (email || '').toLowerCase();
@@ -1487,12 +1526,13 @@
         });
       }
     }
-    /* Pre-014 fallback */
+    /* Pre-014 fallback — guest RPC와 동일하게 결제완료만 */
     var o2 = await client
       .from('orders')
-      .select('order_no, created_at, order_items(sheet_id, qty)')
+      .select('order_no, created_at, status, order_items(sheet_id, qty)')
       .ilike('email', email)
       .eq('is_member', false)
+      .eq('status', '결제완료')
       .order('created_at', { ascending: false });
     if (o2.error) throw o2.error;
     var dl = await client.from('downloads').select('*').ilike('email', email).eq('is_member', false);
@@ -1536,7 +1576,7 @@
     }
 
     var client = sb();
-    var selectCols = 'order_no, created_at, auth_user_id, auth_provider, order_items(sheet_id, qty)';
+    var selectCols = 'order_no, created_at, status, auth_user_id, auth_provider, order_items(sheet_id, qty)';
     var byNo = {};
     var identityColsMissing = false;
 
@@ -1654,7 +1694,7 @@
       }
       var bare = await client
         .from('orders')
-        .select('order_no, created_at, order_items(sheet_id, qty)')
+        .select('order_no, created_at, status, order_items(sheet_id, qty)')
         .ilike('email', email)
         .eq('is_member', true)
         .order('created_at', { ascending: false });
@@ -1755,7 +1795,9 @@
     }).filter(function (p) { return p.id != null && p.id !== ''; });
   }
 
-  /* FO 마이페이지용 — 주문+다운로드를 구매 행으로 펼침 (identity-scoped) */
+  /* FO 마이페이지용 — 결제완료 주문만 구매/다운로드 행으로 펼침 (identity-scoped)
+   * 비회원 lookup_guest_orders(status=결제완료)와 동일 정책.
+   * 대기·취소·환불·실패성 stub 은 구매내역에 노출하지 않음. */
   async function purchasesForEmail(email, opts) {
     opts = opts || {};
     email = (email || opts.email || '').toLowerCase();
@@ -1786,7 +1828,10 @@
     });
     var out = [];
     orders.forEach(function (o) {
+      if (o.status && o.status !== '결제완료') return;
       (o.items || []).forEach(function (it) {
+        /* REVOKED(환불 회수) · 권한 없는 행 제외 */
+        if (typeof it.dday !== 'number') return;
         var id = it.sheetId || it.id;
         out.push({
           id: id,
@@ -1795,7 +1840,7 @@
           orderNo: o.orderNo,
           paidAt: o.createdAt || Date.now(),
           date: o.date,
-          dday: typeof it.dday === 'number' ? it.dday : 7,
+          dday: it.dday,
         });
       });
     });
@@ -2203,6 +2248,7 @@
       create: createOrder,
       createPending: createPendingOrder,
       updateStatus: updateOrderStatus,
+      cancelPending: cancelPendingOrder,
       forEmail: ordersForEmail,
       forMember: ordersForMember,
       purchasesForEmail: purchasesForEmail,
