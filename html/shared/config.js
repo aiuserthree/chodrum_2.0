@@ -53,7 +53,7 @@ window.CHODRUM_CONFIG = {
    * Client Key → 여기. Secret → supabase secrets set TOSS_SECRET_KEY=test_sk_...
    * 비어 있거나 YOUR_ 로 시작하면 로컬 데모 결제창.
    */
-  TOSS_CLIENT_KEY: 'test_ck_GePWvyJnrKOlaq9dNEG6rgLzN97E', // API 개별 Client (gck_ 위젯 키 넣지 마세요)
+  TOSS_CLIENT_KEY: 'test_ck_YZ1aOwX7K8mdgbOxegmryQxzvNPG', // API 개별 Client (gck_ 위젯 키 넣지 마세요)
   /* 'auto' = 키 있으면 토스 SDK / 없으면 데모 · 'demo' = 항상 데모 · 'live' = 항상 SDK */
   TOSS_MODE: 'auto',
   /* 비우면 SUPABASE_URL + /functions/v1/toss-confirm 으로 자동 유도 (함수 배포 후) */
