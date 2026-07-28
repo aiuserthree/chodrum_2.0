@@ -147,6 +147,10 @@
   /**
    * Live: confirm Supabase session still has admin role (RLS depends on JWT).
    * Call after supabase-client.js loads on BO pages.
+   *
+   * Uses BO-only storageKey (chodrum-bo-auth) so FO signOut cannot clear it.
+   * Transient getSession failures keep the local gate; only a confirmed
+   * non-admin / missing session forces logout.
    */
   async function verifyAdminSession() {
     if (isLoginPage()) return true;
@@ -154,14 +158,21 @@
     try {
       var client = window.ChodrumSB.client;
       var sess = await client.auth.getSession();
+      if (sess.error) {
+        console.warn('[CHODRUM BO] verifyAdminSession', sess.error);
+        /* Brief refresh / network blip — do not wipe BO gate */
+        return isLoggedIn();
+      }
       var user = sess.data && sess.data.session && sess.data.session.user;
       if (isAdminUser(user)) {
         var c = creds();
         if (!isLoggedIn()) writeSession(c.id || user.email, { mode: 'supabase', email: user.email });
         return true;
       }
+      /* Explicit non-admin or empty session → clear gate */
     } catch (e) {
       console.warn('[CHODRUM BO] verifyAdminSession', e);
+      return isLoggedIn();
     }
     try { sessionStorage.removeItem(SESSION_KEY); } catch (e2) { /* ignore */ }
     if (!isLoginPage()) location.replace(LOGIN_PAGE);

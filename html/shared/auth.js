@@ -259,7 +259,7 @@
     var meta = user.user_metadata || {};
     var provider = detectAuthProvider(user);
     if (provider === 'email' || provider === 'email_password') {
-      return {
+      var emailProfile = {
         type: 'email',
         provider: 'email',
         auth_provider: 'email',
@@ -269,6 +269,13 @@
         fromOAuth: false,
         authId: user.id,
       };
+      /* Carry signup consent from Auth metadata so login can heal ghost members rows */
+      if (meta.terms_agreed_at) emailProfile.terms_agreed_at = meta.terms_agreed_at;
+      if (meta.privacy_agreed_at) emailProfile.privacy_agreed_at = meta.privacy_agreed_at;
+      if (Object.prototype.hasOwnProperty.call(meta, 'marketing_agreed_at')) {
+        emailProfile.marketing_agreed_at = meta.marketing_agreed_at || null;
+      }
+      return emailProfile;
     }
     var contactEmail = contactEmailFromUser(user);
     var name =
@@ -380,7 +387,10 @@
 
   async function fetchConsentForEmail(email) {
     var memberConsent = await fetchMemberConsentForEmail(email);
-    if (memberConsent !== null) return memberConsent;
+    /* true = completed email member. false = ghost row (null consents) — fall through
+     * to Auth metadata so a finished signup is not locked out of restoreSession.
+     * null = no members row yet — same Auth metadata check. */
+    if (memberConsent === true) return true;
     return fetchConsentFromSession(email);
   }
 
