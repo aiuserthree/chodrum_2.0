@@ -279,6 +279,16 @@ Deno.serve(async (req) => {
   if (!secret) {
     return json({ error: 'TOSS_SECRET_KEY is not configured' }, 500);
   }
+  /* 결제창(API 개별) Secret만 사용 — 위젯 Secret(gsk_)은 confirm과 키 쌍이 다름 */
+  if (/_(?:gsk)_/.test(secret) || /^(?:test|live)_gsk_/.test(secret)) {
+    return json(
+      {
+        error:
+          'TOSS_SECRET_KEY가 결제위젯 Secret(gsk_)입니다. 개발자센터 → API 개별 연동 Secret(test_sk_ / live_sk_)으로 supabase secrets set 하세요.',
+      },
+      500,
+    );
+  }
 
   const paymentKey = body.paymentKey;
   const orderId = String(body.orderId || '').trim();

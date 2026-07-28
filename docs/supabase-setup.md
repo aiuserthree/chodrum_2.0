@@ -343,9 +343,11 @@ BO 악보 등록(`BO-02-sheet-register.html`)에서:
 
 FO 체크아웃(`/checkout`)은 **토스페이먼츠** 결제창을 사용합니다.
 
-1. [토스페이먼츠 개발자센터](https://developers.tosspayments.com)에서 Client Key / Secret Key 발급  
+1. [토스페이먼츠 개발자센터](https://developers.tosspayments.com) → **API 키**에서  
+   **「API 개별 연동」** Client Key / Secret Key 발급  
+   (`test_ck_` + `test_sk_` · 결제위젯 `test_gck_` / `test_gsk_` 는 이 프로젝트와 호환되지 않음)  
    (아직 미가입이면 `TOSS_CLIENT_KEY`를 비워 두면 **데모 결제창**으로 동작)
-2. `html/shared/config.js`에 `TOSS_CLIENT_KEY` 설정
+2. `html/shared/config.js`에 `TOSS_CLIENT_KEY` = `test_ck_...` 설정
 3. Edge Function 배포 (**Live 결제 시 필수** — confirm 없이 결제완료 처리하지 않음):
    ```bash
    supabase secrets set TOSS_SECRET_KEY=test_sk_...

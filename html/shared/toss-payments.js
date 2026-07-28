@@ -33,6 +33,22 @@
     return k;
   }
 
+  /**
+   * 이 프로젝트는 결제창 SDK(API 개별 연동): TossPayments(ck).payment().requestPayment
+   * 결제위젯 키(test_gck_ / live_gck_)는 지원하지 않음 → API 개별 Client Key(test_ck_ / live_ck_) 필요
+   */
+  function clientKeyMismatchMessage(key) {
+    var k = String(key || '');
+    if (/_(?:gck|gsk)_/.test(k) || /^(?:test|live)_gck_/.test(k) || /^(?:test|live)_gsk_/.test(k)) {
+      return (
+        '결제위젯 연동 키(gck_/gsk_)는 사용할 수 없어요. ' +
+        '토스 개발자센터 → API 키 →「API 개별 연동」의 Client Key(test_ck_ / live_ck_)를 ' +
+        'config.js TOSS_CLIENT_KEY에 넣고, Secret(test_sk_ / live_sk_)은 supabase secrets TOSS_SECRET_KEY로 설정하세요.'
+      );
+    }
+    return '';
+  }
+
   function isDemoMode() {
     var mode = (cfg().TOSS_MODE || 'auto').toLowerCase();
     if (mode === 'demo') return true;
@@ -284,8 +300,15 @@
       return;
     }
 
+    var ck = clientKey();
+    var mismatch = clientKeyMismatchMessage(ck);
+    if (mismatch) {
+      clearPending();
+      throw new Error(mismatch);
+    }
+
     var TossPayments = await loadSdk();
-    var tossPayments = TossPayments(clientKey());
+    var tossPayments = TossPayments(ck);
     var payment = tossPayments.payment({ customerKey: customerKeyFor(order) });
     var payload = buildRequestPayload(order, payId);
 

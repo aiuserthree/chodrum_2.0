@@ -44,15 +44,16 @@ window.CHODRUM_CONFIG = {
   ADMIN_EMAIL: 'chodrumstudio@gmail.com', // TODO: Auth 관리자 이메일 예) 'admin@yourdomain.com' (Dashboard에서 생성 후 기입)
   ADMIN_PASSWORD: 'chodrum2026', // Auth 비밀번호(또는 로컬 데모). 운영 전 반드시 변경
 
-  /* ── 토스페이먼츠 (PG) ─────────────────────────────────────────
-   * 가입 후 개발자센터 https://developers.tosspayments.com 에서 발급
-   * Client Key 만 프론트. Secret Key → Edge secret TOSS_SECRET_KEY 만.
+  /* ── 토스페이먼츠 (PG) — 결제창 SDK = API 개별 연동 키만 사용 ──
+   * 개발자센터 https://developers.tosspayments.com → API 키
+   *   ✅ API 개별 연동: Client test_ck_ / live_ck_  · Secret test_sk_ / live_sk_
+   *   ❌ 결제위젯 연동: Client test_gck_ / live_gck_ · Secret test_gsk_ / live_gsk_
+   *      (이 코드는 TossPayments().payment().requestPayment — 위젯 키 미지원)
    *
-   * TOSS_CLIENT_KEY 가 비어 있거나 YOUR_ 로 시작하면 로컬 데모 결제창.
-   * Live 키를 넣는 순간 TOSS_CONFIRM_URL(또는 자동 유도 URL) confirm 이 필수입니다.
-   * 테스트 키 예: test_ck_D5GePWvyJnrK0W0k6q8gLzN9 (공식 샘플 · 변경될 수 있음)
+   * Client Key → 여기. Secret → supabase secrets set TOSS_SECRET_KEY=test_sk_...
+   * 비어 있거나 YOUR_ 로 시작하면 로컬 데모 결제창.
    */
-  TOSS_CLIENT_KEY: 'test_gck_KNbdOvk5rkoL9Mj9nMaorn07xlzm', // 토스 가입 후 테스트/라이브 Client Key
+  TOSS_CLIENT_KEY: 'test_ck_GePWvyJnrKOlaq9dNEG6rgLzN97E', // API 개별 Client (gck_ 위젯 키 넣지 마세요)
   /* 'auto' = 키 있으면 토스 SDK / 없으면 데모 · 'demo' = 항상 데모 · 'live' = 항상 SDK */
   TOSS_MODE: 'auto',
   /* 비우면 SUPABASE_URL + /functions/v1/toss-confirm 으로 자동 유도 (함수 배포 후) */
