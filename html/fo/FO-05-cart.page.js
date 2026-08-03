@@ -15,9 +15,7 @@
     const total = selItems.reduce((n, it) => n + (Number(it.price) || 0) * (it.qty || 1), 0);
     const allOn = sel.length === cart.length && cart.length > 0;
     const goCheckout = () => {
-      const href = F.PAGES.checkout + "?sel=" + sel.join(",");
-      if (Store.user.get()) location.href = href;
-      else setAsk(true);
+      alert("\uC900\uBE44\uC911");
     };
     if (!cart.length) {
       return /* @__PURE__ */ React.createElement(F.Scaffold, { tab: "cart", title: "\uC7A5\uBC14\uAD6C\uB2C8" }, /* @__PURE__ */ React.createElement("div", { "data-screen-label": "FO-05 \uC7A5\uBC14\uAD6C\uB2C8 (\uBE44\uC5B4\uC788\uC74C)" }, /* @__PURE__ */ React.createElement(F.Empty, { icon: "shopping-cart", title: "\uB2F4\uAE34 \uC545\uBCF4\uAC00 \uC5C6\uC2B5\uB2C8\uB2E4", sub: "\uB9C8\uC74C\uC5D0 \uB4DC\uB294 \uC545\uBCF4\uB97C \uB2F4\uC544\uBCF4\uC138\uC694. \uBAA8\uB4E0 \uACB0\uC81C\uB294 \uC7A5\uBC14\uAD6C\uB2C8\uC5D0\uC11C \uC2DC\uC791\uB3FC\uC694.", action: "\uC545\uBCF4 \uB458\uB7EC\uBCF4\uAE30", href: F.PAGES.list })));

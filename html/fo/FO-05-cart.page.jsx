@@ -17,8 +17,7 @@ function CartPage() {
   const allOn = sel.length === cart.length && cart.length > 0;
 
   const goCheckout = () => {
-    const href = F.PAGES.checkout + '?sel=' + sel.join(',');
-    if (Store.user.get()) location.href = href; else setAsk(true);
+    alert('준비중');
   };
 
   if (!cart.length) {
